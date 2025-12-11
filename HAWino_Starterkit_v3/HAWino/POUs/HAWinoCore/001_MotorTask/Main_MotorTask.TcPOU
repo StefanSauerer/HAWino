@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
   <POU Name="Main_MotorTask" Id="{c0f79474-5394-49ee-95a0-09a934fd6952}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM Main_MotorTask
 VAR
@@ -69,11 +69,126 @@ VAR
 
 	FB_Drehzahlregler 	: FB_Drehzahlregler;	//Gilt für alle drei Motoren
 	
+	////////////////Neue Spielerei/////////////////
+	toggle : BOOL := TRUE;
+	toggle2 : BOOL := TRUE;
+	timer : TON;
+	timer_2 : TON;	
+
+	rising1 : R_TRIG;
+	rising2 : R_TRIG;
+	
+	X_targetSpeed: INT; 
+	Y_targetSpeed: INT; 
+	Tehta_TargetSpeed : INT; 
+	speedThreshold: LREAL := 0.1; //Annäherung nur aktiv bei Abweichung > threshold
+	AccelerationRate: LREAL := 5; //Höhere Werte = höhere Beschleunigung
+	
+	//X_smoothnes : M_smothesAnnaehrn; 
+	//y_smoothnes : M_smothesAnnaehrn;
+	//Theta_smoothnes : M_smothesAnnaehrn;
+	// -> LOL Methoden nicht istanzieren 
+	
+	Theta_smoothnes: INT;
+	TestCase : INT := 1;
+	// 0 = Bewegung x-Achse (---)
+	// 1 = Bewegung x-Y-Achse (~~~~)
+	// 2 = Bewegung x-Y-Achse + Rotatiom (~s~s~s)
+	
+	
 END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[//Umrechung der Klemmenwerte
 ACT_Drehzahlerfassung();	
 //Regelung und setzen der Motordrehzahl
+timer(IN := TRUE, PT := T#14S);  //10 Sek Timer
+timer_2(IN := TRUE, PT := T#3S);  //10 Sek Timer
+
+IF timer.Q THEN    
+    toggle := NOT toggle;
+    timer(IN := FALSE);  //Timer zurücksetzen
+    timer(IN := TRUE);   //Timer neu starten
+END_IF
+
+IF timer_2.Q THEN    
+    toggle2 := NOT toggle2;
+    timer_2(IN := FALSE);  //Timer zurücksetzen
+    timer_2(IN := TRUE);   //Timer neu starten
+END_IF
+
+
+//Umdrehen der Sollgeschwindigkeit x_Richtung
+IF toggle = TRUE  THEN
+		enableMotorControl :=TRUE;
+		X_TargetSpeed := 100;  	
+ELSE
+		enableMotorControl :=TRUE;
+		X_TargetSpeed := -100;
+END_IF
+
+
+//Umdrehen der Sollgeschwindigkeit y_Richtung
+IF toggle2 = TRUE  THEN
+		enableMotorControl :=TRUE;
+	    Y_targetSpeed:= 200;	
+        Tehta_TargetSpeed := 2;   	
+ELSE
+		enableMotorControl :=TRUE;
+		Y_targetSpeed:= -200;	
+	    Tehta_TargetSpeed := -2;   		
+END_IF
+
+
+
+(* METHODEN VERSUCH
+ M_smothesAnnaehrn(targetSpeed := TargetSpeed, v_ToMotors => vXCartesianToMotors); 
+vYCartesianToMotors := M_smothesAnnaehrn(Y_targetSpeed); 
+vThetaCartesianToMotors := M_smothesAnnaehrn(Tehta_TargetSpeed); 
+*)
+
+
+ //Smoothes Annähern an den Sollwert, anpassbar über integrationRate
+// x Werte 
+IF ABS(vXCartesianToMotors - X_targetSpeed) > speedThreshold THEN   
+    IF vXCartesianToMotors < X_targetSpeed THEN
+        vXCartesianToMotors := vXCartesianToMotors + AccelerationRate * 0.01;  //Beschleunigung vorwärts
+    ELSE
+        vXCartesianToMotors := vXCartesianToMotors - AccelerationRate * 0.01;  //Beschleunigung rückwärts
+    END_IF
+END_IF
+// y Werte 
+IF ABS(vYCartesianToMotors - Y_targetSpeed) > speedThreshold THEN   
+    IF vYCartesianToMotors < Y_targetSpeed THEN
+        vYCartesianToMotors := vYCartesianToMotors + AccelerationRate * 0.01;  //Beschleunigung vorwärts
+    ELSE
+        vYCartesianToMotors := vYCartesianToMotors - AccelerationRate * 0.01;  //Beschleunigung rückwärts
+    END_IF
+END_IF
+// Tetha Werte 
+IF ABS(vThetaCartesianToMotors - Tehta_targetSpeed) > speedThreshold THEN   
+    IF vThetaCartesianToMotors < Tehta_targetSpeed THEN
+        vThetaCartesianToMotors := vThetaCartesianToMotors + AccelerationRate * 0.01;  //Beschleunigung vorwärts
+    ELSE
+        vThetaCartesianToMotors := vThetaCartesianToMotors - AccelerationRate * 0.01;  //Beschleunigung rückwärts
+    END_IF
+END_IF
+
+
+CASE TestCase OF
+	
+    0:		// 0 = Bewegung x-Achse (--x)
+					vYCartesianToMotors := 0;
+					vThetaCartesianToMotors := 0;
+		
+    1:		// 1 = Bewegung x-Y-Achse (~~~~)
+        			vThetaCartesianToMotors := 0;
+				
+    2:		// 2 = Bewegung x-Y-Achse + Rotatiom (~s~s~s)
+        // LOL 
+		
+END_CASE;
+
+
 FB_Drehzahlregler(targetVelX:= vXCartesianToMotors,
 					targetVelY := vYCartesianToMotors, 
 					tragetVelTheta:= vThetaCartesianToMotors,
@@ -89,6 +204,7 @@ FB_Drehzahlregler(targetVelX:= vXCartesianToMotors,
 					velocityToMotor1=> velocityToMotor1, 
 					velocityToMotor2 => velocityToMotor2,
 					velocityToMotor3 => velocityToMotor3);
+				
 				]]></ST>
     </Implementation>
     <Action Name="ACT_Drehzahlerfassung" Id="{fc784fde-e171-45e7-8902-8fc7a47aa187}">
@@ -105,18 +221,5 @@ velWheel2 := -(UINT_TO_INT(n2fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/6
 velWheel3 := -(UINT_TO_INT(n3fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);]]></ST>
       </Implementation>
     </Action>
-    <LineIds Name="Main_MotorTask">
-      <LineId Id="1955" Count="0" />
-      <LineId Id="1934" Count="0" />
-      <LineId Id="1954" Count="0" />
-      <LineId Id="1935" Count="4" />
-      <LineId Id="1956" Count="0" />
-      <LineId Id="1940" Count="9" />
-    </LineIds>
-    <LineIds Name="Main_MotorTask.ACT_Drehzahlerfassung">
-      <LineId Id="8" Count="4" />
-      <LineId Id="18" Count="3" />
-      <LineId Id="1" Count="0" />
-    </LineIds>
   </POU>
 </TcPlcObject>

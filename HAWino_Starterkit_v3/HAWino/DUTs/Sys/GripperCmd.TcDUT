@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="GripperCmd" Id="{a6af5599-df13-4a0d-ab06-61e21ff7d27a}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE GripperCmd :
+(
+	noGrip ,
+	take ,
+	put  
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

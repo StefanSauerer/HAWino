@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <GVL Name="JobNumbers" Id="{8538e220-db06-46d3-9fff-4b02aa9ecb14}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+	chargingStation_1 : INT := 3;
+	chargingStation_2 : INT := 4;
+	homePosition 	  : INT := 2;
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

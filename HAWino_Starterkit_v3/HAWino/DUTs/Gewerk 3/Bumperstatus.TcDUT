@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="Bumperstatus" Id="{954f804d-f325-4abb-afde-f79ab9cf891f}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE Bumperstatus :
+(
+	init,
+	normal,
+	triggered
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

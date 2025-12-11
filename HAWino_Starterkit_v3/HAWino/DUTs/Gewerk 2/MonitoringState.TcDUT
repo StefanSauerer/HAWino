@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="MonitoringState" Id="{6792acb5-ae25-4296-be2e-45da1bc4e9d9}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE MonitoringState :
+(
+	inactive := 0,
+	railL,
+	railR,
+	railBoth,
+	ownRail
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

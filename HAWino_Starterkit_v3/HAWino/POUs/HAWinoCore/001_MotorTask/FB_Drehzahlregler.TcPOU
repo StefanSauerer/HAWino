@@ -1,0 +1,438 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <POU Name="FB_Drehzahlregler" Id="{b5eac6e9-edbc-4c50-bd5c-c45d5ab57bdb}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Drehzahlregler
+VAR_INPUT
+//Inputs: CartesianToMotors + Bumper
+	targetVelX 	:	LREAL;			//Geschwindigkeitsvorgabe in X-Richtung im Robotersystem
+	targetVelY 	:	LREAL;			//Geschwindigkeitsvorgabe in Y-Richtung im Robotersystem
+	tragetVelTheta :	LREAL; 		//Geschwindigkeitsvorgabe in theta-Richtung im Robotersystem
+	actualVelMotor1 : LREAL;			//Aktuelle Motordrehzahl Motor 1
+	actualVelMotor2 : LREAL;			//Aktuelle Motordrehzahl Motor 2
+	actualVelMotor3 : LREAL;			//Aktuelle Motordrehzahl Motor 3		
+	enable 			 : BOOL;	//Freigabe des Reglers
+	bumper	 		: BOOL;	
+	MotorReset		: BOOL;		//Initialisieren des Reglers
+END_VAR
+VAR_OUTPUT
+	//Outputs: Motor Values and Enable Signal
+	enableToMotor1 :BOOL:=FALSE;		//Freigabe Motor 1 zur Klemme
+	enableToMotor2 :BOOL:=FALSE;		//Freigabe Motor 2 zur Klemme
+	enableToMotor3 :BOOL:=FALSE;		//Freigabe Motor 3 zur Klemme
+		
+	velocityToMotor1 :INT:=0;			//Geschwindigkeit zum Motor 1
+	velocityToMotor2 :INT:=0;			//Geschwindigkeit zum Motor 2
+	velocityToMotor3 :INT:=0;			//Geschwindigkeit zum Motor 3
+END_VAR
+VAR
+	//Umgerechnete Werte
+	vX:		LREAL:=0;	//Inverse Sollgeschwindigkeit in X-Richtung		
+	vY:		LREAL:=0;	//Inverse Sollgeschwindigkeit in Y-Richtung	
+	vTheta:	LREAL:=0;	//Inverse Sollgeschwindigkeit in Theta-Richtung	
+
+	//Fahrrichtung Motor
+	targetVelocityMotor1: LREAL;	//Sollgeschwindigkeit für Motor 1
+	targetVelocityMotor2: LREAL;	//Sollgeschwindigkeit für Motor 2
+	targetVelocityMotor3: LREAL;	//Sollgeschwindigkeit für Motor 3
+	
+	//Skalierung auf MaxGeschwindigkeit Skalierung hängt mit CoE Register 8020:07 8020:08 zusammen !!!
+	velocityMax:LREAL:=942.4777961;// Nenndrehzahl U/min CoE Register 8020:07 8020:08 fesgelegt Faktor 16 Wegen Getriebe 1:16
+	velocityMotorsTf:LREAL:=0;		//Hilfsvariable zur Begrenzung der Radgeschwindigkeiten
+	
+	// Skalierung auf Ansteuersignale LREAL=>WORD   Skalierung hängt mit CoE Register 8020:07 8020:08 zusammen !!!
+	skalPos:LREAL:=34.7668668;//  MaxValue/MaxVelocity   [1/ mm/s]   32767/(942mm/s)   MaxVelocity=D*PI*n/(16*60) //16:1 Getriebeübersetzung  
+	skalNeg:LREAL:=34.76792783;//  MaxVelau/MaxVelocity   [1/ mm/s]   32768/(942mm/s)   MaxVelocity=(80mm*PI*3600 U/min)/(16*60sec/min)
+	
+	//Reglerwerte
+	errorM1: LREAL;	//Regeldifferenz Motor 1
+	errorM2: LREAL;	//Regeldifferenz Motor 2
+	errorM3: LREAL;	//Regeldifferenz Motor 3
+	
+	IntegralM1 : LREAL :=0;	//Integrator Motor 1
+	IntegralM2 : LREAL :=0;	//Integrator Motor 2
+	IntegralM3 : LREAL :=0;	//Integrator Motor 3
+	
+	LastIntegralM1 : LREAL := 0;
+	LastIntegralM2 : LREAL := 0;
+	LastIntegralM3 : LREAL := 0;
+	
+	velocityM1Controled: LREAL;	//Geregelte geschwindigkeitsansteuerung Motor 1
+	velocityM2Controled: LREAL;	//Geregelte geschwindigkeitsansteuerung Motor 2
+	velocityM3Controled: LREAL;	//Geregelte geschwindigkeitsansteuerung Motor 3
+	
+	KP : REAL :=1; 	//P Anteil des Reglers
+	KI : REAL :=214;		//I Anteil des Reglers
+	
+	//Zustandsautomat des Reglers
+	state: ReglerState :=	ReglerState.init;
+	nCycleTime: UDINT;
+	fbGetCurTaskIdx: GETCURTASKINDEX;
+	index: INT;
+	diffConst: LREAL :=1; //Zykluszeit für die Integratoren. Wird dynamisch bestimmt
+
+	testtargetVelXRobo		: LREAL;
+	testtargetVelYRobo		: LREAL;
+	testtragetVelThetaRobo	: LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//Aufrufen des Zustandsautomats des Reglers
+ACT_Zustandsautomat();
+
+//Invertieren der Sollgeschwindigkeiten
+vX:=-targetVelX;
+vY:=-targetVelY;
+vTheta:=-tragetVelTheta;
+
+//Umrechnung der Kartesischen Geschwindigkeit auf die einzelnen Motoren
+targetVelocityMotor1 := (-vX * COS(30.0*PI/180))	+ (vY * COS(60.0*PI/180))	+ (vTheta * 135.0);
+targetVelocityMotor2 := 0.0						+ (-vY)						+ (vTheta * 135.0);
+targetVelocityMotor3 := (vX * COS(30.0*PI/180))	+ (vY * COS(60.0*PI/180))	+ (vTheta * 135.0);
+
+//Begrenzung der Sollwerte und anpassung aller Sollvorgaben an den Motor mit der Maximalen geschwindigkeit
+ACT_Sollwertbegrenzung();
+
+//Regleung der einzelnen Motoren
+//Differenzbildung der Drehzahlen
+errorM1 := targetVelocityMotor1 - actualVelMotor1;
+errorM2 := targetVelocityMotor2 - actualVelMotor2;
+errorM3 := targetVelocityMotor3 - actualVelMotor3;
+//Integratoren der Motoren
+IntegralM1 := IntegralM1 + (errorM1 * diffConst);
+IntegralM2 := IntegralM2 + (errorM2 * diffConst);
+IntegralM3 := IntegralM3 + (errorM3 * diffConst);
+//Zusammenführung der P und I Anteile der Motoren
+velocityM1Controled := (errorM1 *KP) + (KI *IntegralM1);
+velocityM2Controled := (errorM2 *KP) + (KI *IntegralM2);
+velocityM3Controled := (errorM3 *KP) + (KI *IntegralM3);
+
+//Löschen des Integrators, wenn die Sollposition erreicht ist, da sonst eine Restansteuerung bleibt
+ACT_ResetIntegrators();
+//Begrenzung der Ansteuerung auf den maximalen Wert
+ACT_Ansteuerungsbegrenzung();
+]]></ST>
+    </Implementation>
+    <Action Name="ACT_Ansteuerungsbegrenzung" Id="{4be946d2-398c-4976-884d-6f7f6a4cc47d}">
+      <Implementation>
+        <ST><![CDATA[//Begrenzung der Ansteuerung
+// Wenn die berechnete Geschwindigkeit von Motor 1 (velocityM1Controled) größer als die maximal zulässige Geschwindigkeit (velocityMax) ist,
+// wird die Geschwindigkeit auf den maximalen Wert begrenzt und der Integralwert (IntegralM1) auf den letzten gespeicherten Wert zurückgesetzt.
+IF ( velocityM1Controled > velocityMax) THEN
+	velocityM1Controled := velocityMax;
+	IntegralM1 := LastIntegralM1;
+// Wenn die berechnete Geschwindigkeit kleiner als die negative maximale Geschwindigkeit ist,
+// wird sie auf den minimalen Wert (-velocityMax) begrenzt und der Integralwert eingefroren.
+ELSIF(velocityM1Controled < -velocityMax) THEN
+	velocityM1Controled := -velocityMax;
+	IntegralM1 := LastIntegralM1;
+
+ELSE
+// Wenn die berechnete Geschwindigkeit innerhalb des zulässigen Bereichs liegt,
+// wird der aktuelle Integralwert gespeichert.
+	LastIntegralM1 := IntegralM1;		
+END_IF
+
+// Begrenzung der Ansteuerung für Motor 2
+//Selbe Logik wie bei Motor 1
+IF ( velocityM2Controled > velocityMax) THEN
+	velocityM2Controled := velocityMax;
+	IntegralM2 := LastIntegralM2;
+ELSIF(velocityM2Controled < -velocityMax) THEN
+	velocityM2Controled := -velocityMax;
+	IntegralM2 := LastIntegralM2;
+ELSE
+	LastIntegralM2 := IntegralM2;
+END_IF
+
+// Begrenzung der Ansteuerung für Motor 3
+//Selbe Logik wie bei Motor 1
+IF ( velocityM3Controled > velocityMax) THEN
+	velocityM3Controled := velocityMax;
+	IntegralM3 := LastIntegralM3;
+ELSIF(velocityM3Controled < -velocityMax) THEN
+	velocityM3Controled := -velocityMax;
+	IntegralM3 := LastIntegralM3;
+ELSE
+	LastIntegralM3 := IntegralM3;
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="ACT_ResetIntegrators" Id="{b2cb7a8e-876a-4b9f-ba9b-26d45b9ff587}">
+      <Implementation>
+        <ST><![CDATA[
+//Löschen des Integrators beim Stillstand, da die Motoren sonst brummen
+IF ABS(errorM1) < 0.02 AND ABS(targetVelocityMotor1) < 0.02 THEN
+		IntegralM1 :=0;
+END_IF
+IF ABS(errorM2) < 0.02 AND ABS(targetVelocityMotor2) < 0.02 THEN
+		IntegralM2 :=0;
+END_IF
+IF ABS(errorM3) < 0.02 AND ABS(targetVelocityMotor3) < 0.02 THEN
+		IntegralM3 :=0;
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="ACT_Sollwertbegrenzung" Id="{a36647d3-f900-4cf2-80f9-821aaf98ca35}">
+      <Implementation>
+        <ST><![CDATA[
+
+//Begrenzung der Maximalen Soll-Drehzahl
+//Überprüfung der Sollwerte für Motor 1
+IF (ABS(targetVelocityMotor1) > velocityMax)THEN	//Ueberpruefen, ob die Absolute Sollgeschwindigkeit über der Maximalen ist
+	velocityMotorsTf:= targetVelocityMotor1; 		//Speichern der erwünschten Geschwindigkeit
+    targetVelocityMotor1:= velocityMotorsTf/ABS(velocityMotorsTf)*velocityMax;		//Begrenzung auf die Maximale Geschwindigkeit
+    targetVelocityMotor2:= velocityMotorsTf/ABS(velocityMotorsTf)*velocityMax/velocityMotorsTf * targetVelocityMotor2 ;		//Verhältnissmäßige anpassung der Geschwindigkeit
+    targetVelocityMotor3:= velocityMotorsTf/ABS(velocityMotorsTf)*velocityMax/velocityMotorsTf * targetVelocityMotor3 ;		//Verhältnissmäßige anpassung der Geschwindigkeit
+END_IF
+
+//Überprüfung der Sollwerte für Motor 2
+IF (ABS(targetVelocityMotor2) > velocityMax)THEN	//Ueberpruefen, ob die Absolute Sollgeschwindigkeit über der Maximalen ist
+    velocityMotorsTf:= targetVelocityMotor2;		//Speichern der erwünschten Geschwindigkeit
+     targetVelocityMotor1:= velocityMotorsTf/ABS(velocityMotorsTf)*velocityMax/velocityMotorsTf * targetVelocityMotor1;		//Verhältnissmäßige anpassung der Geschwindigkeit
+    targetVelocityMotor2:= velocityMotorsTf/ABS(velocityMotorsTf)*velocityMax;		//Begrenzung auf die Maximale Geschwindigkeit
+    targetVelocityMotor3:= velocityMotorsTf/ABS(velocityMotorsTf)*velocityMax/velocityMotorsTf * targetVelocityMotor3;		//Verhältnissmäßige anpassung der Geschwindigkeit
+END_IF
+
+//Überprüfung der Sollwerte für Motor 3	
+IF (ABS(targetVelocityMotor3) > velocityMax) THEN	//Ueberpruefen, ob die Absolute Sollgeschwindigkeit über der Maximalen ist
+    velocityMotorsTf:= targetVelocityMotor3;		//Speichern der erwünschten Geschwindigkeit
+    targetVelocityMotor1:= velocityMotorsTf/ABS(velocityMotorsTf)*velocityMax/velocityMotorsTf * targetVelocityMotor1;		//Verhältnissmäßige anpassung der Geschwindigkeit
+    targetVelocityMotor2:= velocityMotorsTf/ABS(velocityMotorsTf)*velocityMax/velocityMotorsTf * targetVelocityMotor2 ;		//Verhältnissmäßige anpassung der Geschwindigkeit
+    targetVelocityMotor3:= velocityMotorsTf/ABS(velocityMotorsTf)*velocityMax;		//Begrenzung auf die Maximale Geschwindigkeit
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="ACT_Zustandsautomat" Id="{96399f5c-25b9-4994-be66-65a7849319ab}">
+      <Implementation>
+        <ST><![CDATA[
+//Rücksetzen des Zustandsautomaten
+IF MotorReset THEN
+	state := ReglerState.init;
+END_IF
+
+//MOTORANSTEUERUNG Zustandsautomat
+CASE state OF
+	ReglerState.init:	
+		//GetCycletime Motortask	
+		fbGetCurTaskIdx();
+		nCycleTime := _TaskInfo[fbGetCurTaskIdx.index].CycleTime; //multiplier of 100ns
+		diffConst := UDINT_TO_LREAL(nCycleTime) * 0.0000001; //
+		
+		//Ansteuerung der Motoren abschalten
+		velocityToMotor1:=0;
+		velocityToMotor2:=0;
+		velocityToMotor3:=0;
+		//Freigabe der Motoren entziehen
+		enableToMotor1:=0;
+		enableToMotor2:=0;
+		enableToMotor3:=0;
+		//Integratoren zurücksetzen
+		IntegralM1 :=0;
+		IntegralM2 :=0;
+		IntegralM3 :=0;
+		//Wechsel in den Idle zustand
+		state:=ReglerState.idle;
+		
+	ReglerState.idle:
+		//Wenn die Fahrtfreigabe erteilt ist, wechselt der Regler in working
+		IF enable THEN
+			state := ReglerState.working;
+		END_IF	
+		//Wenn der Bumper ausgelöst hat, Wechselt der Motor in Stop	
+		IF bumper THEN
+			state:=ReglerState.stop;
+		END_IF
+		//Abschalten der Motoransteuerung
+		velocityToMotor1:=0;
+		velocityToMotor2:=0;
+		velocityToMotor3:=0;
+		//Entzug der Motorenfreigabe
+		enableToMotor1:=0;
+		enableToMotor2:=0;
+		enableToMotor3:=0;
+		//Zurücksetzen der Integratoren
+		IntegralM1 :=0;
+		IntegralM2 :=0;
+		IntegralM3 :=0;
+	
+	ReglerState.working:
+		//Ansteuerung der Ausgänge mit Skallierungsfaktor auf INT-Maximalwerte Werte.
+		IF velocityM1Controled>=0 THEN
+			velocityToMotor1:=LREAL_TO_INT(velocityM1Controled*skalPos);
+		ELSE	//Ansteuerung mit Negativem Skallierungsfaktor für negativen Geschwindigkeiten
+			velocityToMotor1:=LREAL_TO_INT(velocityM1Controled*skalNeg);
+		END_IF
+		IF velocityM2Controled>=0 THEN
+			velocityToMotor2:=LREAL_TO_INT(velocityM2Controled*skalPos);
+		ELSE	//Ansteuerung mit Negativem Skallierungsfaktor für negativen Geschwindigkeiten
+			velocityToMotor2:=LREAL_TO_INT(velocityM2Controled*skalNeg);
+		END_IF
+		
+		IF velocityM3Controled>=0 THEN
+			velocityToMotor3:=LREAL_TO_INT(velocityM3Controled*skalPos);
+		ELSE	//Ansteuerung mit Negativem Skallierungsfaktor für negativen Geschwindigkeiten
+			velocityToMotor3:=LREAL_TO_INT(velocityM3Controled*skalNeg); 
+		END_IF
+		//Erteilen der Motorfreigaben
+		enableToMotor1:=1;
+		enableToMotor2:=1;
+		enableToMotor3:=1;
+		
+		//Wechseln in den Idle Zustand, wenn die Freigabe entzogen wird.
+		IF enable = FALSE THEN
+			state:=ReglerState.idle;
+		END_IF
+		//Sofortiges umschalten in den Stop Zustand, wenn der Bumper ausgelöst hat
+		IF bumper THEN
+			state:=ReglerState.stop;
+		END_IF
+						
+	ReglerState.stop:
+		//Ansteuerung der Ausgänge abschalten
+		velocityToMotor1:=0;
+		velocityToMotor2:=0;
+		velocityToMotor3:=0;
+		//Motorfreigaben entzeihen
+		enableToMotor1:=0;
+		enableToMotor2:=0;
+		enableToMotor3:=0;
+		//Zurücksetzen der Integratoren
+		IntegralM1 :=0;
+		IntegralM2 :=0;
+		IntegralM3 :=0;
+		//Zustandswechsel in den Idle zustand, wenn der Bumper ordnungsgemäß zurückgesetzt wird.
+		IF NOT bumper AND enable THEN
+			state := ReglerState.idle;
+		END_IF
+	ELSE
+		//Bei einem Unbestimmten zustand wird der Regler Inittialisiert
+		state:= ReglerState.init;
+END_CASE]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FB_Drehzahlregler">
+      <LineId Id="2658" Count="33" />
+      <LineId Id="242" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Drehzahlregler.ACT_Ansteuerungsbegrenzung">
+      <LineId Id="2" Count="0" />
+      <LineId Id="35" Count="1" />
+      <LineId Id="3" Count="1" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="38" Count="1" />
+      <LineId Id="5" Count="1" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="9" Count="1" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="11" Count="1" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="30" Count="1" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="44" Count="0" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="15" Count="1" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="17" Count="1" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="32" Count="1" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Drehzahlregler.ACT_ResetIntegrators">
+      <LineId Id="12" Count="1" />
+      <LineId Id="2" Count="1" />
+      <LineId Id="1" Count="0" />
+      <LineId Id="7" Count="1" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="10" Count="1" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Drehzahlregler.ACT_Sollwertbegrenzung">
+      <LineId Id="39" Count="1" />
+      <LineId Id="2" Count="0" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="3" Count="1" />
+      <LineId Id="10" Count="3" />
+      <LineId Id="48" Count="0" />
+      <LineId Id="14" Count="2" />
+      <LineId Id="22" Count="3" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="26" Count="2" />
+      <LineId Id="34" Count="2" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Drehzahlregler.ACT_Zustandsautomat">
+      <LineId Id="102" Count="0" />
+      <LineId Id="86" Count="0" />
+      <LineId Id="88" Count="1" />
+      <LineId Id="87" Count="0" />
+      <LineId Id="101" Count="0" />
+      <LineId Id="2" Count="2" />
+      <LineId Id="124" Count="0" />
+      <LineId Id="8" Count="2" />
+      <LineId Id="125" Count="0" />
+      <LineId Id="104" Count="0" />
+      <LineId Id="91" Count="2" />
+      <LineId Id="105" Count="0" />
+      <LineId Id="94" Count="2" />
+      <LineId Id="106" Count="0" />
+      <LineId Id="97" Count="1" />
+      <LineId Id="90" Count="0" />
+      <LineId Id="107" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="126" Count="0" />
+      <LineId Id="60" Count="0" />
+      <LineId Id="108" Count="0" />
+      <LineId Id="61" Count="1" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="109" Count="0" />
+      <LineId Id="67" Count="1" />
+      <LineId Id="66" Count="0" />
+      <LineId Id="110" Count="0" />
+      <LineId Id="77" Count="2" />
+      <LineId Id="111" Count="0" />
+      <LineId Id="80" Count="2" />
+      <LineId Id="112" Count="0" />
+      <LineId Id="83" Count="1" />
+      <LineId Id="76" Count="0" />
+      <LineId Id="85" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="113" Count="0" />
+      <LineId Id="16" Count="4" />
+      <LineId Id="22" Count="10" />
+      <LineId Id="114" Count="0" />
+      <LineId Id="33" Count="2" />
+      <LineId Id="75" Count="0" />
+      <LineId Id="115" Count="0" />
+      <LineId Id="70" Count="2" />
+      <LineId Id="116" Count="0" />
+      <LineId Id="73" Count="1" />
+      <LineId Id="69" Count="0" />
+      <LineId Id="40" Count="1" />
+      <LineId Id="119" Count="0" />
+      <LineId Id="42" Count="2" />
+      <LineId Id="120" Count="0" />
+      <LineId Id="45" Count="2" />
+      <LineId Id="121" Count="0" />
+      <LineId Id="55" Count="0" />
+      <LineId Id="48" Count="0" />
+      <LineId Id="56" Count="0" />
+      <LineId Id="122" Count="0" />
+      <LineId Id="63" Count="1" />
+      <LineId Id="51" Count="0" />
+      <LineId Id="65" Count="0" />
+      <LineId Id="123" Count="0" />
+      <LineId Id="53" Count="0" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

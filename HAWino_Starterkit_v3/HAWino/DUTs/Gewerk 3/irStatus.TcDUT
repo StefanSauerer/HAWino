@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="irStatus" Id="{b8dc945f-0500-43ea-b2bc-c673c6ce02e0}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE irStatus :
+(
+	Ircollision ,
+	IrNocollision,
+	Irerror
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

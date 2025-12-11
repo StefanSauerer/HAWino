@@ -1,0 +1,399 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <POU Name="PowerManager" Id="{0d0a7d0a-6db2-45b6-b6da-063463895a99}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM PowerManager
+VAR_INPUT
+	RobotData : RobotInternalData;
+END_VAR
+VAR
+	shutdownButton			AT%I*  : BOOL := FALSE;			//Button zum Ausschalten
+	shutdownTrigger 		AT%Q*  : BOOL := FALSE;			//Zeitablauf, bis Robi ausschaltet
+	batteryVoltageRaw  		AT%I*  : INT;					//unverabreitete gemessene Spannung
+	scaleVoltage:	REAL := LREAL_TO_REAL(20/EXPT(2,16));	//Skalierungsfaktor, um auf verarbeitete Spannung zu kommen. 
+	batteryVoltage_V		AT%Q*  : REAL;					//verarbeitete Spannung
+	supplyCurrentRaw		AT%I* : INT;					//unverabreitete gemessener Strom
+	supplyCurrent_A			AT%Q* : REAL; 					//verarbeiteter Strom
+
+	shutdown: NT_Shutdown;									//Befehl zum Herunterfahren
+
+	stMqtt_HAWino_IN		AT%Q*	: ST_PwrMgmt_HAWino_In;	//Link MQTT-DatenStruct
+
+	// Variablen für EKF
+	debug :BOOl :=TRUE;
+	EKF_init						: BOOL := TRUE; // für ersten EKF Zustand
+	(* Puffer um nur 1 mal die Sekunde rechnen zu müssen*)
+	writeIndex						: INT := 0;
+	I_buffer        				: ARRAY [0..199] OF REAL;	//Puffer für die letzten 200 I-Werte, muss angepasst werden auf die Sampletime
+	V_buffer						: ARRAY [0..199] OF REAL;	//Puffer für die letzten 200 V-Werte, muss angepasst werden auf die Sampletime
+	buffer_counter					: INT := 0;			// Counter für den Buffer falls Werte durch Verdrängung nicht geschreiben werden
+	I_sum							: REAL := 0;			// Summe der Buffers für mean Berechnung				
+	V_sum 							: REAL := 0;			// Summe der Buffers für mean Berechnung
+	I_mean							: REAL := 0;			// mean Wert		
+	V_mean							: REAL := 0;			// mean Wert
+	i								: INT;					// Laufvariable für Schleifen
+	
+	(*LUT*)
+	SOC_Table : ARRAY[1..201] OF REAL := [0,0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05,0.055,0.06,0.065,0.07,0.075,0.08,0.085,0.09,0.095,0.1,0.105,0.11,0.115,0.12,0.125,0.13,0.135,0.14,0.145,0.15,0.155,0.16,0.165,0.17,0.175,0.18,0.185,0.19,0.195,0.2,0.205,0.21,0.215,0.22,0.225,0.23,0.235,0.24,0.245,0.25,0.255,0.26,0.265,0.27,0.275,0.28,0.285,0.29,0.295,0.3,0.305,0.31,0.315,0.32,0.325,0.33,0.335,0.34,0.345,0.35,0.355,0.36,0.365,0.37,0.375,0.38,0.385,0.39,0.395,0.4,0.405,0.41,0.415,0.42,0.425,0.43,0.435,0.44,0.445,0.45,0.455,0.46,0.465,0.47,0.475,0.48,0.485,0.49,0.495,0.5,0.505,0.51,0.515,0.52,0.525,0.53,0.535,0.54,0.545,0.55,0.555,0.56,0.565,0.57,0.575,0.58,0.585,0.59,0.595,0.6,0.605,0.61,0.615,0.62,0.625,0.63,0.635,0.64,0.645,0.65,0.655,0.66,0.665,0.67,0.675,0.68,0.685,0.69,0.695,0.7,0.705,0.71,0.715,0.72,0.725,0.73,0.735,0.74,0.745,0.75,0.755,0.76,0.765,0.77,0.775,0.78,0.785,0.79,0.795,0.8,0.805,0.81,0.815,0.82,0.825,0.83,0.835,0.84,0.845,0.85,0.855,0.86,0.865,0.87,0.875,0.88,0.885,0.89,0.895,0.9,0.905,0.91,0.915,0.92,0.925,0.93,0.935,0.94,0.945,0.95,0.955,0.96,0.965,0.97,0.975,0.98,0.985,0.99,0.995,1];	
+	OCV_Table : ARRAY[1..201] OF REAL := [9.65696,10.01568,10.37441,10.73313,11.09186,11.45058,11.80931,12.16804,12.52676,12.88347,13.15018,13.33744,13.47367,13.58107,13.66917,13.74054,13.79451,13.83336,13.86090,13.88392,13.90258,13.92009,13.93595,13.95171,13.96639,13.98137,13.99666,14.01189,14.02784,14.04310,14.05916,14.07404,14.09014,14.10651,14.12697,14.14870,14.17227,14.19292,14.21337,14.23219,14.25112,14.27003,14.28847,14.30634,14.32343,14.33906,14.35275,14.36473,14.37573,14.38692,14.39651,14.40639,14.41586,14.42488,14.43347,14.44160,14.44941,14.45687,14.46397,14.47031,14.47772,14.48429,14.49075,14.49709,14.50339,14.50955,14.51567,14.52193,14.52803,14.53355,14.53994,14.54523,14.55164,14.55699,14.56331,14.56836,14.57502,14.58032,14.58658,14.59161,14.59841,14.60361,14.61012,14.61503,14.62174,14.62710,14.63358,14.63897,14.64537,14.65146,14.65749,14.66364,14.66981,14.67611,14.68243,14.68885,14.69529,14.70195,14.70869,14.71604,14.72228,14.72929,14.73647,14.74380,14.75133,14.75903,14.76699,14.77517,14.78363,14.79204,14.80156,14.81106,14.82105,14.83162,14.84286,14.85485,14.86769,14.88158,14.89608,14.91097,14.92572,14.94016,14.95417,14.96765,14.98187,14.99617,15.01116,15.02629,15.04195,15.05725,15.07354,15.08894,15.10475,15.12022,15.13591,15.15113,15.16751,15.18265,15.19897,15.21487,15.23111,15.24744,15.26394,15.28064,15.29752,15.31459,15.33183,15.34929,15.36708,15.38570,15.40277,15.42091,15.43924,15.45767,15.47633,15.49512,15.51398,15.53298,15.55202,15.57071,15.59069,15.61009,15.62960,15.64923,15.66889,15.68864,15.70848,15.72865,15.74808,15.76854,15.78813,15.80895,15.82880,15.84926,15.86945,15.89020,15.91045,15.93127,15.95181,15.97293,15.99372,16.01512,16.03615,16.05766,16.07912,16.10064,16.12199,16.14414,16.16646,16.18855,16.21118,16.23379,16.25666,16.27972,16.30307,16.32667,16.35062,16.37489,16.40038,16.42706,16.45582];
+	i_LUT      : INT;    // Laufvariable 
+    diff       : REAL;    //Abstand zwischen aktuellem SOC und Tabellenwert 
+    diff_min   : REAL;    //kleinster bisher gefundener Abstand 
+    idx_min    : INT;     //Index des nächsten Wertes 
+    OCV        : REAL;    //Ausgewählter OCV-Wert
+    dVdSOC     : REAL;    //Spannungsänderung pro SOC-Schritt 
+	
+	(* EKF Zustände *)
+    x_SOC    : REAL := 0.5;           //  SOC
+	param_SOC : REAL := 0;			  // SOC zur parameter Parameter 	
+    x_Vrc    : REAL := 0.0;           // RC-Kondensatorspannung (V)
+
+	(* Kovarianzmatrix-P *)
+    P11 : REAL := 1;     // Var(SOC)
+    P12 : REAL := 0.0;
+    P21 : REAL := 0.0;
+    P22 : REAL := 1;     // Var(Vrc)
+
+	(* Batterieparameter *)
+    R0       : REAL := 0.086; 		// Init Wert (bei 60% SOC)
+    R1       : REAL := 0.0174; 		// Init Wert (bei 60% SOC)
+    C1       : REAL := 763; 		// Init Wert (bei 60% SOC)
+    Qbatt    : REAL := 63000.0;      // 17.5Ah → 63000 As
+    eta      : REAL := 1.0;
+    dt_ekf   : REAL := 1.0;          // EKF einmal die sekunde
+
+	(* Rauschvarianzen *)
+    Qz       : REAL := (2e-5)*(2e-5);   // SoC Prozessrauschen
+    Qvrc     : REAL := (5e-4)*(5e-4);   // RC-Prozessrauschen
+    Rmeas    : REAL := (0.07)*(0.07); // Spannungs-Messrauschen
+
+	(* Zwischenvariablen *)
+    a_RC     : REAL;   // exp(-dt/(R1*C1))
+    y_est    : REAL;
+    innov    : REAL;
+    S_pred   : REAL;
+    K1, K2   : REAL;  // Kalman-Gain
+    SOC_EKF  : REAL := 0.0;   // Ausgabe SoC in %
+	
+	// EKF-basierte SOC-Puffer (15 Sekunden Mittelung)
+    SOC_EKF_Buffer        : ARRAY [0..59] OF REAL;   // Puffer für 15 letzte SOC-Werte
+    Average_SOC_EKF       : REAL;                    // gemittelter SOC (EKF)
+    EKF_BufferIndex       : INT := 0;
+    EKF_BufferCount       : INT := 0;
+	
+	first_SOC_EKF 						: REAL := 0.0; 			// Erster Eintrag im Array SOC
+	last_SOC_EKF 						: REAL := 0.0;			// Zu suchender letzter SoC-Wert, der nicht 0 ist
+	
+	tickCounter 			: INT := 0; // Zählt Durchläufe des Programms
+	doEKF   			: BOOL := FALSE; // gibt immer nach 200 Durchläufen den EKF frei
+
+	//Laufzeit/Ladezeitvorhersage
+	Running_Time  					: REAL;					//Aktueller wert der Laufzeitvorhersage
+	last_Running_Time				: REAL;					//Letzter wert der Laufzeitvorhersage
+	Charging_Time 					: REAL; 				//Aktueller wert der Ladezeitvorhersage
+	Charging_Time_Buffer			: ARRAY [0..119] OF REAL;
+	Charging_Time_Look_Up_Table 	: ARRAY[0..100] OF REAL := [ 11826.0, 11710.8, 11592.0, 11476.8, 11361.6, 11246.4, 11131.2, 11012.4, 10893.6, 10778.4, 10659.6, 10540.8, 10422.0, 10303.2, 10184.4, 10065.6, 9943.2, 9820.8, 9698.4, 9572.4, 9446.4, 9320.4, 9194.4, 9068.4, 8938.8, 8809.2, 8679.6, 8550.0, 8416.8, 8283.6, 8150.4, 8017.2, 7884.0, 7747.2, 7610.4, 7473.6, 7336.8, 7196.4, 7056.0, 6915.6, 6775.2, 6634.8, 6490.8, 6346.8, 6202.8, 6055.2, 5907.6, 5760.0, 5612.4, 5461.2, 5310.0, 5158.8, 5007.6, 4852.8, 4698.0, 4543.2, 4384.8, 4226.4, 4064.4, 3902.4, 3740.4, 3578.4, 3412.8, 3247.2, 3081.6, 2912.4, 2743.2, 2574.0, 2401.2, 2228.4, 2055.6, 1882.8, 1706.4, 1530.0, 1353.6, 1173.6, 993.6, 813.6, 633.6, 450.0, 266.4, 82.8, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+	
+	
+	// weiches Anfahren nach Laden
+	wasCharging          : BOOL := FALSE;
+    isCharging           : BOOL;
+    ekfSoftStartCounter  : INT := 0;   // in Sekunden
+
+	// Begrenzung des SOC Updates
+	deltaSOC 	:REAL :=0;
+	
+	//x_Vrc clamping Variablen
+	deltaVrc 	:REAL :=0;
+    idx : INT;
+    j   : INT;
+	// Notfall Berechnung 
+	CC_On :BOOL := FALSE;
+
+	// reInit bei nicht logischen Werten
+    socDeviationCounter : INT := 0;        // wie lange EKF von OCV-SOC abweicht
+    socDeviationThreshold : INT := 5;     // 5 Sekunden Abweichung
+    maxAllowedDeviation : REAL := 10;     // >10 % Abweichung → Verdacht Fehler
+    socByVoltage : REAL;                   // SOC aus reiner OCV Schätzung
+	idx_ocv      : INT :=0;					// merkt sich idx_min aus SOC lookup
+	
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//Notfalllberechnung 
+//Wenn Einbrüche des SOC beim Konfiguration aktivieren oder Jobs schicken zu stark werden mit CCAn auf Coulomb Counting only umstellen
+ CC_On := FALSE;  //TRUE für CC an
+
+//Abschaltung SPS über den Shutdown Taster am Roboter selber
+IF shutdownButton THEN
+	shutdown(DELAY:=1, START:=TRUE);
+END_IF
+
+//Anpassung der Spannungs- und Stromwerte
+batteryVoltage_V := (batteryVoltageRaw * scaleVoltage * 2.0)-(RobotData.factor_V_m*(batteryVoltageRaw * scaleVoltage * 2.0)+ RobotData.sum_V_b);
+supplyCurrent_A :=  supplyCurrentRaw * 1000.0 / 270.0 / 32768 * 10 + RobotData.sum_I_b;
+
+// SOC-Berechnung Anfang
+// ab hier EKF Code 
+tickCounter := tickCounter +1;
+IF tickCounter >= 200 THEN 
+	tickCounter :=0;
+	doEKF := TRUE;
+ELSE 
+	doEKF := FALSE;
+END_IF
+
+I_Buffer[writeIndex] := supplyCurrent_A;
+V_Buffer[writeIndex] := batteryVoltage_V;
+
+//Index zyklisch weiterschieben
+writeIndex := writeIndex + 1;
+IF writeIndex >= 200 THEN
+    writeIndex := 0;
+END_IF
+// EKF Code erstmal zu ende
+
+// Wenn 200 Werte (~1min) geschrieben wurde
+IF doEKF THEN
+	// ab hier EKF
+	// Berechung der mean Werte
+	//korrektes Mitteln des Ringbuffers
+	V_sum := 0;
+	I_sum :=0;
+	FOR j := 0 TO 199 DO
+	    idx := writeIndex -1 - j;
+	    IF idx < 0 THEN 
+		idx := idx + 200; 
+	    END_IF;
+	    V_sum := V_sum + V_buffer[idx];
+	    I_sum := I_sum + I_buffer[idx];
+	END_FOR
+	V_mean := V_sum / 200;
+	I_mean := I_sum / 200;
+	
+	IF EKF_init  THEN
+		OCV := V_mean + R0*I_mean + R1 * I_mean;  // SOC initialisieren mit erster Messung
+		// Index mit kleinstem Abstand finden
+		diff_min := ABS(OCV - OCV_Table[1]);  // Initialisierung mit erstem Wert 
+		idx_min := 1;                         // Startindex 
+		FOR i := 2 TO 201 DO
+			diff := ABS(OCV - OCV_Table[i]);          // Abstand zum aktuellen Stützpunkt
+			IF diff < diff_min THEN                   // Wenn Abstand kleiner als bisher 
+				diff_min := diff;                     // neuen Minimalwert speichern 
+				idx_min := i;                         // Index merken 
+			END_IF
+		END_FOR
+		// SOC aus Tabelle übernehmen
+		x_SOC := SOC_Table[idx_min]; // x_SOC initialisieren x_Vrc muss immer mit 0 initialisiert werden
+		x_Vrc := 0;
+		P11 := 1.0; 
+		P22 := 1.0;   
+    		P12 := 0.0; 
+		P21 := 0.0;
+		socDeviationCounter := 0;
+	
+		EKF_init := FALSE;  // Init Variable zurücksetzen
+	END_IF
+	
+	// Berechnung der Ersatzschaltbild Parameter
+	//clamping da nur für den Bereich 0.3-0.9 SOC gültig
+	IF x_SOC <= 0.3 THEN 
+		 param_SOC := 0.3;
+	ELSIF x_SOC >= 0.9 THEN
+		 param_SOC := 0.9;
+	ELSE 
+		param_SOC := x_SOC;
+	END_IF
+	R0 := 0.00903617*param_SOC*param_SOC - 0.00619734*param_SOC + 0.0861489;
+    R1 := -0.0710499*param_SOC*param_SOC + 0.091486*param_SOC - 0.0118801;
+    C1 := 4190.91*param_SOC*param_SOC - 5543.71*param_SOC + 2580.68;
+	
+	
+	// weiches Anfahren nach dem Laden
+	isCharging := (I_mean < 0);    // Schwellwert anpassen
+	IF isCharging THEN
+	    wasCharging := TRUE;
+	ELSE
+	    IF wasCharging THEN
+	        // Gerade von Laden -> Entladen gewechselt
+	        ekfSoftStartCounter := 10;   // z.B. 10s sanfter Übergang
+	        wasCharging := FALSE;
+	    END_IF
+	END_IF
+	// Dynamisches Messrauschen für sanften Übergang
+	IF ekfSoftStartCounter > 0 THEN
+	    Rmeas := 10.0 * (0.07)*(0.07);   // Spannung 10x weniger „glauben“
+	    ekfSoftStartCounter := ekfSoftStartCounter - 1;
+	ELSE
+	    Rmeas := (0.07)*(0.07);;
+	END_IF
+	
+	// 1) Vorhersage 
+	// SOC_k+1 = SOC_k - dt*I/Q 
+	x_SOC := x_SOC - (dt_ekf * I_mean) / Qbatt;
+	IF x_SOC < 0 THEN 
+		x_SOC := 0;
+	ELSIF x_SOC > 1 THEN 
+		x_SOC := 1;
+	END_IF
+	// Vrc_k+1 = exp(-dt/(R1*C1))*Vrc_k + R1*(1-exp(..))*I 
+	a_RC := EXP( -dt_ekf / (R1 * C1) );
+	x_Vrc := a_RC * x_Vrc + R1 * (1 - a_RC) * I_mean;
+	
+	IF I_mean > 0 AND (NOT CC_On) THEN  //Update nur während Entladung ansonsten nur Coulomb Counting	
+		// Kovarianzmatrix P updaten (P = A*P*A' + Q) 
+		P11 := P11 + Qz;                     // Unsicherheit im SOC wächst durch Modellrauschen
+		P22 := (a_RC*a_RC)*P22 + Qvrc;       // Unsicherheit im RC-Zweig
+		P12 := a_RC * P12;					 // Kreuzkovarianzen
+		P21 := a_RC * P21;
+		
+		// 2) Messvorhersage mit LUT
+		// Index mit kleinstem Abstand finden
+		diff_min := ABS(x_SOC - SOC_Table[1]);  // Initialisierung mit erstem Wert 
+		idx_min := 1;                         // Startindex 
+		FOR i := 2 TO 201 DO
+    		diff := ABS(x_SOC - SOC_Table[i]);          // Abstand zum aktuellen Stützpunkt
+			IF diff < diff_min THEN                   // Wenn Abstand kleiner als bisher 
+				diff_min := diff;                     // neuen Minimalwert speichern 
+				idx_min := i;                         // Index merken
+			END_IF
+		END_FOR
+		idx_ocv := idx_min; 		      // Index merken für ReInit		
+		
+		// OCV aus Tabelle übernehmen
+		OCV := OCV_Table[idx_min];
+		
+		// dOCV/dSOC berechnen
+		IF idx_min = 1 THEN
+			(* Unterer Rand: nur obere Differenz verfügbar *)
+			dVdSOC := (OCV_Table[2] - OCV_Table[1]) / (SOC_Table[2] - SOC_Table[1]);
+		ELSIF idx_min = 201 THEN
+			(* Oberer Rand: nur untere Differenz verfügbar *)
+			dVdSOC := (OCV_Table[201] - OCV_Table[200]) / (SOC_Table[201] - SOC_Table[200]);
+		ELSE
+			(* Mittelwert aus oberer und unterer Differenz *)
+			dVdSOC := ((OCV_Table[idx_min+1] - OCV_Table[idx_min-1]) /
+					   (SOC_Table[idx_min+1] - SOC_Table[idx_min-1]));
+		END_IF
+		y_est := OCV - x_Vrc - R0*I_mean;
+		
+		// 3) Innovation 
+		innov := V_mean - y_est;
+	
+		// 4) Innovations-Kovarianz  S = CPC' + R 
+		// C = [dOCV ,  -1] 
+		S_pred := dVdSOC*(P11*dVdSOC + P12*(-1)) + (-1)*(P21*dVdSOC + P22*(-1)) + Rmeas;
+		
+		// 5) Kalman-Gain 
+		K1 := (P11*dVdSOC + P12*(-1)) / S_pred;   // für SOC
+		K2 := (P21*dVdSOC + P22*(-1)) / S_pred;   // für Vrc
+			
+		deltaSOC := K1 * innov; 
+		// dVrc Clamp auf 0.1V um Ausreißer klein zu halten
+		deltaVrc := K2 * innov;
+		IF deltaVrc > 0.1 THEN 
+			deltaVrc := 0.1; 
+		END_IF;
+		IF deltaVrc < -0.1 THEN 
+			deltaVrc := -0.1; 
+		END_IF;
+
+		// 6) Zustands-Update 
+		x_SOC := x_SOC + deltaSOC;
+		x_Vrc := x_Vrc + deltaVrc;
+	
+		IF x_SOC < 0 THEN x_SOC := 0;
+		ELSIF x_SOC > 1 THEN x_SOC := 1;
+		END_IF
+		
+		// 7) Kovarianz-Update P = (I - K*H)*P 
+		P11 := P11 - K1*(dVdSOC*P11 + -1*P21);
+		P12 := P12 - K1*(dVdSOC*P12 + -1*P22);
+		P21 := P21 - K2*(dVdSOC*P11 + -1*P21);
+		P22 := P22 - K2*(dVdSOC*P12 + -1*P22);
+	END_IF
+	
+	// 8) Prozent-Ausgabe 
+	SOC_EKF := x_SOC * 100.0;
+
+	//ReInit falls SOC Springt 
+	IF ABS(SOC_EKF - Average_SOC_EKF) > maxAllowedDeviation THEN
+	    socDeviationCounter := socDeviationCounter + 1;
+	ELSE
+	    socDeviationCounter := 0;
+	END_IF
+
+	//ReInit Bedingungen
+	IF (socDeviationCounter > socDeviationThreshold) AND (I_mean > 0) THEN 
+	     EKF_init := TRUE;
+	END_IF
+	
+	// EKF-SOC Mittelung über 60 s 
+	SOC_EKF_Buffer[EKF_BufferIndex] := SOC_EKF;
+
+	// Index erhöhen und ggf. zurücksetzen
+	EKF_BufferIndex := EKF_BufferIndex + 1;
+	IF EKF_BufferIndex >= 60 THEN
+	    EKF_BufferIndex := 0;
+	END_IF
+
+	// BufferCount bis 60 erhöhen
+	IF EKF_BufferCount < 60 THEN
+	    EKF_BufferCount := EKF_BufferCount + 1;
+	END_IF
+
+	// Mittelwert berechnen
+	Average_SOC_EKF := 0.0;
+	FOR i := 0 TO (EKF_BufferCount - 1) DO
+	    Average_SOC_EKF := Average_SOC_EKF + SOC_EKF_Buffer[i];
+	END_FOR
+	Average_SOC_EKF := Average_SOC_EKF / EKF_BufferCount;
+
+	// Laufzeitberechnung basierend auf EKF-SOC
+	IF I_mean > 0 AND EKF_BufferCount = 60 THEN
+	    first_SOC_EKF := SOC_EKF_Buffer[0];
+	    last_SOC_EKF  := SOC_EKF_Buffer[59];
+
+	    IF last_SOC_EKF > 0 THEN
+	        IF first_SOC_EKF > last_SOC_EKF + 0.05 THEN  // kleinerer Schwellwert evtl. sinnvoll
+	            Running_Time := (Average_SOC_EKF / (first_SOC_EKF - last_SOC_EKF)) * EKF_BufferCount;
+	            last_Running_Time := Running_Time;
+	        ELSE
+	            Running_Time := last_Running_Time;
+ 	       END_IF
+ 	   ELSE
+	        Running_Time := 0.0;
+ 	   END_IF
+	ELSE
+	    Running_Time := 0.0;
+	END_IF
+
+	// Ladezeitberechnung (nur wenn Strom negativ)
+	IF supplyCurrent_A < 0 THEN
+	    Charging_Time := Charging_Time_Look_Up_Table[REAL_TO_INT(Average_SOC_EKF)];
+	ELSE
+	    Charging_Time := 0.0;
+	END_IF
+	// EKF ENDE
+END_IF
+//SOC-Berechnung Ende
+
+//Sicherheitsabschaltung, wenn Roboterakku zu gering ( beim einstecken manchmal gibts einen Stromsprung bis 30A messfehelr wahrscheinlich)
+// kann auf dem Roboter der mit Platine fährt auskommentiert werden!!!
+IF batteryVoltage_V < 12 AND Average_SOC_EKF < 10 THEN   
+	shutdownTrigger := TRUE;
+END_IF
+
+stMqtt_HAWino_IN.fActualBatteryVoltage := batteryVoltage_V;
+stMqtt_HAWino_IN.fActualBatteryCurrent := supplyCurrent_A;
+stMqtt_HAWino_IN.fSoC := Average_SOC_EKF;					
+stMqtt_HAWino_IN.nEstimatedRunningTime := Running_Time;
+stMqtt_HAWino_IN.nEstimatedChargingTime := Charging_Time;]]></ST>
+    </Implementation>
+    <LineIds Name="PowerManager">
+      <LineId Id="1901" Count="254" />
+      <LineId Id="2212" Count="3" />
+      <LineId Id="2224" Count="0" />
+      <LineId Id="2216" Count="7" />
+      <LineId Id="420" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

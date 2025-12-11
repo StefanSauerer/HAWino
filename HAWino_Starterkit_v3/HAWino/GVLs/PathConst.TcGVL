@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <GVL Name="PathConst" Id="{93ab80b3-4756-4b7a-b0ce-6c3b827e3d15}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+	
+	gridPointInvalid : GridPoint := (x := 999, y := 999);
+	
+	numEdges : INT := 4;
+	gridEdgesInit : ARRAY[1..numEdges] OF Edge := [numEdges(Edge.blocked)];
+	edgeUp	  : INT := 1;
+	edgeRight : INT := 2;
+	edgeDown  : INT := 3;
+	edgeLeft  : INT := 4;
+	
+	gridPathLen : INT := 50;
+	
+	gridTolerance : LREAL := 40;
+	
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

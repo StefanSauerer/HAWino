@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="Direction" Id="{8e7aba3f-b195-49db-9ca3-e76fe8cc52ca}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE Direction :
+(
+	STATIONARY := 0,
+	UP,
+	RIGHT,
+	DOWN,
+	LEFT
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

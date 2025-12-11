@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="Path" Id="{72b4fce4-d51e-4190-93c8-a485941310f2}">
+    <Declaration><![CDATA[TYPE Path :
+	STRUCT
+		x, y, theta, maxVel: LREAL;
+		mode: PointMode;					// 1 = docking, 2 = transfer, -1 = datenpunkt nicht verwendet
+	END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

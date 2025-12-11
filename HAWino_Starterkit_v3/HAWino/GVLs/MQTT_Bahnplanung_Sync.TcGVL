@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <GVL Name="MQTT_Bahnplanung_Sync" Id="{2f9947d2-335e-49a8-bf6f-2a6d2a3de78a}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL
+	
+	newJob : BOOL := FALSE;
+	critSectionNewJob : FB_IecCriticalSection;
+	
+	sendCode : BOOL := FALSE;
+	critSectionSendCode : FB_IecCriticalSection;
+	
+	sendMessage : BOOL := FALSE;
+	critSectionSendMessage : FB_IecCriticalSection;
+	
+	sendBumperResetAck : BOOL := FALSE;
+	critSectionSendBumperResetAck : FB_IecCriticalSection;
+	
+	sendPartLostResetAck : BOOL := FALSE;
+	critSectionSendPartLostResetAck : FB_IecCriticalSection;
+	
+	sendGlobalResetAck : BOOL := FALSE;
+	critSectionSendGlobalResetAck : FB_IecCriticalSection;
+	
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

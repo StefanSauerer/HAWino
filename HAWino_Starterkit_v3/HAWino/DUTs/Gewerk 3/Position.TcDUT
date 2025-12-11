@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="Position" Id="{959c2c84-102b-492e-a058-83d6b3e7142b}">
+    <Declaration><![CDATA[//Definition des allgemeinen Position Datentyps
+TYPE Position :
+	STRUCT
+		x, y, theta, e : LREAL; //e = Fehler des Kamerasystems
+	END_STRUCT
+END_TYPE]]></Declaration>
+  </DUT>
+</TcPlcObject>

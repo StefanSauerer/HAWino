@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="CDState" Id="{18a4329f-09ec-4f59-a731-0f541286b14e}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE CDState :
+(
+	overRail := 0,
+	underRail,
+	railLeft,
+	railRight,
+	init
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

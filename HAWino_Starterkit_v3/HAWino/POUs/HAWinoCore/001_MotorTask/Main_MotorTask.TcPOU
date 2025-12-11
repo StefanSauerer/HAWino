@@ -1,0 +1,122 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <POU Name="Main_MotorTask" Id="{c0f79474-5394-49ee-95a0-09a934fd6952}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM Main_MotorTask
+VAR
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Variablen, die zur Synchronisation über das PAI (Prozessabbild) in den Task geladen werden.
+	// -> Die Variablen werden von anderen Tasks gesetzt und müssen in den Task In/Outputs verknüpft werden
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//Inputs für die Regelung
+	n1fromMotor AT%I* : UINT; //Geschwindigkeit von der Motorklemme über den InfoData Kanal
+	n2fromMotor AT%I* : UINT;
+	n3fromMotor AT%I* : UINT;
+	currentfromMotor1 AT %I* : UINT;	//Strom von der Motorklemme über den InfoData Kanal 2
+	currentfromMotor2 AT %I* : UINT;
+	currentfromMotor3 AT %I* : UINT;
+	sliderGripper AT %I* : BOOL;
+
+
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Variablen werden zur Synchronisation über das PA-Q aus dem Task gesetzt.
+	// -> Die Variablen werden von anderen Tasks gelesen.
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	//Freigabe der Motoren
+	enableToMotor1 AT%Q*:BOOL:=FALSE;
+	enableToMotor2 AT%Q*:BOOL:=FALSE;
+	enableToMotor3 AT%Q*:BOOL:=FALSE;
+	//Sollwerte der Motoren
+	velocityToMotor1 AT%Q*:INT:=0;
+	velocityToMotor2 AT%Q*:INT:=0;
+	velocityToMotor3 AT%Q*:INT:=0;
+	
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Taskinterne Inputs
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//Wheel-Encoder Daten
+	wheelEncoderLocalVx AT%I*		:LREAL;
+	wheelEncoderLocalVy AT%I*		:LREAL;
+	wheelEncoderLocalVtheta AT%I*	:LREAL;
+	// Bumper Daten
+	bumper AT%I* : BOOL;
+	
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Lokale Variablen
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//Übergabevariablen vom Lageregler zum Drehzahlregler
+	vXCartesianToMotors 	:	LREAL;
+	vYCartesianToMotors 	:	LREAL;
+	vThetaCartesianToMotors :	LREAL;
+	//Reglerdaten
+	Motor1current: INT;
+	Motor2current: INT;
+	Motor3current: INT;
+
+	velWheel1: LREAL;
+	velWheel2: LREAL;
+	velWheel3: LREAL;	
+	maxMotorRPM : INT := 3600; // in rpm 
+	maxKlemmeDrehzahlMessung : LREAL := 10000; //Bei Maximaldrehzahl zurückgegebener Drehzahlwert der Motorklemme
+	rWheel 		: INT := 40; //in mm
+	ue			: LREAL := 0.0625; //Getriebeuebersetzung 
+	cycletime : LREAL:= 0.00033333; //Cycletime des Motortasks
+	enableMotorControl: BOOL;
+	
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Instanzierung der FBs
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	FB_Drehzahlregler 	: FB_Drehzahlregler;	//Gilt für alle drei Motoren
+	
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//Umrechung der Klemmenwerte
+ACT_Drehzahlerfassung();	
+//Regelung und setzen der Motordrehzahl
+FB_Drehzahlregler(targetVelX:= vXCartesianToMotors,
+					targetVelY := vYCartesianToMotors, 
+					tragetVelTheta:= vThetaCartesianToMotors,
+					enable := enableMotorControl,
+					bumper := bumper,
+					MotorReset := FALSE,
+					actualVelMotor1 := -velWheel1, 
+					actualVelMotor2 := -velWheel2, 
+					actualVelMotor3 := -velWheel3,
+					enableToMotor1 => enableToMotor1,
+					enableToMotor2 => enableToMotor2,
+					enableToMotor3 => enableToMotor3,
+					velocityToMotor1=> velocityToMotor1, 
+					velocityToMotor2 => velocityToMotor2,
+					velocityToMotor3 => velocityToMotor3);
+				]]></ST>
+    </Implementation>
+    <Action Name="ACT_Drehzahlerfassung" Id="{fc784fde-e171-45e7-8902-8fc7a47aa187}">
+      <Implementation>
+        <ST><![CDATA[//Einlesen der Istwerte
+//Motorstrom von der Klemme auslesen und umrechnen
+Motor1current := UINT_TO_INT(currentfromMotor1);	//Umwandlung des Unsinged Integers in ein Integerwert
+Motor2current := UINT_TO_INT(currentfromMotor2);
+Motor3current := UINT_TO_INT(currentfromMotor3);
+
+//Berechnung der Radgeschwindigkeit mit berücksichtigung des Getriebes
+velWheel1 := -(UINT_TO_INT(n1fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);
+velWheel2 := -(UINT_TO_INT(n2fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);
+velWheel3 := -(UINT_TO_INT(n3fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="Main_MotorTask">
+      <LineId Id="1955" Count="0" />
+      <LineId Id="1934" Count="0" />
+      <LineId Id="1954" Count="0" />
+      <LineId Id="1935" Count="4" />
+      <LineId Id="1956" Count="0" />
+      <LineId Id="1940" Count="9" />
+    </LineIds>
+    <LineIds Name="Main_MotorTask.ACT_Drehzahlerfassung">
+      <LineId Id="8" Count="4" />
+      <LineId Id="18" Count="3" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

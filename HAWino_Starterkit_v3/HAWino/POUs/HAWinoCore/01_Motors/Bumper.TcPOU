@@ -1,0 +1,59 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <POU Name="Bumper" Id="{b3b489bd-356c-424f-a2f4-3ea553d2f930}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM Bumper
+VAR
+	BumperStrip	AT%I*:	BOOL;
+	Reset AT%I* : BOOL;
+	globalReset AT%I* : BOOL;
+	state: Bumperstatus := Bumperstatus.init;
+	Triggered AT%Q* : BOOL;
+	R_Reset: R_TRIG;
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//Aktuell für Testzwecke- nach der Implementierung über die Visu kann es entfernt werden
+Reset := TaskTransfer.bumperrest;
+R_Reset(CLK := Reset);
+
+globalReset := Main_Motortask.globalReset;
+
+CASE state OF 
+	Bumperstatus.init:
+		IF NOT BumperStrip AND NOT Reset THEN
+			state := Bumperstatus.normal;
+		END_IF	
+	Bumperstatus.normal:
+		IF BumperStrip THEN
+			state := Bumperstatus.triggered;
+			Triggered := TRUE;
+		END_IF				
+	Bumperstatus.triggered:
+		IF NOT BumperStrip AND R_Reset.Q THEN
+			state := Bumperstatus.normal;
+			Triggered := FALSE;
+			//Aktuell für Testzwecke- nach der Implementierung über die Visu kann es entfernt werden
+			TaskTransfer.bumperrest := FALSE;
+		END_IF
+END_CASE
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="Bumper">
+      <LineId Id="82" Count="1" />
+      <LineId Id="91" Count="0" />
+      <LineId Id="103" Count="0" />
+      <LineId Id="102" Count="0" />
+      <LineId Id="85" Count="0" />
+      <LineId Id="66" Count="10" />
+      <LineId Id="78" Count="2" />
+      <LineId Id="87" Count="0" />
+      <LineId Id="86" Count="0" />
+      <LineId Id="81" Count="0" />
+      <LineId Id="2" Count="0" />
+      <LineId Id="115" Count="0" />
+      <LineId Id="114" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,174 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <POU Name="HAWino" Id="{19efa873-38c9-4bfb-a6cf-5d3d5e993a21}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM HAWino
+VAR
+	//CX35CDD6
+	Robot_Number	AT%Q*	: INT;
+	operationState : DUT_SysState := DUT_SysState.init; 
+	RobotData : RobotInternalData;
+	GetId : Tc2_Utilities.FB_GetSystemId;
+	init : INT;
+	SysGUID : GUID;
+	start : BOOL:= TRUE;
+	
+	// Outputs
+	initDone AT%Q* : BOOL := FALSE;
+	cameraPosition AT%Q* : Position := (x := 0.0, y := 0.0, theta := 0.0, e := 0.0);	// Aktuelle roboterspezifische Kameraposition
+	cameraReceivedPakets AT%Q* : UINT;													// Counter für erhaltene Kamerapakete
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[CASE operationState OF
+	//Get SysId for Identification
+	DUT_SysState.init:
+		GetId(bexecute := start,stSystemId=>SysGUID);
+		IF NOT GetId.bBusy THEN	
+			operationState:=DUT_SysState.preOp;
+		END_IF
+	DUT_SysState.preOp:
+	//Set RobotNumber for MQTT and set flag to start MQTT
+		IF InitSysId(GUID_to_String(SysGUID)) THEN
+			Var_HAWIno.Robot_Number := RobotData.Robot_Number;		
+			initDone := TRUE;
+			operationState:=DUT_SysState.Op;
+		END_IF
+	DUT_SysState.Op:
+	//Operate System
+
+		MQTT();
+		IrDistanceSensors();
+		Camera();
+		cameraPosition := Camera.cameraData.robotPosition[RobotData.Robot_Number]; //Zuweisung der roboterspezifischen Kameraposition
+		cameraReceivedPakets := Camera.cameraData.nReceivedPakets;	// Zuweisung der Anzahl der vom Kamerasystem versendeten Pakete (Ueberwachungszwecke)
+END_CASE]]></ST>
+    </Implementation>
+    <Method Name="InitSysId" Id="{37bf9ffd-58e5-4464-98c5-221c269d2560}">
+      <Declaration><![CDATA[METHOD InitSysId : BOOL
+VAR_INPUT
+	SysId : STRING;
+END_VAR
+VAR
+	state : INT;
+	CX31C9D6 : STRING := '77726FC0-DD5E-F7D7-002E-41ED9B95AABA';
+	CX35CFB8 : STRING := '2A7FC16A-555A-D05D-0E28-E804E05477FE';
+	CX35CDC8 : STRING := 'AD3D576A-9CE4-FB95-7439-909C21AA2B33';
+	CX35CDD6 : STRING := '975A6B25-37E2-0E46-4C4D-43CCC26F2A66';
+	CX4D0046 : STRING := '4FFA7061-8E1F-E1C9-731A-38EAA9BAEAC6';
+END_VAR
+// CX-31C9D6 = 1
+// CX-35CFB8 = 2
+// CX-35CDC8 = 3
+// CX-35CDD6 = 4
+// CX-4D0046 = 5]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF SysId = CX31C9D6 THEN
+	state := 1;
+ELSIF SysId = CX35CFB8 THEN
+	state := 2;
+ELSIF SysId = CX35CDC8 THEN
+	state := 3;
+ELSIF SysId = CX35CDD6 THEN
+	state := 4;
+ELSIF SysId = CX4D0046 THEN
+	state := 5;
+ELSE
+	state := 0;
+END_IF
+
+CASE state OF 
+		1 : 	
+				RobotData.Robot_IP_WiFi :='192.169.0.18';
+				RobotData.Robot_IP_Wire :='192.169.0.28';
+				RobotData.Robot_Name :='CX-35C9D6';
+				RobotData.Robot_Nickname :='9D6';
+				RobotData.Robot_Number := 1;
+				RobotData.factor_V_m := 0.0361;
+				RobotData.sum_V_b := -0.4916;
+				RobotData.factor_I_m := 0;
+				RobotData.sum_I_b := -0.13;
+				InitSysId := TRUE;
+				
+				
+		2:
+				RobotData.Robot_IP_WiFi :='192.169.0.17';
+				RobotData.Robot_IP_Wire :='192.169.0.27';
+				RobotData.Robot_Name :='CX-35CFB8';
+				RobotData.Robot_Nickname :='FB8';
+				RobotData.Robot_Number := 2;
+				RobotData.factor_V_m := 0.0315;
+				RobotData.sum_V_b := -0.3835;
+				RobotData.factor_I_m := 0;
+				RobotData.sum_I_b := -0.045;
+				InitSysId := TRUE;
+		3:
+				RobotData.Robot_IP_WiFi :='192.169.0.16';
+				RobotData.Robot_IP_Wire :='192.169.0.26';
+				RobotData.Robot_Name :='CX-35CDC8';
+				RobotData.Robot_Nickname :='DC8';
+				RobotData.Robot_Number := 3;
+				RobotData.factor_V_m := 0.0350;
+				RobotData.sum_V_b := -0.5301;
+				RobotData.factor_I_m := 0;
+				RobotData.sum_I_b := -0.08;
+				InitSysId := TRUE;
+		4:
+				RobotData.Robot_IP_WiFi :='192.169.0.15';
+				RobotData.Robot_IP_Wire :='192.169.0.25';
+				RobotData.Robot_Name :='CX-35CDD6';
+				RobotData.Robot_Nickname :='DD6';
+				RobotData.Robot_Number := 4;
+				RobotData.factor_V_m := 0.034;
+				RobotData.sum_V_b := -0.404;
+				RobotData.factor_I_m := 0;
+				RobotData.sum_I_b := -0.08;
+				InitSysId := TRUE;
+		5:
+				RobotData.Robot_IP_WiFi :='192.169.0.19';
+				RobotData.Robot_IP_Wire :='192.169.0.29';
+				RobotData.Robot_Name :='CX-04D0046';
+				RobotData.Robot_Nickname :='046';
+				RobotData.Robot_Number := 5;
+				RobotData.factor_V_m := 0.0286;
+				RobotData.sum_V_b := -0.2812;
+				RobotData.factor_I_m := 0;
+				RobotData.sum_I_b := 0;
+				InitSysId := TRUE;			
+		ELSE	//Ungültige Roboter Nummer
+				RobotData.Robot_IP_WiFi :='0.0.0.0';
+				RobotData.Robot_IP_Wire :='0.0.0.0';
+				RobotData.Robot_Name :='Invalid';
+				RobotData.Robot_Nickname :='Invalid';
+				RobotData.Robot_Number := 0;
+				InitSysId := false;
+	END_CASE;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="HAWino">
+      <LineId Id="153" Count="0" />
+      <LineId Id="180" Count="0" />
+      <LineId Id="155" Count="0" />
+      <LineId Id="161" Count="0" />
+      <LineId Id="158" Count="0" />
+      <LineId Id="162" Count="1" />
+      <LineId Id="157" Count="0" />
+      <LineId Id="181" Count="0" />
+      <LineId Id="165" Count="0" />
+      <LineId Id="175" Count="0" />
+      <LineId Id="178" Count="0" />
+      <LineId Id="166" Count="1" />
+      <LineId Id="164" Count="0" />
+      <LineId Id="182" Count="0" />
+      <LineId Id="196" Count="0" />
+      <LineId Id="195" Count="0" />
+      <LineId Id="171" Count="1" />
+      <LineId Id="210" Count="0" />
+      <LineId Id="226" Count="0" />
+      <LineId Id="156" Count="0" />
+    </LineIds>
+    <LineIds Name="HAWino.InitSysId">
+      <LineId Id="532" Count="78" />
+      <LineId Id="86" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

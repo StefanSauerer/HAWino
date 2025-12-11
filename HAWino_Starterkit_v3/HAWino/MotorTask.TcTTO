@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <Task Name="MotorTask" Id="{b022d290-ffeb-4935-8c44-406538b1b0b6}">
+    <!--CycleTime in micro seconds.-->
+    <CycleTime>333</CycleTime>
+    <Priority>1</Priority>
+    <PouCall>
+      <Name>Main_MotorTask</Name>
+    </PouCall>
+    <TaskFBGuid>{ffc60fc4-49d7-47bb-b6f2-44c0c296d5d7}</TaskFBGuid>
+    <Fb_init>{b1d9e22e-43fb-4fd6-88b1-38519e0aef18}</Fb_init>
+    <Fb_exit>{d215519e-f2ec-43f0-8155-6307997e2671}</Fb_exit>
+    <CycleUpdate>{c62ec785-dc6b-453c-93e9-de30c0e50b62}</CycleUpdate>
+    <PostCycleUpdate>{6402cc63-8e9e-452a-a643-85845d668a0b}</PostCycleUpdate>
+  </Task>
+</TcPlcObject>

@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <Task Name="SOCTask" Id="{cb478c83-c002-4edc-b304-3dece825740b}">
+    <!--CycleTime in micro seconds.-->
+    <CycleTime>5000</CycleTime>
+    <Priority>51</Priority>
+    <PouCall>
+      <Name>PowerManager</Name>
+    </PouCall>
+    <TaskFBGuid>{5d75d943-d620-4a3d-8900-964bdb83eee4}</TaskFBGuid>
+    <Fb_init>{e5e3dfd2-76ff-4d31-bb93-dbb31f43b1e2}</Fb_init>
+    <Fb_exit>{70ad4659-5e34-42d1-8421-265852a58c08}</Fb_exit>
+    <CycleUpdate>{8ac6c5d5-abd0-4bf7-b46b-edeb75c0d34e}</CycleUpdate>
+    <PostCycleUpdate>{88192346-dc2d-4c89-aca4-465f7195e5b2}</PostCycleUpdate>
+  </Task>
+</TcPlcObject>

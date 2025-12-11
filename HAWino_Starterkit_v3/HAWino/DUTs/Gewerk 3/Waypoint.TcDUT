@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="Waypoint" Id="{e465bc3a-2c48-4cc5-85c0-ef919ef44d25}">
+    <Declaration><![CDATA[TYPE Waypoint :
+	STRUCT
+		x, y : LREAL;
+	 	mode: PointMode; 		// 1 = docking, 2 = transfer, -1 = datenpunkt nicht verwendet
+	END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

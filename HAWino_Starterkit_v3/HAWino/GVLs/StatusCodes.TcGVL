@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <GVL Name="StatusCodes" Id="{eeb8b6d4-2fd5-4b41-acf3-41c50d028ba5}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+	error : INT := 0;
+	idle  : INT := 1;
+	goalReached : INT := 2;
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

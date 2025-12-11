@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="RobotInternalData" Id="{6cf4cb5f-ba59-4908-bcec-107d4aad80db}">
+    <Declaration><![CDATA[TYPE RobotInternalData :
+	STRUCT
+		Robot_Number : INT;
+		Robot_IP_WiFi     : T_AmsNetId;
+		Robot_IP_Wire     : T_AmsNetId;
+		Robot_Name     : STRING;
+		Robot_Nickname : STRING;
+		factor_V_m : REAL;		// Korrekturfaktor für Spannungsteiler
+		sum_V_b	: REAL;			// Korrektursummand für statischen Fehler der Spannung
+		factor_I_m : REAL;		// Korrekturfaktor für Strommessung
+		sum_I_b	: REAL;			// Korrektursummand für statischen Fehler des Stromes
+		
+		
+	END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

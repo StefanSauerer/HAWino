@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="ReglerState" Id="{4dc5b149-1922-44ee-b85e-e7b535b8f290}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE ReglerState :
+(
+	init,
+	idle,
+	working,
+	stop
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

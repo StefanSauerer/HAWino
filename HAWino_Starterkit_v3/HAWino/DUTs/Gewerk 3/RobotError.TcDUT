@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="RobotError" Id="{14d77945-a349-4d4a-9262-49da3e81b4da}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE RobotError :
+(
+	ok,									// kein Fehler
+	
+	// Fehler fahrt
+	ZielNichtErreichbar,				// Zielposition nach mehreren Versuchen nicht erreicht
+	
+	// Fehlermeldungen Beobachter
+	BeobachterInitialisierung := -1,			// Beobachtersystem Initialisierungsfehler
+	BeobachterCamAusfall := -2,					// Beobachtersystem Kamera Ausfall
+	BeobachterCamPaketFrequenz := -3,			// Beobachtersystem Kamera Paketrate zu gering
+	BeobachterCamAktualisierungsfrequenz := -4	// Beobachtersystem Kamera Aktualisierungsrate zu gering
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="Edge" Id="{c30d54c2-65fc-4657-b64d-8f8ecbb6fb13}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE Edge :
+(
+	blocked := 0,
+	open := 1,
+	doubleCost := 2,
+	maxCost := 3
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <DUT Name="RobotState" Id="{9a35dbc4-1a61-437d-97b0-5f1e048c710b}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE RobotState :
+(
+	error := -1,
+	init,
+	idle,
+	drivingJob,
+	movingGripperJobStart,
+	movingGripperJobFinish,
+	drivingWaitingSpot,
+	waitingAtWaitingSpot,
+	motorSync,
+	connectingToCharger,
+	charging
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

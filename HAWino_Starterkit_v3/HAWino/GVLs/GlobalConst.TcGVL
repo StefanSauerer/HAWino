@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <GVL Name="GlobalConst" Id="{4c79f956-c0b4-4833-a8ec-a73791ba49ed}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT 
+	maxWaypoints : INT := 10; 							// Maximale Anzahl der durch Gewerk 2 vorgegebenen Wegpunkte
+	maxWaypointsTrajektorie : INT := maxWaypoints + 50;	// Maxiamle Anzahl an Wegpunkten (trajektorienintern)
+	maxPathpoints : INT := 500;							// Maximale Anzahl der generierten Pfadzwischenwegpunkt
+	maxvel : INT := 900;
+	
+	// ==================================================================================== // 
+	// ---------------- Trajektore Konstanten --------------------------------------------- //
+	// ==================================================================================== // 
+	
+	punkteAufKurve: INT := 10; 			// Anzahl der Wegpunkte auf einer Bezierkurve
+	stuetzpunktDistanz: INT := 200;		// Kurvenradius der Bezierkurven
+	faktorKurvenGeschw: REAL := 0.7;	// faktor fuer die Geschw in einer Kurve (faktor * MaxVel)
+	maxGeschwTransfer : INT := 700;
+	maxGeschwDocking : INT := 300;
+	
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

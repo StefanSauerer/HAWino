@@ -1,0 +1,267 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <GVL Name="map" Id="{deb526ec-375e-49b9-aba8-f3c8fffb6d1a}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+	
+	dRobot : LREAL := 360;
+	
+	RFID				: INT := 6;
+	fertigteillager_2 	: INT := 2;
+	fertigteillager_1 	: INT := 3;
+	maschine_4 			: INT := 6;
+	maschine_3 			: INT := 7;
+	maschine_2 			: INT := 10;
+	maschine_1 			: INT := 11;
+	rohteillager_2 		: INT := 14;
+	rohteillager_1 		: INT := 15;
+	
+	rowRailRight		: INT := 2;
+	rowRailLeft			: INT := 3;
+
+	numCols : INT := 19;
+	numRows : INT := 7;
+
+	stations : ARRAY[1..3, 1..8] OF Waypoint := [
+		(x := 963, y := 2820), (x := 1385, y := 2820), (x := 2178, y := 2821), (x := 2596, y := 2811), (x := 3395, y := 2804), (x := 3821, y := 2799), (x := 4610, y := 2800), (x := 5020, y := 2795),
+	 	(x := 959, y := 2714), (x := 1385, y := 2718), (x := 2176, y := 2720), (x := 2596, y := 2715), (x := 3391, y := 2701), (x := 3817, y := 2697), (x := 4607, y := 2701), (x := 5020, y := 2689),
+	 	(x := 958, y := 2613), (x := 1383, y := 2615), (x := 2177, y := 2615), (x := 2599, y := 2605), (x := 3390, y := 2595), (x := 3815, y := 2591), (x := 4607, y := 2595), (x := 5017, y := 2590)
+	];
+	
+	dockingAreaStations_Xmin : LREAL := 500;
+	dockingAreaStations_Xmax : LREAL := 5500;
+	dockingAreaStations_Ymin : LREAL := 2300;
+	dockingAreaStations_Ymax : LREAL := 3800;
+	dockingAreaChargers_Xmin : LREAL := 6000;
+	dockingAreaChargers_Xmax : LREAL := 7000;
+	dockingAreaChargers_Ymin : LREAL := 3200;
+	dockingAreaChargers_Ymax : LREAL := 3800;
+
+	waitingSpots_Y : LREAL := 840;
+	railR_Y : LREAL := 1410;
+	railL_Y : LREAL := 1930;
+	
+	xmin : LREAL := 400;
+	xmax : LREAL := 8000;
+	ymin : LREAL := 400;
+	ymax : LREAL := 4000;
+	
+	chargers : ARRAY[1..2] OF Waypoint := [(x := 6196, y := 3416), (x := 6791, y := 3416)];
+	
+	grid : ARRAY[0..numRows + 1, 0..numCols + 1] OF GridNode := [
+	
+		// Reihe 0 Reserve
+		(wp := (x := xmin, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,0], nodeType := GridPointType.normal),	// Reserve
+		(wp := (x := 863,  y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),	// Fertigteillager 2 Anfahrt
+		(wp := (x := 958,  y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),	// Fertigteillager 2
+		(wp := (x := 1376, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Fertigteillager 1
+		(wp := (x := 1476, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Fertigteillager 1 Anfahrt
+		(wp := (x := 2084, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Maschine 4 Anfahrt
+		(wp := (x := 2184, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Maschine 4
+		(wp := (x := 2594, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Maschine 3
+		(wp := (x := 2694, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Maschine 3 Anfahrt
+		(wp := (x := 3294, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Maschine 2 Anfahrt
+		(wp := (x := 3394, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Maschine 2
+		(wp := (x := 3809, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Maschine 1
+		(wp := (x := 3909, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Maschine 1 Anfahrt
+		(wp := (x := 4508, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Rohteillager 2 Anfahrt
+		(wp := (x := 4608, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Rohteillager 2
+		(wp := (x := 5027, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Rohteillager 1
+		(wp := (x := 5127, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Rohteillager 1 Anfahrt
+		(wp := (x := 5700, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Transit
+		(wp := (x := 6196, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Ladestation 1
+		(wp := (x := 6791, y := ymin, mode := PointMode.notUsed), edges := [2,2,0,2], nodeType := GridPointType.normal),   	// Ladestation 2
+		(wp := (x := xmax, y := ymin, mode := PointMode.notUsed), edges := [2,0,0,2], nodeType := GridPointType.normal),   	// Reserve
+	
+		// Reihe 1 Warteplätze
+		(wp := (x := xmin, y := waitingSpots_Y, mode := PointMode.notUsed),  edges := [2,2,0,0], nodeType := GridPointType.normal),    // Reserve
+		(wp := (x := 863,  y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.waitingSpot),   	// Fertigteillager 2 Anfahrt
+		(wp := (x := 958,  y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.normal),   	// Fertigteillager 2
+		(wp := (x := 1376, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.normal),   	// Fertigteillager 1
+		(wp := (x := 1476, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.waitingSpot),   	// Fertigteillager 1 Anfahrt
+		(wp := (x := 2084, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.normal),   	// Maschine 4 Anfahrt
+		(wp := (x := 2184, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.normal),   	// Maschine 4
+		(wp := (x := 2594, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.normal),   	// Maschine 3
+		(wp := (x := 2694, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.waitingSpot),   	// Maschine 3 Anfahrt
+		(wp := (x := 3294, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.waitingSpot),   	// Maschine 2 Anfahrt
+		(wp := (x := 3394, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.normal),   	// Maschine 2
+		(wp := (x := 3809, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.normal),   	// Maschine 1
+		(wp := (x := 3909, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.waitingSpot),   	// Maschine 1 Anfahrt
+		(wp := (x := 4508, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.waitingSpot),   	// Rohteillager 2 Anfahrt
+		(wp := (x := 4608, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.normal),   	// Rohteillager 2
+		(wp := (x := 5027, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.normal),   	// Rohteillager 1
+		(wp := (x := 5127, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.waitingSpot),   	// Rohteillager 1 Anfahrt
+		(wp := (x := 5700, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.normal),   	// Transit
+		(wp := (x := 6196, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.waitingSpot),   	// Ladestation 1
+		(wp := (x := 6791, y := waitingSpots_Y, mode := PointMode.transfer), edges := [1,0,0,0], nodeType := GridPointType.waitingSpot),   	// Ladestation 2
+		(wp := (x := xmax, y := waitingSpots_Y, mode := PointMode.notUsed),  edges := [2,0,0,2], nodeType := GridPointType.normal),    // Reserve
+		
+		// Reihe 2 Bahn nach Rechts
+		(wp := (x := xmin, y := railR_Y, mode := PointMode.notUsed),  edges := [2,2,2,0], nodeType := GridPointType.normal),	// Reserve
+		(wp := (x := 863,  y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Fertigteillager 2 Anfahrt
+		(wp := (x := 958,  y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Fertigteillager 2
+		(wp := (x := 1376, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Fertigteillager 1
+		(wp := (x := 1476, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Fertigteillager 1 Anfahrt
+		(wp := (x := 2084, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Maschine 4 Anfahrt
+		(wp := (x := 2184, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Maschine 4
+		(wp := (x := 2594, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Maschine 3
+		(wp := (x := 2694, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Maschine 3 Anfahrt
+		(wp := (x := 3294, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Maschine 2 Anfahrt
+		(wp := (x := 3394, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Maschine 2
+		(wp := (x := 3809, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Maschine 1
+		(wp := (x := 3909, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Maschine 1 Anfahrt
+		(wp := (x := 4508, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Rohteillager 2 Anfahrt
+		(wp := (x := 4608, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Rohteillager 2
+		(wp := (x := 5027, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Rohteillager 1
+		(wp := (x := 5127, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Rohteillager 1 Anfahrt
+		(wp := (x := 5700, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Transit
+		(wp := (x := 6196, y := railR_Y, mode := PointMode.transfer), edges := [1,1,1,0], nodeType := GridPointType.normal),	// Ladestation 1
+		(wp := (x := 6791, y := railR_Y, mode := PointMode.transfer), edges := [1,0,1,0], nodeType := GridPointType.normal),	// Ladestation 2
+		(wp := (x := xmax, y := railR_Y, mode := PointMode.notUsed),  edges := [2,0,2,2], nodeType := GridPointType.normal),	// Reserve
+	
+		// Reihe 3 Bahn nach Links
+		(wp := (x := xmin, y := railL_Y, mode := PointMode.notUsed),  edges := [2,2,2,0], nodeType := GridPointType.normal),   	// Reserve
+		(wp := (x := 863,  y := railL_Y, mode := PointMode.transfer), edges := [1,0,1,0], nodeType := GridPointType.normal),   	// Fertigteillager 2 Anfahrt
+		(wp := (x := 958,  y := railL_Y, mode := PointMode.transfer), edges := [0,0,1,1], nodeType := GridPointType.normal),   	// Fertigteillager 2
+		(wp := (x := 1376, y := railL_Y, mode := PointMode.transfer), edges := [0,0,1,1], nodeType := GridPointType.normal),   	// Fertigteillager 1
+		(wp := (x := 1476, y := railL_Y, mode := PointMode.transfer), edges := [1,0,1,1], nodeType := GridPointType.normal),   	// Fertigteillager 1 Anfahrt
+		(wp := (x := 2084, y := railL_Y, mode := PointMode.transfer), edges := [1,0,1,1], nodeType := GridPointType.normal),   	// Maschine 4 Anfahrt
+		(wp := (x := 2184, y := railL_Y, mode := PointMode.transfer), edges := [0,0,1,1], nodeType := GridPointType.normal),   	// Maschine 4
+		(wp := (x := 2594, y := railL_Y, mode := PointMode.transfer), edges := [0,0,1,1], nodeType := GridPointType.normal),   	// Maschine 3
+		(wp := (x := 2694, y := railL_Y, mode := PointMode.transfer), edges := [1,0,1,1], nodeType := GridPointType.normal),   	// Maschine 3 Anfahrt
+		(wp := (x := 3294, y := railL_Y, mode := PointMode.transfer), edges := [1,0,1,1], nodeType := GridPointType.normal),   	// Maschine 2 Anfahrt
+		(wp := (x := 3394, y := railL_Y, mode := PointMode.transfer), edges := [0,0,1,1], nodeType := GridPointType.normal),   	// Maschine 2
+		(wp := (x := 3809, y := railL_Y, mode := PointMode.transfer), edges := [0,0,1,1], nodeType := GridPointType.normal),   	// Maschine 1
+		(wp := (x := 3909, y := railL_Y, mode := PointMode.transfer), edges := [1,0,1,1], nodeType := GridPointType.normal),   	// Maschine 1 Anfahrt
+		(wp := (x := 4508, y := railL_Y, mode := PointMode.transfer), edges := [1,0,1,1], nodeType := GridPointType.normal),   	// Rohteillager 2 Anfahrt
+		(wp := (x := 4608, y := railL_Y, mode := PointMode.transfer), edges := [0,0,1,1], nodeType := GridPointType.normal),   	// Rohteillager 2
+		(wp := (x := 5027, y := railL_Y, mode := PointMode.transfer), edges := [0,0,1,1], nodeType := GridPointType.normal),   	// Rohteillager 1
+		(wp := (x := 5127, y := railL_Y, mode := PointMode.transfer), edges := [1,0,1,1], nodeType := GridPointType.normal),   	// Rohteillager 1 Anfahrt
+		(wp := (x := 5700, y := railL_Y, mode := PointMode.transfer), edges := [1,0,1,1], nodeType := GridPointType.normal),   	// Transit
+		(wp := (x := 6196, y := railL_Y, mode := PointMode.transfer), edges := [1,0,1,1], nodeType := GridPointType.normal),   	// Ladestation 1
+		(wp := (x := 6791, y := railL_Y, mode := PointMode.transfer), edges := [1,0,1,1], nodeType := GridPointType.normal),   	// Ladestation 2
+		(wp := (x := xmax, y := railL_Y, mode := PointMode.notUsed),  edges := [2,0,2,2], nodeType := GridPointType.normal),   	// Reserve
+		
+		// Reihe 4 Platz 2
+		(wp := (x := xmin,     		y := 2612 +  0,		mode := PointMode.notUsed),		edges := [2,2,2,0], nodeType := GridPointType.normal),    				// Reserve
+		(wp := (x := 863  +  0,		y := 2612 +  0,		mode := PointMode.docking), 	edges := [1,1,1,0], nodeType := GridPointType.stationApproachLeft),		// Fertigteillager 2 Anfahrt
+		(wp := (x := 958  + 35,		y := 2612 +  0,		mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft),   			// Fertigteillager 2
+		(wp := (x := 1376 - 35,		y := 2615 -  2,		mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight),   			// Fertigteillager 1
+		(wp := (x := 1476 +  0,		y := 2615 -  2,		mode := PointMode.docking), 	edges := [1,2,1,1], nodeType := GridPointType.stationApproachRight),   	// Fertigteillager 1 Anfahrt
+		(wp := (x := 2084 +  0,		y := 2615 -  5,		mode := PointMode.docking), 	edges := [1,1,1,2], nodeType := GridPointType.stationApproachLeft),   	// Maschine 4 Anfahrt
+		(wp := (x := 2184 + 35,		y := 2615 -  5,		mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft),   			// Maschine 4
+		(wp := (x := 2594 - 35,		y := 2607 +  0,		mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight),   			// Maschine 3
+		(wp := (x := 2694 +  0,		y := 2607 +  0,		mode := PointMode.docking), 	edges := [1,2,1,1], nodeType := GridPointType.stationApproachRight),   	// Maschine 3 Anfahrt
+		(wp := (x := 3294 +  0,		y := 2595 +  0,		mode := PointMode.docking), 	edges := [1,1,1,2], nodeType := GridPointType.stationApproachLeft),   	// Maschine 2 Anfahrt
+		(wp := (x := 3394 + 35,		y := 2595 +  0,		mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft),   			// Maschine 2
+		(wp := (x := 3809 - 35,		y := 2597 +  0,		mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight),   			// Maschine 1
+		(wp := (x := 3909 +  0,		y := 2597 +  0,		mode := PointMode.docking), 	edges := [1,2,1,1], nodeType := GridPointType.stationApproachRight),   	// Maschine 1 Anfahrt
+		(wp := (x := 4508 +  0,		y := 2595 +  0,		mode := PointMode.docking), 	edges := [1,1,1,2], nodeType := GridPointType.stationApproachLeft),   	// Rohteillager 2 Anfahrt
+		(wp := (x := 4608 + 35,		y := 2595 +  0,		mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft),   			// Rohteillager 2
+		(wp := (x := 5027 - 35,		y := 2596 +  0,		mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight),   			// Rohteillager 1
+		(wp := (x := 5127 +  0,		y := 2596 +  0,		mode := PointMode.docking), 	edges := [1,0,1,1], nodeType := GridPointType.stationApproachRight),   	// Rohteillager 1 Anfahrt
+		(wp := (x := 5700 +  0,		y := 2596 +  0,		mode := PointMode.transfer),	edges := [1,0,1,0], nodeType := GridPointType.normal),   				// Transit
+		(wp := (x := 6196 +  0,		y := 2596 +  0,		mode := PointMode.transfer), 	edges := [1,0,1,0], nodeType := GridPointType.normal),  				// Ladestation 1
+		(wp := (x := 6791 +  0,		y := 2596 +  0,		mode := PointMode.transfer), 	edges := [1,0,1,0], nodeType := GridPointType.normal),  				// Ladestation 2
+		(wp := (x := xmax,     		y := 2596 +  0,		mode := PointMode.notUsed), 	edges := [2,0,2,2], nodeType := GridPointType.normal),   				// Reserve
+		
+		// Reihe 5 Platz 1
+		(wp := (x := xmin, 			y := 2716 +  0,		mode := PointMode.notUsed), 	edges := [2,2,2,0], nodeType := GridPointType.normal),    				// Reserve
+		(wp := (x := 866  +  0, 	y := 2716 +  0, 	mode := PointMode.docking), 	edges := [1,1,1,0], nodeType := GridPointType.stationApproachLeft),	 	// Fertigteillager 2 Anfahrt
+		(wp := (x := 959  + 35, 	y := 2716 +  0, 	mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft),   			// Fertigteillager 2
+		(wp := (x := 1381 - 30, 	y := 2719 +  0, 	mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight),   			// Fertigteillager 1
+		(wp := (x := 1481 +  0, 	y := 2719 +  0, 	mode := PointMode.docking), 	edges := [1,2,1,1], nodeType := GridPointType.stationApproachRight),   	// Fertigteillager 1 Anfahrt
+		(wp := (x := 2083 +  0, 	y := 2721 -  3, 	mode := PointMode.docking), 	edges := [1,1,1,2], nodeType := GridPointType.stationApproachLeft),   	// Maschine 4 Anfahrt
+		(wp := (x := 2183 + 35, 	y := 2721 -  3, 	mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft),   			// Maschine 4
+		(wp := (x := 2593 - 30, 	y := 2714 -  3, 	mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight),   			// Maschine 3
+		(wp := (x := 2693 +  0, 	y := 2714 -  3, 	mode := PointMode.docking), 	edges := [1,2,1,1], nodeType := GridPointType.stationApproachRight),   	// Maschine 3 Anfahrt
+		(wp := (x := 3298 +  0, 	y := 2701 +  0, 	mode := PointMode.docking), 	edges := [1,1,1,2], nodeType := GridPointType.stationApproachLeft),   	// Maschine 2 Anfahrt
+		(wp := (x := 3398 + 35, 	y := 2701 +  0, 	mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft),   			// Maschine 2
+		(wp := (x := 3810 - 30, 	y := 2699 +  0, 	mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight),   			// Maschine 1
+		(wp := (x := 3910 +  0, 	y := 2699 +  0, 	mode := PointMode.docking), 	edges := [1,2,1,1], nodeType := GridPointType.stationApproachRight),   	// Maschine 1 Anfahrt
+		(wp := (x := 4510 +  0, 	y := 2701 +  0, 	mode := PointMode.docking), 	edges := [1,1,1,2], nodeType := GridPointType.stationApproachLeft),   	// Rohteillager 2 Anfahrt
+		(wp := (x := 4610 + 35, 	y := 2701 +  0, 	mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft),   			// Rohteillager 2
+		(wp := (x := 5025 - 30, 	y := 2702 +  0,		mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight),   			// Rohteillager 1
+		(wp := (x := 5125 +  0, 	y := 2702 +  0,		mode := PointMode.docking), 	edges := [1,0,1,1], nodeType := GridPointType.stationApproachRight),   	// Rohteillager 1 Anfahrt
+		(wp := (x := 5700 +  0, 	y := 2702 +  0, 	mode := PointMode.transfer),	edges := [1,0,1,0], nodeType := GridPointType.normal),   				// Transit
+		(wp := (x := 6196 +  0, 	y := 2702 +  0, 	mode := PointMode.transfer), 	edges := [1,0,1,0], nodeType := GridPointType.normal),   				// Ladestation 1
+		(wp := (x := 6791 +  0, 	y := 2702 +  0, 	mode := PointMode.transfer), 	edges := [1,0,1,0], nodeType := GridPointType.normal),   				// Ladestation 2
+		(wp := (x := xmax, 			y := 2702 +  0, 	mode := PointMode.notUsed),		edges := [2,0,2,2], nodeType := GridPointType.normal),    				// Reserve
+		
+		// Reihe 6 RFID
+		(wp := (x := xmin, 		 	y := 2820 +  0,		mode := PointMode.notUsed),		edges := [2,2,2,0], nodeType := GridPointType.normal),					// Reserve
+		(wp := (x := 869  +  0,  	y := 2820 +  0,		mode := PointMode.docking), 	edges := [0,1,1,0], nodeType := GridPointType.stationApproachLeft),		// Fertigteillager 2 Anfahrt
+		(wp := (x := 963  + 40,  	y := 2820 +  0,		mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft),				// Fertigteillager 2
+		(wp := (x := 1380 - 35,  	y := 2822 +  0,		mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight), 			// Fertigteillager 1
+		(wp := (x := 1480 +  0,  	y := 2822 +  0,		mode := PointMode.docking), 	edges := [0,2,1,1], nodeType := GridPointType.stationApproachRight),	// Fertigteillager 1 Anfahrt
+		(wp := (x := 2083 +  0,  	y := 2823 +  0,		mode := PointMode.docking), 	edges := [0,1,1,2], nodeType := GridPointType.stationApproachLeft),	 	// Maschine 4 Anfahrt
+		(wp := (x := 2183 + 35,		y := 2823 +  0,		mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft), 			// Maschine 4
+		(wp := (x := 2593 - 35,		y := 2815 +  4,		mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight), 			// Maschine 3
+		(wp := (x := 2693 +  0,		y := 2815 +  4,		mode := PointMode.docking), 	edges := [0,2,1,1], nodeType := GridPointType.stationApproachRight),	// Maschine 3 Anfahrt
+		(wp := (x := 3298 +  0,		y := 2800 +  2,		mode := PointMode.docking), 	edges := [0,1,1,2], nodeType := GridPointType.stationApproachLeft),	 	// Maschine 2 Anfahrt
+		(wp := (x := 3398 + 35,		y := 2800 +  2,		mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft), 			// Maschine 2
+		(wp := (x := 3813 - 35,		y := 2804 +  0,		mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight), 			// Maschine 1
+		(wp := (x := 3913 +  0,		y := 2804 +  0,		mode := PointMode.docking), 	edges := [0,2,1,1], nodeType := GridPointType.stationApproachRight),	// Maschine 1 Anfahrt
+		(wp := (x := 4513 +  0,		y := 2801 +  2,		mode := PointMode.docking), 	edges := [0,1,1,2], nodeType := GridPointType.stationApproachLeft),	 	// Rohteillager 2 Anfahrt
+		(wp := (x := 4613 + 35,		y := 2801 +  2,		mode := PointMode.docking), 	edges := [0,0,0,1], nodeType := GridPointType.stationLeft), 			// Rohteillager 2
+		(wp := (x := 5022 - 35,		y := 2800 +  4,		mode := PointMode.docking), 	edges := [0,1,0,0], nodeType := GridPointType.stationRight), 			// Rohteillager 1
+		(wp := (x := 5122 +  0,		y := 2800 +  4,		mode := PointMode.docking), 	edges := [0,0,1,1], nodeType := GridPointType.stationApproachRight),	// Rohteillager 1 Anfahrt
+		(wp := (x := 5700 +  0,		y := 2800 +  0,		mode := PointMode.transfer),	edges := [0,0,1,0], nodeType := GridPointType.normal),	 				// Transit
+		(wp := (x := 6196 +  0,		y := 2800 +  0,		mode := PointMode.transfer), 	edges := [1,0,1,0], nodeType := GridPointType.normal),	 				// Ladestation 1
+		(wp := (x := 6791 +  0,		y := 2800 +  0,		mode := PointMode.transfer), 	edges := [1,0,1,0], nodeType := GridPointType.normal),	 				// Ladestation 2
+		(wp := (x := xmax, 			y := 2800 +  0, 	mode := PointMode.notUsed),		edges := [2,0,2,2], nodeType := GridPointType.normal),	  				// Reserve
+		
+		// Reihe 7 Ladestation
+		(wp := (x := xmin, y := 3395, mode := PointMode.notUsed), edges := [0,2,2,0], nodeType := GridPointType.normal),	// Reserve
+		(wp := (x := 869,  y := 3395, mode := PointMode.docking), edges := [0,0,1,0], nodeType := GridPointType.normal),	// Fertigteillager 2 Anfahrt
+		(wp := (x := 963,  y := 3395, mode := PointMode.docking), edges := [0,0,0,0], nodeType := GridPointType.normal),	// Fertigteillager 2
+		(wp := (x := 1380, y := 3395, mode := PointMode.docking), edges := [0,0,0,0], nodeType := GridPointType.normal),	// Fertigteillager 1
+		(wp := (x := 1480, y := 3395, mode := PointMode.docking), edges := [0,0,1,0], nodeType := GridPointType.normal),	// Fertigteillager 1 Anfahrt
+		(wp := (x := 2083, y := 3395, mode := PointMode.docking), edges := [0,0,1,0], nodeType := GridPointType.normal),	// Maschine 4 Anfahrt
+		(wp := (x := 2183, y := 3395, mode := PointMode.docking), edges := [0,0,0,0], nodeType := GridPointType.normal),	// Maschine 4
+		(wp := (x := 2593, y := 3395, mode := PointMode.docking), edges := [0,0,0,0], nodeType := GridPointType.normal),	// Maschine 3
+		(wp := (x := 2693, y := 3395, mode := PointMode.docking), edges := [0,0,1,0], nodeType := GridPointType.normal),	// Maschine 3 Anfahrt
+		(wp := (x := 3298, y := 3395, mode := PointMode.docking), edges := [0,0,1,0], nodeType := GridPointType.normal),	// Maschine 2 Anfahrt
+		(wp := (x := 3398, y := 3395, mode := PointMode.docking), edges := [0,0,0,0], nodeType := GridPointType.normal),	// Maschine 2
+		(wp := (x := 3813, y := 3395, mode := PointMode.docking), edges := [0,0,0,0], nodeType := GridPointType.normal),	// Maschine 1
+		(wp := (x := 3913, y := 3395, mode := PointMode.docking), edges := [0,0,1,0], nodeType := GridPointType.normal),	// Maschine 1 Anfahrt
+		(wp := (x := 4513, y := 3395, mode := PointMode.docking), edges := [0,0,1,0], nodeType := GridPointType.normal),	// Rohteillager 2 Anfahrt
+		(wp := (x := 4613, y := 3395, mode := PointMode.docking), edges := [0,0,0,0], nodeType := GridPointType.normal),	// Rohteillager 2
+		(wp := (x := 5022, y := 3395, mode := PointMode.docking), edges := [0,0,0,0], nodeType := GridPointType.normal),	// Rohteillager 1
+		(wp := (x := 5122, y := 3395, mode := PointMode.docking), edges := [0,0,1,0], nodeType := GridPointType.normal),	// Rohteillager 1 Anfahrt
+		(wp := (x := 5700, y := 3395, mode := PointMode.docking), edges := [0,0,1,0], nodeType := GridPointType.charger),	// Transit
+		(wp := (x := 6196, y := 3395, mode := PointMode.docking), edges := [0,0,1,0], nodeType := GridPointType.charger), 	// Ladestation 1
+		(wp := (x := 6791, y := 3395, mode := PointMode.docking), edges := [0,0,1,0], nodeType := GridPointType.charger), 	// Ladestation 2
+		(wp := (x := xmax, y := 3395, mode := PointMode.notUsed), edges := [0,0,2,0], nodeType := GridPointType.normal),	// Reserve
+	
+		// Reihe 8 Reserve
+		(wp := (x := xmin, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,0], nodeType := GridPointType.normal),	// Reserve
+		(wp := (x := 869,  y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Fertigteillager 2 Anfahrt
+		(wp := (x := 963,  y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Fertigteillager 2
+		(wp := (x := 1380, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Fertigteillager 1
+		(wp := (x := 1480, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Fertigteillager 1 Anfahrt
+		(wp := (x := 2083, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Maschine 4 Anfahrt
+		(wp := (x := 2183, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Maschine 4
+		(wp := (x := 2593, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Maschine 3
+		(wp := (x := 2693, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Maschine 3 Anfahrt
+		(wp := (x := 3298, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Maschine 2 Anfahrt
+		(wp := (x := 3398, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Maschine 2
+		(wp := (x := 3813, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Maschine 1
+		(wp := (x := 3913, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Maschine 1 Anfahrt
+		(wp := (x := 4513, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Rohteillager 2 Anfahrt
+		(wp := (x := 4613, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Rohteillager 2
+		(wp := (x := 5022, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Rohteillager 1
+		(wp := (x := 5122, y := ymax, mode := PointMode.notUsed), edges := [0,2,2,2], nodeType := GridPointType.normal),	// Rohteillager 1 Anfahrt
+		(wp := (x := 5700, y := ymax, mode := PointMode.notUsed), edges := [0,0,2,2], nodeType := GridPointType.normal),	// Transit
+		(wp := (x := 6196, y := ymax, mode := PointMode.notUsed), edges := [0,0,0,2], nodeType := GridPointType.normal),	// Ladestation 1
+		(wp := (x := 6791, y := ymax, mode := PointMode.notUsed), edges := [0,0,0,2], nodeType := GridPointType.normal),	// Ladestation 2
+		(wp := (x := xmax, y := ymax, mode := PointMode.notUsed), edges := [0,0,0,0], nodeType := GridPointType.normal) 	// Reserve
+	
+	];
+
+END_VAR
+
+VAR_GLOBAL
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

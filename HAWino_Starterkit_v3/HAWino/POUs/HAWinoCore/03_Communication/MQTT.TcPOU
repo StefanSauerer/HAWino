@@ -1,0 +1,380 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <POU Name="MQTT" Id="{3b364ef0-24c5-4b55-9f63-1e0f62f8b4d0}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MQTT
+VAR
+	fbIotMqttClient : FB_IotMqttClient;
+    bSetParameter   : BOOL := TRUE;
+    bConnect        : BOOL := TRUE;
+	
+	sTopicPub   	: STRING(255);
+	sTopicPubAlive	: STRING(255);
+    sPayloadPub 	: STRING(255);
+	
+	
+	i, j : INT;
+    fbTimer : TON := (PT := T#1S); // Timer for LifeBit
+	fbTimerPubPos : TON := (PT := T#20MS); // Timer for Publishing Position
+	fbTimerPubSoC : TON := (PT := T#10S); // Timer for Publishing SoC
+	fbTimerPubBat : TON := (PT := T#5S); // Timer for Battery Data
+	
+	(* received message *)
+	
+    bSubscribed    : BOOL;
+    sTopicSub      : STRING(255);
+    sTopicRcv      : STRING(255);
+   
+    sPayloadRcv    : STRING(255);
+    fbMessageQueue : FB_IotMqttMessageQueue;
+    fbMessage      : FB_IotMqttMessage;
+	
+	User : STRING := 'VPJ';
+	Password : STRING := 'R462';
+	IPAdress : STRING := '192.168.0.11';
+	HostPort : UINT := 1883;
+	
+	sPayloadRcv1 : STRING(255);
+    sPayloadRcv2 : STRING(255);
+	
+	sTopicSubJob : STRING(255) ;
+	
+	// **POSITION CODE**
+	sTopicPubToRobotPosition : STRING(255); 
+	bSubscribedPos : STRING(255);
+	sTopicSubPos : STRING(255);
+	robotPositionTopic : STRING;
+	
+	livePosition AT %I*: Position; 	// aktuelle Roboterposition vom Beobachter
+	XKoordinate : STRING;
+	YKoordinate : STRING;
+	Theta : STRING;
+	
+	// Eingangsvariablen für die Funktion LREAL_TO_FMTSTR
+	iPrecision : INT; // Definition Anzahl Nachkommastellen
+	bRound     : BOOL; // String wird gerundet 
+	
+	sPayloadJobNumber : STRING(255);
+	
+	otherRobotNumbers : ARRAY[1..3] OF INT;
+	
+	// Flags, die zeigen, dass wir ein Topic bereits erfolgreich abonniert haben
+	bSubscribedJobNumber : BOOL := FALSE;
+	bSubscribedChargeConn1 : BOOL := FALSE;
+	bSubscribedChargeConn2 : BOOL := FALSE;
+	bSubscribedBumperReset : BOOL := FALSE;
+	bSubscribedGlobalReset : BOOL := FALSE;
+	bSubscribedPartLostReset : BOOL := FALSE;
+	bSubscribedPosX : ARRAY[1..numRobots] OF BOOL := [numRobots(FALSE)];
+	bSubscribedPosY : ARRAY[1..numRobots] OF BOOL := [numRobots(FALSE)];
+	
+	// Reset
+	sTopicSubBumperReset : STRING(255);
+	sTopicSubGlobalReset : STRING(255);
+	sTopicSubPartLostReset : STRING(255);
+	sPayloadBumperReset : STRING(255);
+	sPayloadGlobalReset : STRING(255);
+	sPayloadPartLostReset : STRING(255);
+	
+	bumperReset AT %Q* : BOOL := FALSE;
+	globalReset AT %Q* : BOOL := FALSE;
+	partLostReset AT %Q* : BOOL := FALSE;
+	
+	// Kommunikation mit Ladestation
+	
+	sTopicChargeConn1 : STRING(255) := ('Charging/Stat1');
+	sPayloadChargeConn1: STRING (255);
+	
+	chargeConnect1: STRING (255);
+	chargeStation1Connected AT %Q* : BOOL;
+	chargeStation1Charging AT %Q* : BOOL;
+	chargeStation1Completed AT %Q* : BOOL;
+	
+	sTopicChargeConn2 : STRING(255) := ('Charging/Stat2');
+	sPayloadChargeConn2: STRING (255);
+	
+	chargeConnect2: STRING (255);
+	chargeStation2Connected AT %Q* : BOOL;
+	chargeStation2Charging AT %Q* : BOOL;
+	chargeStation2Completed AT %Q* : BOOL;
+	
+	MyJob : STRING(255);  // Variable zur Speicherung der empfangenen Jobnummer
+	myJobNum AT %Q* : INT := 0;
+	
+	// Statusnachricht von Gewerk 1
+	extraCode AT %I* : mqttExtraCode;	// Enum um nach dem Code einen zusätzlichen Code zu schicken
+	codeToSend AT %I* : INT;
+	messageToSend AT %I* : STRING(255);
+	
+	// Erkennung der steigenden Flanke am Signal sendNow
+	// Statusnachricht von Gewerk 1
+	
+	
+	// Erkennung der steigenden Flanke am Signal sendCode
+	rTrigSendCode : R_TRIG;
+	// Erkennung der steigenden Flanke am Signal sendMessage
+	rTrigSendMessage : R_TRIG;
+	// Erkennung der steigenden Flanke am Signal sendBumperResetAck
+	rTrigSendBumperResetAck : R_TRIG;
+	// Erkennung der steigenden Flanke am Signal sendPartLostResetAck
+	rTrigSendPartLostResetAck : R_TRIG;
+	// Erkennung der steigenden Flanke am Signal sendGlobalResetAck
+	rTrigSendGlobalResetAck : R_TRIG;
+	
+	// Akku Strom und Spannung
+	supplyCurrent_A			AT%I* : REAL; 
+	batteryVoltage_V		AT%I*  : REAL;
+	sTopicPubToPowerMgmt : STRING(255);
+	
+	// Fehlermeldungen
+	errorTextRobot AT %I*: STRING;
+
+	iRobotNumber: INT;
+	
+	sTopicTemp: STRING(255);
+	
+	robotPositions AT %Q* : ARRAY[1..4] OF Position;
+	x: INT;
+	y: INT;
+	e: INT;
+	
+	msgCounter : INT := 0;
+	numMessagesDequeued : INT := 0;
+
+	///////////////////////////MQTT GW4 //////////////////
+	// Publish message
+	initMQTT : BOOL := FALSE;
+
+	sTopicPubToPowerMgmt_SOC : STRING(255);// := CONCAT('Robots/PowerMgmt/SoC_Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number)); 
+	
+	sTopicSubToPowerMgmt : STRING(255);// := CONCAT('PowerMgmt/Robots/Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+	hrErrorOccurred : HRESULT; 			// Enthlt dern letzten augetretenen Fehler
+	
+	// Variables for JSON
+	fbJson			: FB_JsonSaxWriter;
+	fbJsonDataType 	: FB_JsonReadWriteDataType;
+	sJsonDoc       	: STRING(2000); 
+	
+	stMqtt_HAWino_IN	 AT%I*: ST_PwrMgmt_HAWino_In;		// Attention! Don't link TIME Variables, otherwise we get an error!
+	stMqtt_HAWino_Out	 AT%Q*: ST_PwrMgmt_HAWino_Out;
+	
+	SOC_Out : STRING(255);
+	nBatteryTemperature	AT%I*	: INT;
+	
+	bComCheckAnswer	AT%Q*	: BOOL;
+	
+	stMqtt_HAWinoValues	: ST_PwrMgmt_HAWino;
+	
+	// Timer to create a time stamp
+	fbTimerTimestamp : TON := (PT:=T#71582M47S295MS);
+	
+	// Local Vaiables to evaluate and act to input
+	fbComCheckFlag	: RS;
+	
+	
+	sTopicSubToFleetMgmt: STRING;
+	Reset1: BOOL;
+	//Input synccheck. robotdata has been read and can be used.
+	txtReadInit AT %I* : BOOL := FALSE;
+	
+	stMqtt_HAWino_I: INT;
+	fActualBatteryVoltage: INT;
+	FORMAT: INT;
+	myValue: INT;
+	value: INT;
+	
+	gewerk4pubcounter : INT := 0;
+	
+END_VAR
+
+VAR CONSTANT
+	sTopicPubCharge1 : STRING(255) := 'Charging/1/Load';
+	sTopicPubCharge2 : STRING(255) := 'Charging/2/Load';
+	
+	numRobots: INT := 4;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF bSetParameter THEN
+	fbIotMqttClient.sHostName := IPAdress;	// IP-Adresse des Servers
+	fbIotMqttClient.nHostPort := HostPort;
+	//fbIotMqttClient.sClientId := ClientId;
+	fbIotMqttClient.sClientId := CONCAT('Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+	fbIotMqttClient.sTopicPrefix := '';
+	//fbIotMqttClient.nKeepAlive:= 60; 
+	fbIotMqttClient.sUserName:= User;
+	fbIotMqttClient.sUserPassword:= Password;
+	//fbIotMqttClient.stWill:= ; 
+	//fbIotMqttClient.stTLS:= ;
+	fbIotMqttClient.ipMessageQueue := fbMessageQueue;
+
+	bSetParameter := FALSE;
+END_IF
+
+fbIotMqttClient.Execute(bConnect);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////CHARGING-STATION do not delete///////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+fbTimer(IN:=TRUE);
+
+IF fbTimer.Q THEN // ALIVE BIT 
+	fbTimer(IN:=FALSE);
+	sPayloadPub := 'ALIVE';
+	sTopicPubAlive := CONCAT('Robots/PowerMgmt/Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+	sTopicPubAlive := CONCAT (sTopicPubAlive, '/LifeBit');
+	fbIotMqttClient.Publish(
+		sTopic := sTopicPubAlive, 
+		pPayload := ADR(sPayloadPub), nPayloadSize:= LEN2(ADR(sPayloadPub)), 
+		eQoS := TcIotMqttQos.AtMostOnceDelivery, bRetain:= FALSE, bQueue:= FALSE
+	);
+
+END_IF	
+
+// Neuer Timer für Batteriedaten außer SoC // Publish alle 5 Sekunden
+fbTimerPubBat(IN:=TRUE);
+
+IF fbTimerPubBat.Q THEN
+	
+	fbTimerPubBat(IN:=FALSE);
+	
+	sTopicPubToPowerMgmt := CONCAT('Robots/PowerMgmt/Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+	sTopicPubToPowerMgmt := CONCAT(sTopicPubToPowerMgmt, '/Voltage');
+	//sPayloadPub:= REAL_TO_STRING(batteryVoltage_V); // 
+	sPayloadPub := LREAL_TO_FMTSTR( batteryVoltage_V, 3, FALSE );
+	fbIotMqttClient.Publish(sTopic:= sTopicPubToPowerMgmt, 
+							pPayload:= ADR( sPayloadPub), 
+							nPayloadSize:= LEN2(ADR( sPayloadPub)), 
+							eQoS:= TcIotMqttQos.AtMostOnceDelivery, 
+							bRetain:= FALSE, 
+							bQueue:= FALSE);
+							
+	sTopicPubToPowerMgmt := CONCAT('Robots/PowerMgmt/Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+	sTopicPubToPowerMgmt := CONCAT(sTopicPubToPowerMgmt, '/Current');
+	//sPayloadPub:= REAL_TO_STRING(supplyCurrent_A); // Der LREAL Wert soll auf zwei Stellen gerundet werden
+	sPayloadPub := LREAL_TO_FMTSTR( supplyCurrent_A, 3, FALSE );
+	fbIotMqttClient.Publish(sTopic:= sTopicPubToPowerMgmt, 
+							pPayload:= ADR( sPayloadPub), 
+							nPayloadSize:= LEN2(ADR( sPayloadPub)), 
+							eQoS:= TcIotMqttQos.AtMostOnceDelivery, 
+							bRetain:= FALSE, 
+							bQueue:= FALSE);
+							
+							
+	sTopicPubToPowerMgmt := CONCAT('Robots/PowerMgmt/Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+	sTopicPubToPowerMgmt := CONCAT(sTopicPubToPowerMgmt, '/Temperature');
+	//sPayloadPub:= REAL_TO_STRING(supplyCurrent_A); // Der LREAL Wert soll auf zwei Stellen gerundet werden
+	sPayloadPub := LREAL_TO_FMTSTR( stMqtt_HAWinoValues.Output.fBatteryTemperature, 3, TRUE );
+	fbIotMqttClient.Publish(sTopic:= sTopicPubToPowerMgmt, 
+							pPayload:= ADR( sPayloadPub), 
+							nPayloadSize:= LEN2(ADR( sPayloadPub)), 
+							eQoS:= TcIotMqttQos.AtMostOnceDelivery, 
+							bRetain:= FALSE, 
+							bQueue:= FALSE);
+							
+	sTopicPubToPowerMgmt := CONCAT('Robots/PowerMgmt/Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+	sTopicPubToPowerMgmt := CONCAT(sTopicPubToPowerMgmt, '/RunningTime');
+	//sPayloadPub:= REAL_TO_STRING(supplyCurrent_A); // Der LREAL Wert soll auf zwei Stellen gerundet werden
+	sPayloadPub := LREAL_TO_FMTSTR( stMqtt_HAWinoValues.Output.nEstimatedRunningTime, 0, TRUE );
+	fbIotMqttClient.Publish(sTopic:= sTopicPubToPowerMgmt, 
+							pPayload:= ADR( sPayloadPub), 
+							nPayloadSize:= LEN2(ADR( sPayloadPub)), 
+							eQoS:= TcIotMqttQos.AtMostOnceDelivery, 
+							bRetain:= FALSE, 
+							bQueue:= FALSE);
+							
+	sTopicPubToPowerMgmt := CONCAT('Robots/PowerMgmt/Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+	sTopicPubToPowerMgmt := CONCAT(sTopicPubToPowerMgmt, '/ChargingTime');
+	sPayloadPub := LREAL_TO_FMTSTR( stMqtt_HAWinoValues.Output.nEstimatedChargingTime, 0, FALSE );
+	fbIotMqttClient.Publish(sTopic:= sTopicPubToPowerMgmt, 
+							pPayload:= ADR( sPayloadPub), 
+							nPayloadSize:= LEN2(ADR( sPayloadPub)), 
+							eQoS:= TcIotMqttQos.AtMostOnceDelivery, 
+							bRetain:= FALSE, 
+							bQueue:= FALSE);
+							
+	sTopicPubToPowerMgmt := CONCAT('Robots/PowerMgmt/Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+	sTopicPubToPowerMgmt := CONCAT(sTopicPubToPowerMgmt, '/CurrentDetected');
+	sPayloadPub := BOOL_TO_STRING(supplyCurrent_A < 1.65 and supplyCurrent_A > 0);
+	fbIotMqttClient.Publish(sTopic:= sTopicPubToPowerMgmt, 
+							pPayload:= ADR( sPayloadPub), 
+							nPayloadSize:= LEN2(ADR( sPayloadPub)), 
+							eQoS:= TcIotMqttQos.AtMostOnceDelivery, 
+							bRetain:= FALSE, 
+							bQueue:= FALSE);
+END_IF
+
+fbTimerPubSoC(IN:=TRUE);
+ // Publish SoC alle 10 Sekunden
+ 
+IF fbTimerPubSoC.Q THEN
+	
+	fbTimerPubSoC(IN:=FALSE);
+							
+	sTopicPubToPowerMgmt := CONCAT('Robots/PowerMgmt/Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+	sTopicPubToPowerMgmt := CONCAT(sTopicPubToPowerMgmt, '/SoC');
+	sPayloadPub := LREAL_TO_FMTSTR( stMqtt_HAWinoValues.Output.fSoC, 2, FALSE );
+	fbIotMqttClient.Publish(sTopic:= sTopicPubToPowerMgmt, 
+							pPayload:= ADR( sPayloadPub), 
+							nPayloadSize:= LEN2(ADR( sPayloadPub)), 
+							eQoS:= TcIotMqttQos.AtMostOnceDelivery, 
+							bRetain:= FALSE, 
+							bQueue:= FALSE);
+
+END_IF
+
+
+
+
+
+IF txtReadInit THEN
+	IF NOT initMQTT THEN
+		sTopicPubToPowerMgmt  := CONCAT('Robots/PowerMgmt/Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+		sTopicSubToPowerMgmt  := CONCAT('PowerMgmt/Robots/Robot_', INT_TO_STRING(.Var_HAWIno.Robot_Number));
+		initMQTT:= TRUE;
+	END_IF
+	
+	stMqtt_HAWinoValues.Output.nRobotNumber := .Var_HAWIno.Robot_Number;			// Anpassen für jeden HAWino
+	
+	fbTimerTimestamp(In:= NOT fbTimerTimestamp.Q, ET=>stMqtt_HAWinoValues.Output.tTimestamp);
+	//SOC-Berechnung
+	stMqtt_HAWinoValues.Output.fSoC := stMqtt_HAWino_In.fSoC; //Ausgabe direkt auf MQTT unter PowerMgmt->SoC_Robot_(no)
+
+										
+	stMqtt_HAWinoValues.Output.fActualBatteryCurrent := stMqtt_HAWino_In.fActualBatteryCurrent;
+	stMqtt_HAWinoValues.Output.fActualBatteryVoltage := stMqtt_HAWino_In.fActualBatteryVoltage;
+
+	// Skalierung der Temperaturwerte des Akkus
+	stMqtt_HAWinoValues.Output.fBatteryTemperature := FKT_Scale(Rohwert := nBatteryTemperature, 
+																	X1 := -500,
+																	X2 := 1500, 
+																	Y1 := -50,
+																	Y2 := 150);
+																	
+	// Ausgabe der erwarteten Laufzeit des Roboters
+	stMqtt_HAWinoValues.Output.nEstimatedRunningTime	:= LIMIT(0,stMqtt_HAWino_In.nEstimatedRunningTime,172800);		// Max. 48 Stunden sollen dargestellt werden
+	stMqtt_HAWinoValues.Output.nEstimatedChargingTime	:= LIMIT(0,stMqtt_HAWino_In.nEstimatedChargingTime,172800);		// Max. 48 Stunden sollen dargestellt werden
+		
+	// Antworten auf den Kommunikationstest und des Ladetests
+	stMqtt_HAWinoValues.Output.bCheckCurrentDetected := stMqtt_HAWino_In.bCheckCurrentDetected;
+	stMqtt_HAWinoValues.Output.bComCheckAnswer := stMqtt_HAWino_In.bComCheckAnswer;
+
+					
+END_IF
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="MQTT">
+      <LineId Id="6666" Count="16" />
+      <LineId Id="6693" Count="0" />
+      <LineId Id="6856" Count="3" />
+      <LineId Id="6988" Count="76" />
+      <LineId Id="7355" Count="0" />
+      <LineId Id="7357" Count="7" />
+      <LineId Id="7356" Count="0" />
+      <LineId Id="7065" Count="20" />
+      <LineId Id="7126" Count="38" />
+      <LineId Id="5147" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

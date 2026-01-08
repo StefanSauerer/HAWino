@@ -78,10 +78,14 @@ VAR
 	rising1 : R_TRIG;
 	rising2 : R_TRIG;
 	
-	X_targetSpeed: INT; 
-	Y_targetSpeed: INT; 
-	Tehta_TargetSpeed : INT; 
-	speedThreshold: LREAL := 0.1; //Annäherung nur aktiv bei Abweichung > threshold
+	W_X_targetSpeed: LREAL; 
+	W_Y_targetSpeed: LREAL; 
+	W_Theta_targetSpeed : LREAL; 
+	R_X_targetSpeed: LREAL;
+	R_Y_targetSpeed: LREAL;
+	R_Theta_targetSpeed: LREAL;
+	
+	speedThreshold: LREAL := 0.01; //Annäherung nur aktiv bei Abweichung > threshold
 	AccelerationRate: LREAL := 5; //Höhere Werte = höhere Beschleunigung
 	
 	//X_smoothnes : M_smothesAnnaehrn; 
@@ -95,100 +99,98 @@ VAR
 	// 1 = Bewegung x-Y-Achse (~~~~)
 	// 2 = Bewegung x-Y-Achse + Rotatiom (~s~s~s)
 	
+	errorX: LREAL;
+	targetPosX: LREAL;
+	actualPosX: LREAL;
+	errorY: LREAL;
+	targetPosY: LREAL;
+	actualPosY: LREAL;
+	errorTheta: LREAL;
+	targetPosTheta: LREAL;
+	actualPosTheta: LREAL;
+	diffConst: REAL;	
+	IntegralX: LREAL;	
+	IntegralY: LREAL;
+	IntegralTheta: LREAL;
+	PosTest: LREAL; 	
+
+	KPX: REAL := 0.75;
+	KPY: REAL:= 0.5;
+	KPTheta: REAL := 0.3;
+	KITheta: REAL := 0;
+	KIY: REAL := 0;
+	KIX: REAL := 0;	
 	
+	Threshold_NewPosition: LREAL := 50;
+	PosArray : ARRAY[0..21] OF LREAL := [5500,3500,5500,2000,4000,2000,4000,3500,4000,2000,3000,2000,3000,3500,3000,2000,1500,2000,1500,3500,5500,3500];
+	
+	PositionNumber: INT := 0;
 END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[//Umrechung der Klemmenwerte
 ACT_Drehzahlerfassung();	
-//Regelung und setzen der Motordrehzahl
-timer(IN := TRUE, PT := T#14S);  //10 Sek Timer
-timer_2(IN := TRUE, PT := T#3S);  //10 Sek Timer
+// Erste Zielposition
 
-IF timer.Q THEN    
-    toggle := NOT toggle;
-    timer(IN := FALSE);  //Timer zurücksetzen
-    timer(IN := TRUE);   //Timer neu starten
+targetPosX := PosArray[PositionNumber];
+targetPosY := PosArray[PositionNumber+1];
+targetPosTheta := 0;
+
+// Aktuelle Position des Roboters
+actualPosX := Camera.cameraData.x2;
+actualPosY := Camera.cameraData.y2;
+actualPosTheta := Camera.cameraData.theta2;
+
+// Testen ob die erste Zielpositon schon erreicht wurde und setzt sie auf die nächste, falls erreicht
+IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY - targetPosY) < Threshold_NewPosition) ) THEN
+	PositionNumber := PositionNumber+2;
+	targetPosX := PosArray[PositionNumber];
+	targetPosY := PosArray[PositionNumber+1];
 END_IF
 
-IF timer_2.Q THEN    
-    toggle2 := NOT toggle2;
-    timer_2(IN := FALSE);  //Timer zurücksetzen
-    timer_2(IN := TRUE);   //Timer neu starten
-END_IF
+enableMotorControl := TRUE;
+errorX := targetPosX - actualPosX;
+errorY := targetPosY - actualPosY;
+errorTheta := -(targetPosTheta - actualPosTheta);
 
+//Integratoren der Motoren
+IntegralX := IntegralX + (errorX * diffConst);
+IntegralY := IntegralY + (errorY * diffConst);
+IntegralTheta := IntegralTheta + (errorTheta * diffConst);
+//Zusammenführung der P und I Anteile der Motoren
+W_X_targetSpeed := (errorX *KPX) + (KIX *IntegralX);
+W_Y_targetSpeed := (errorY *KPY) + (KIY *IntegralY);
+W_Theta_targetSpeed := (errorTheta *KPTheta) + (KITheta *IntegralTheta);
 
-//Umdrehen der Sollgeschwindigkeit x_Richtung
-IF toggle = TRUE  THEN
-		enableMotorControl :=TRUE;
-		X_TargetSpeed := 100;  	
-ELSE
-		enableMotorControl :=TRUE;
-		X_TargetSpeed := -100;
-END_IF
-
-
-//Umdrehen der Sollgeschwindigkeit y_Richtung
-IF toggle2 = TRUE  THEN
-		enableMotorControl :=TRUE;
-	    Y_targetSpeed:= 200;	
-        Tehta_TargetSpeed := 2;   	
-ELSE
-		enableMotorControl :=TRUE;
-		Y_targetSpeed:= -200;	
-	    Tehta_TargetSpeed := -2;   		
-END_IF
-
-
-
-(* METHODEN VERSUCH
- M_smothesAnnaehrn(targetSpeed := TargetSpeed, v_ToMotors => vXCartesianToMotors); 
-vYCartesianToMotors := M_smothesAnnaehrn(Y_targetSpeed); 
-vThetaCartesianToMotors := M_smothesAnnaehrn(Tehta_TargetSpeed); 
-*)
-
+// Umrechnung von Welt in Motorcoordinaten
+R_X_targetSpeed := W_X_targetSpeed * COS(actualPosTheta) - W_Y_targetSpeed * SIN(actualPosTheta);
+R_Y_targetSpeed := W_Y_targetSpeed * COS(actualPosTheta) + W_X_targetSpeed * SIN(actualPosTheta);
+R_Theta_targetSpeed := W_Theta_targetSpeed;
 
  //Smoothes Annähern an den Sollwert, anpassbar über integrationRate
 // x Werte 
-IF ABS(vXCartesianToMotors - X_targetSpeed) > speedThreshold THEN   
-    IF vXCartesianToMotors < X_targetSpeed THEN
+IF ABS(vXCartesianToMotors - R_X_targetSpeed) > speedThreshold THEN   
+    IF vXCartesianToMotors < R_X_targetSpeed THEN
         vXCartesianToMotors := vXCartesianToMotors + AccelerationRate * 0.01;  //Beschleunigung vorwärts
     ELSE
         vXCartesianToMotors := vXCartesianToMotors - AccelerationRate * 0.01;  //Beschleunigung rückwärts
     END_IF
 END_IF
 // y Werte 
-IF ABS(vYCartesianToMotors - Y_targetSpeed) > speedThreshold THEN   
-    IF vYCartesianToMotors < Y_targetSpeed THEN
+IF ABS(vYCartesianToMotors - R_Y_targetSpeed) > speedThreshold THEN   
+    IF vYCartesianToMotors < R_Y_targetSpeed THEN
         vYCartesianToMotors := vYCartesianToMotors + AccelerationRate * 0.01;  //Beschleunigung vorwärts
     ELSE
         vYCartesianToMotors := vYCartesianToMotors - AccelerationRate * 0.01;  //Beschleunigung rückwärts
     END_IF
 END_IF
-// Tetha Werte 
-IF ABS(vThetaCartesianToMotors - Tehta_targetSpeed) > speedThreshold THEN   
-    IF vThetaCartesianToMotors < Tehta_targetSpeed THEN
+// Theta Werte 
+IF ABS(vThetaCartesianToMotors - R_Theta_targetSpeed) > speedThreshold THEN   
+    IF vThetaCartesianToMotors < R_Theta_targetSpeed THEN
         vThetaCartesianToMotors := vThetaCartesianToMotors + AccelerationRate * 0.01;  //Beschleunigung vorwärts
     ELSE
-        vThetaCartesianToMotors := vThetaCartesianToMotors - AccelerationRate * 0.01;  //Beschleunigung rückwärts
+       vThetaCartesianToMotors := vThetaCartesianToMotors - AccelerationRate * 0.01;  //Beschleunigung rückwärts
     END_IF
 END_IF
-
-
-CASE TestCase OF
-	
-    0:		// 0 = Bewegung x-Achse (--x)
-					vYCartesianToMotors := 0;
-					vThetaCartesianToMotors := 0;
-		
-    1:		// 1 = Bewegung x-Y-Achse (~~~~)
-        			vThetaCartesianToMotors := 0;
-				
-    2:		// 2 = Bewegung x-Y-Achse + Rotatiom (~s~s~s)
-        // LOL 
-		
-END_CASE;
-
-
 FB_Drehzahlregler(targetVelX:= vXCartesianToMotors,
 					targetVelY := vYCartesianToMotors, 
 					tragetVelTheta:= vThetaCartesianToMotors,

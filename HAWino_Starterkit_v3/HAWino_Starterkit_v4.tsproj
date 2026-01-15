@@ -999,7 +999,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{FE1C71CB-BBFC-814F-1646-82ACF714B885}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{21B64A3A-6140-D762-FDB0-70B4CCABD6B9}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1131,15 +1131,6 @@
 							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
 						</Var>
 						<Var>
-							<Name>MQTT.messageToSend</Name>
-							<Type>STRING(255)</Type>
-						</Var>
-						<Var>
-							<Name>MQTT.errorTextRobot</Name>
-							<Comment><![CDATA[ Fehlermeldungen]]></Comment>
-							<Type>STRING(80)</Type>
-						</Var>
-						<Var>
 							<Name>MQTT.extraCode</Name>
 							<Comment><![CDATA[ Enum um nach dem Code einen zusätzlichen Code zu schicken]]></Comment>
 							<Type GUID="{1C690493-9BB8-9FAA-04D7-D0781D5E86FD}">mqttExtraCode</Type>
@@ -1147,6 +1138,15 @@
 						<Var>
 							<Name>MQTT.codeToSend</Name>
 							<Type>INT</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.messageToSend</Name>
+							<Type>STRING(255)</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.errorTextRobot</Name>
+							<Comment><![CDATA[ Fehlermeldungen]]></Comment>
+							<Type>STRING(80)</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="2" ContextId="2" AreaNo="33">

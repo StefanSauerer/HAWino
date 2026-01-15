@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <POU Name="FB_Positionsregler" Id="{5eaf5f69-503a-4e20-898f-d897551e6b9b}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Positionsregler
+VAR_INPUT
+	targetPosX 		:	LREAL;
+	targetPosY 		:	LREAL;
+	targetPosTheta 	:	LREAL;
+	
+	actualPosX		: 	LREAL;
+	actualPosY		: 	LREAL;
+	actualPosTheta	: 	LREAL;
+END_VAR
+VAR_OUTPUT
+	vXCartesianToMotors		: LREAL :=0;
+	vYCartesianToMotors		: LREAL :=0;
+	vThetaCartesianToMotors	: LREAL :=0;
+END_VAR
+VAR
+	// Positionsfehler
+	errorX		: 	LREAL;
+	errorY		: 	LREAL;
+	errorTheta	: 	LREAL;
+	
+	// Geschwindigkeit in Weltkoordinaten 
+	W_X_targetSpeed		: LREAL; 
+	W_Y_targetSpeed		: LREAL; 
+	W_Theta_targetSpeed : LREAL;
+	
+	// Geschwindigkeit in Roboterkoordinaten
+	R_X_targetSpeed		: LREAL;
+	R_Y_targetSpeed		: LREAL;
+	R_Theta_targetSpeed	: LREAL;
+	
+	// Reglerparameter
+	KPX		: REAL 	:= 0.75;
+	KPY		: REAL	:= 0.5;
+	KPTheta	: REAL 	:= 0.3;
+	
+	speedThreshold	: LREAL := 0.01; //Annäherung nur aktiv bei Abweichung > threshold
+	AccelerationRate: LREAL := 5; 	//Höhere Werte = höhere Beschleunigung
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Berechnen der Regledifferenz
+errorX 		:= 	targetPosX - actualPosX;
+errorY 		:= 	targetPosY - actualPosY;
+errorTheta 	:= -(targetPosTheta - actualPosTheta);
+
+// Berechnung der Stellgröße
+W_X_targetSpeed := (errorX *KPX);
+W_Y_targetSpeed := (errorY *KPY);
+W_Theta_targetSpeed := (errorTheta *KPTheta);
+
+// Umrechnung von Welt in Motorcoordinaten
+R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPosTheta) - W_Y_targetSpeed * SIN(actualPosTheta);
+R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPosTheta) + W_X_targetSpeed * SIN(actualPosTheta);
+R_Theta_targetSpeed := W_Theta_targetSpeed;
+
+ACT_LimitACC();]]></ST>
+    </Implementation>
+    <Action Name="ACT_LimitACC" Id="{e1d0b9f1-bfb7-427c-a749-b6c6114fd6e7}">
+      <Implementation>
+        <ST><![CDATA[//Smoothes Annähern an den Sollwert, anpassbar über integrationRate
+// x Werte 
+IF ABS(vXCartesianToMotors - R_X_targetSpeed) > speedThreshold THEN   
+    IF vXCartesianToMotors < R_X_targetSpeed THEN
+        vXCartesianToMotors := vXCartesianToMotors + AccelerationRate * 0.01;  //Beschleunigung vorwärts
+    ELSE
+        vXCartesianToMotors := vXCartesianToMotors - AccelerationRate * 0.01;  //Beschleunigung rückwärts
+    END_IF
+END_IF
+// y Werte 
+IF ABS(vYCartesianToMotors - R_Y_targetSpeed) > speedThreshold THEN   
+    IF vYCartesianToMotors < R_Y_targetSpeed THEN
+        vYCartesianToMotors := vYCartesianToMotors + AccelerationRate * 0.01;  //Beschleunigung vorwärts
+    ELSE
+        vYCartesianToMotors := vYCartesianToMotors - AccelerationRate * 0.01;  //Beschleunigung rückwärts
+    END_IF
+END_IF
+// Theta Werte 
+IF ABS(vThetaCartesianToMotors - R_Theta_targetSpeed) > speedThreshold THEN   
+    IF vThetaCartesianToMotors < R_Theta_targetSpeed THEN
+        vThetaCartesianToMotors := vThetaCartesianToMotors + AccelerationRate * 0.01;  //Beschleunigung vorwärts
+    ELSE
+       vThetaCartesianToMotors := vThetaCartesianToMotors - AccelerationRate * 0.01;  //Beschleunigung rückwärts
+    END_IF
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+  </POU>
+</TcPlcObject>

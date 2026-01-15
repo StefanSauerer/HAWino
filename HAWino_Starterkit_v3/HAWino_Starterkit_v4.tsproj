@@ -111,21 +111,21 @@
 			</SubItem>
 		</DataType>
 		<DataType>
-			<Name GUID="{E653CDAE-1A31-0819-E492-0347803C1564}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..9] OF REAL</Name>
-			<BitSize>288</BitSize>
-			<BaseType GUID="{18071995-0000-0000-0000-00000000000D}">REAL</BaseType>
-			<ArrayInfo>
-				<LBound>1</LBound>
-				<Elements>9</Elements>
-			</ArrayInfo>
-		</DataType>
-		<DataType>
 			<Name GUID="{26928B13-6C0A-8B65-AF30-A387B13077E9}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..8] OF Position</Name>
 			<BitSize>2048</BitSize>
 			<BaseType GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</BaseType>
 			<ArrayInfo>
 				<LBound>1</LBound>
 				<Elements>8</Elements>
+			</ArrayInfo>
+		</DataType>
+		<DataType>
+			<Name GUID="{E653CDAE-1A31-0819-E492-0347803C1564}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..9] OF REAL</Name>
+			<BitSize>288</BitSize>
+			<BaseType GUID="{18071995-0000-0000-0000-00000000000D}">REAL</BaseType>
+			<ArrayInfo>
+				<LBound>1</LBound>
+				<Elements>9</Elements>
 			</ArrayInfo>
 		</DataType>
 		<DataType>
@@ -999,7 +999,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{0E526E1A-772B-0816-11FA-BABC7B8BE54A}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{FE1C71CB-BBFC-814F-1646-82ACF714B885}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1131,15 +1131,6 @@
 							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
 						</Var>
 						<Var>
-							<Name>MQTT.extraCode</Name>
-							<Comment><![CDATA[ Enum um nach dem Code einen zusätzlichen Code zu schicken]]></Comment>
-							<Type GUID="{1C690493-9BB8-9FAA-04D7-D0781D5E86FD}">mqttExtraCode</Type>
-						</Var>
-						<Var>
-							<Name>MQTT.codeToSend</Name>
-							<Type>INT</Type>
-						</Var>
-						<Var>
 							<Name>MQTT.messageToSend</Name>
 							<Type>STRING(255)</Type>
 						</Var>
@@ -1147,6 +1138,15 @@
 							<Name>MQTT.errorTextRobot</Name>
 							<Comment><![CDATA[ Fehlermeldungen]]></Comment>
 							<Type>STRING(80)</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.extraCode</Name>
+							<Comment><![CDATA[ Enum um nach dem Code einen zusätzlichen Code zu schicken]]></Comment>
+							<Type GUID="{1C690493-9BB8-9FAA-04D7-D0781D5E86FD}">mqttExtraCode</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.codeToSend</Name>
+							<Type>INT</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="2" ContextId="2" AreaNo="33">
@@ -1157,18 +1157,14 @@
 							<Type>BOOL</Type>
 						</Var>
 						<Var>
-							<Name>HAWino.cameraPosition</Name>
-							<Comment><![CDATA[ Aktuelle roboterspezifische Kameraposition]]></Comment>
-							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
-						</Var>
-						<Var>
 							<Name>HAWino.cameraReceivedPakets</Name>
 							<Comment><![CDATA[ Counter für erhaltene Kamerapakete]]></Comment>
 							<Type>UINT</Type>
 						</Var>
 						<Var>
-							<Name>IrDistanceSensors.distance_mm</Name>
-							<Type GUID="{E653CDAE-1A31-0819-E492-0347803C1564}">ARRAY [1..9] OF REAL</Type>
+							<Name>HAWino.cameraPosition</Name>
+							<Comment><![CDATA[ Aktuelle roboterspezifische Kameraposition]]></Comment>
+							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
 						</Var>
 						<Var>
 							<Name>Camera.cameraData.robotPosition</Name>
@@ -1185,6 +1181,10 @@
 						<Var>
 							<Name>Camera.cameraData.SS</Name>
 							<Type>LREAL</Type>
+						</Var>
+						<Var>
+							<Name>IrDistanceSensors.distance_mm</Name>
+							<Type GUID="{E653CDAE-1A31-0819-E492-0347803C1564}">ARRAY [1..9] OF REAL</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="1" ContextId="2" AreaNo="32">
@@ -4362,12 +4362,12 @@ Bit1: Value smaller than Limit2]]></Comment>
 		</SymbolWatch>
 	</Project>
 	<Mappings>
-		<MappingInfo Identifier="{00000000-2002-0850-0020-500800205008}" Id="#x02030080"/>
+		<MappingInfo Identifier="{00000000-2002-0850-0020-500800205008}" Id="#x02030050"/>
 		<MappingInfo Identifier="{00000000-2004-0850-0020-500810000403}" Id="#x02030010"/>
-		<MappingInfo Identifier="{08502001-0010-0304-0020-500810000403}" Id="#x02030030" Watchdog="00000000000000000000000000000000"/>
-		<MappingInfo Identifier="{08502002-2001-0850-0220-500803205008}" Id="#x02030040" Watchdog="04000000080000000400000004000000"/>
-		<MappingInfo Identifier="{08502002-0010-0304-0020-500810000403}" Id="#x02030020" Watchdog="04000000780000000400000004000000"/>
-		<MappingInfo Identifier="{08502003-0010-0304-0020-500810000403}" Id="#x02030070" Watchdog="00000000000000000000000000000000"/>
+		<MappingInfo Identifier="{08502001-0010-0304-0020-500810000403}" Id="#x02030040" Watchdog="00000000000000000000000000000000"/>
+		<MappingInfo Identifier="{08502002-2001-0850-0220-500803205008}" Id="#x02030060" Watchdog="04000000080000000400000004000000"/>
+		<MappingInfo Identifier="{08502002-0010-0304-0020-500810000403}" Id="#x02030030" Watchdog="00000000000000000000000000000000"/>
+		<MappingInfo Identifier="{08502003-0010-0304-0020-500810000403}" Id="#x02030020" Watchdog="00000000000000000000000000000000"/>
 		<OwnerA Name="TIPC^HAWino^HAWino Instance">
 			<OwnerB Name="TIID^Device 1 (EtherCAT)^Term 1 (EK1200)^Analoge Eingänge A6 (EL3068)">
 				<Link VarA="PlcTask Inputs^IrDistanceSensors.distanceRaw[1]" VarB="AI Standard Channel 1^Value"/>

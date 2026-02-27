@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36623.8 d17.14
+# TcXaeShell Solution File, Format Version 11.00
+VisualStudioVersion = 17.14.36623.8
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{B1E792BE-AA5F-4E3C-8C82-674BF9C0715B}") = "HAWino_Starterkit_v4", "HAWino_Starterkit_v3\HAWino_Starterkit_v4.tsproj", "{953E7D24-8971-4ED8-AECF-7CA52AD733DF}"
 EndProject

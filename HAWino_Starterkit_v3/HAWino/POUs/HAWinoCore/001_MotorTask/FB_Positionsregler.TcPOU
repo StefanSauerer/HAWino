@@ -95,7 +95,7 @@ errorX 		:= 	targetPosX - actualPosX;
 errorY 		:= 	targetPosY - actualPosY;
 errorTheta 	:= -(targetPosTheta - actualPosTheta);
 
-// ACT_GetFuzzyParam();
+//ACT_GetFuzzyParam();
 
 // Berechnung der Stellgröße
 W_X_targetSpeed := (errorX * KPX);

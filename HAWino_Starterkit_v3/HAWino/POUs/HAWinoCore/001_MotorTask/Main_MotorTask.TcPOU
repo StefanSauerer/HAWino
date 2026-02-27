@@ -96,8 +96,22 @@ VAR
 	
 	// Positionsliste
 	Threshold_NewPosition: LREAL := 50;
-	PosArray : ARRAY[0..21] OF LREAL := [5500,3500,5500,2000,4000,2000,4000,3500,4000,2000,3000,2000,3000,3500,3000,2000,1500,2000,1500,3500,5500,3500];
-	PositionNumber: INT := 0;
+// 	PosArray : ARRAY[0..21] OF LREAL := [5500,3500,5500,2000,4000,2000,4000,3500,4000,2000,3000,2000,3000,3500,3000,2000,1500,2000,1500,3500,5500,3500];
+	PosArray : ARRAY[0..21] OF LREAL := [5500,2000,3000,2000,5500,2000,3000,2000,5500,2000];
+	ThetaArray : ARRAY[0..10] OF LREAL := [3.1415/2, 3.1415/2, 3.1415, -3.1415/2, 3.1415/2, 3.1415, -3.1415/2, 3.1415/2, 3.1415, 3.1415/2, -3.1415];
+	PositionNumber: INT := 0;	
+	
+	// Für  Latenzmessung
+    CamVelX              : LREAL;
+    CamVelY              : LREAL;
+    CamVelTheta          : LREAL;
+	dt_s                : LREAL  := 0.020;     // Zykluszeit in Sekunden 20ms 
+	
+	// --- interne Speicher für letzte Werte ---
+    _CamPosX_last        : LREAL := 0.0;
+    _CamPosY_last        : LREAL := 0.0;
+    _CamPosTheta_last    : LREAL := 0.0;
+	
 END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[//Umrechung der Klemmenwerte
@@ -113,11 +127,14 @@ actualPosX 		:= Camera.cameraData.x2;
 actualPosY 		:= Camera.cameraData.y2;
 actualPosTheta 	:= Camera.cameraData.theta2;
 
+
+
 // Prüfen ob die erste Zielpositon schon erreicht wurde und setzt sie auf die nächste, falls erreicht
 IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY - targetPosY) < Threshold_NewPosition) ) THEN
 	PositionNumber 	:= PositionNumber+2;		// um zwei ehöhen, da abwechselnd x und y
 	targetPosX 		:= PosArray[PositionNumber];
 	targetPosY 		:= PosArray[PositionNumber+1];
+	targetPosTheta 	:= ThetaArray[PositionNumber/2];
 END_IF
 
 enableMotorControl := TRUE;
@@ -145,6 +162,26 @@ FB_Drehzahlregler(targetVelX:= vXCartesianToMotors,
 					velocityToMotor1=> velocityToMotor1, 
 					velocityToMotor2 => velocityToMotor2,
 					velocityToMotor3 => velocityToMotor3);
+					
+					
+// Latenzmessung // neues Bild der Kamera alle 20 ms 
+
+IF actualPosX <> _CamPosX_last THEN
+		CamVelX     := (actualPosX     - _CamPosX_last)     / dt_s;
+END_IF;
+
+IF actualPosY <> _CamPosY_last THEN
+        CamVelY     := (actualPosY     - _CamPosY_last)     / dt_s;
+END_IF;
+
+IF actualPosTheta <> _CamPosTheta_last THEN
+        CamVelTheta := (actualPosTheta - _CamPosTheta_last) / dt_s;
+END_IF;
+
+		// 6) “letzten” Wert updaten
+		_CamPosX_last     := actualPosX;
+		_CamPosY_last     := actualPosY;
+		_CamPosTheta_last := actualPosTheta;
 				
 				]]></ST>
     </Implementation>
@@ -160,6 +197,11 @@ Motor3current := UINT_TO_INT(currentfromMotor3);
 velWheel1 := -(UINT_TO_INT(n1fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);
 velWheel2 := -(UINT_TO_INT(n2fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);
 velWheel3 := -(UINT_TO_INT(n3fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="ACT_Logdata" Id="{f4d2d3bf-0b76-4bf2-aadb-673d30c670b3}">
+      <Implementation>
+        <ST><![CDATA[]]></ST>
       </Implementation>
     </Action>
   </POU>

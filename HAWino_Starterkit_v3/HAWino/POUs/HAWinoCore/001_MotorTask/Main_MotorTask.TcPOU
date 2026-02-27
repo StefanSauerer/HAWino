@@ -66,6 +66,8 @@ VAR
 	cycletime 				: LREAL	:= 0.00033333; 	//Cycletime des Motortasks
 	enableMotorControl		: BOOL;
 	
+	RobotIndex : INT := -1;
+	
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Instanzierung der FBs
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -108,10 +110,31 @@ targetPosX 		:= PosArray[PositionNumber];
 targetPosY 		:= PosArray[PositionNumber+1];	//Zweites Element ist der y-Wert
 targetPosTheta 	:= 0;
 
-// Aktuelle Position des Roboters
-actualPosX 		:= Camera.cameraData.x2;
-actualPosY 		:= Camera.cameraData.y2;
-actualPosTheta 	:= Camera.cameraData.theta2;
+RobotIndex := Var_HAWIno.Robot_Number;
+IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
+	// Falls außerhalb Bereich: Default auf 1 setzen 
+	RobotIndex := -1;
+END_IF;
+
+CASE RobotIndex OF
+	1:
+		actualPosX 		:= Camera.cameraData.x1;
+		actualPosY 		:= Camera.cameraData.y1;
+		actualPosTheta 	:= Camera.cameraData.theta1;
+	2:
+		actualPosX 		:= Camera.cameraData.x2;
+		actualPosY 		:= Camera.cameraData.y2;
+		actualPosTheta 	:= Camera.cameraData.theta2;
+	3:
+		actualPosX 		:= Camera.cameraData.x3;
+		actualPosY 		:= Camera.cameraData.y3;
+		actualPosTheta 	:= Camera.cameraData.theta3;
+	4:
+		actualPosX 		:= Camera.cameraData.x4;
+		actualPosY 		:= Camera.cameraData.y4;
+		actualPosTheta 	:= Camera.cameraData.theta4;
+END_CASE
+
 
 // Prüfen ob die erste Zielpositon schon erreicht wurde und setzt sie auf die nächste, falls erreicht
 IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY - targetPosY) < Threshold_NewPosition) ) THEN

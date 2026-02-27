@@ -999,7 +999,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{21B64A3A-6140-D762-FDB0-70B4CCABD6B9}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{22781607-C77C-5A7E-D5FE-96CD6DB11FF5}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1085,6 +1085,14 @@
 					<Vars VarGrpType="1" ContextId="3" AreaNo="48">
 						<Name>SOCTask Inputs</Name>
 						<Var>
+							<Name>Gripper.slider</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>Gripper.partGripped</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
 							<Name>Main_MotorTask.sliderGripper</Name>
 							<Type>BOOL</Type>
 						</Var>
@@ -1101,14 +1109,6 @@
 						<Var>
 							<Name>Main_MotorTask.wheelEncoderLocalVtheta</Name>
 							<Type>LREAL</Type>
-						</Var>
-						<Var>
-							<Name>Gripper.slider</Name>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
-							<Name>Gripper.partGripped</Name>
-							<Type>BOOL</Type>
 						</Var>
 						<Var>
 							<Name>PowerManager.shutdownButton</Name>

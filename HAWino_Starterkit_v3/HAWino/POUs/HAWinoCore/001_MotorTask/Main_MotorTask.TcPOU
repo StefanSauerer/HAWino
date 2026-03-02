@@ -100,7 +100,30 @@ VAR
 	Threshold_NewPosition: LREAL := 50;
 	PosArray : ARRAY[0..21] OF LREAL := [5500,3500,5500,2000,4000,2000,4000,3500,4000,2000,3000,2000,3000,3500,3000,2000,1500,2000,1500,3500,5500,3500];
 	PositionNumber: INT := 0;
-END_VAR]]></Declaration>
+	KalmanStateX: LREAL;
+	KalmanStateY: LREAL;
+	KalmanStateYaw: LREAL;
+	wheelArray : ARRAY[1..3] OF LREAL;
+	
+	// --- Ringpuffer für Kameramesswerte ---
+
+	// Inline-struct als Array-Element
+	//RING_SIZE : INT := 16;
+	RingBuffer : ARRAY[0..16-1] OF EKF_Data;
+	
+	RingHead : INT := 0; // Index für nächste Schreibposition
+	RingCount : INT := 0; // Anzahl gültiger Einträge (<= RING_SIZE)
+	SampleCounter : ULINT := 0; // hochzählender Zähler für sampleId
+	
+	// Vorheriger Kamerawert zur Änderungsdetektion
+	prevCamX : LREAL := 0.0;
+	prevCamY : LREAL := 0.0;
+	prevCamTheta : LREAL := 0.0;
+	
+	// Schwellwert für Änderungsdetektion (klein)
+	camChangeEpsilon : LREAL := 10; // später wahrcsheinlich noch kleiner setzen
+END_VAR
+]]></Declaration>
     <Implementation>
       <ST><![CDATA[//Umrechung der Klemmenwerte
 ACT_Drehzahlerfassung();
@@ -135,6 +158,46 @@ CASE RobotIndex OF
 		actualPosTheta 	:= Camera.cameraData.theta4;
 END_CASE
 
+// Abspeichern der Kameraposition im Ringpuffer, falls neue Kameradatan ankommen
+// --- Ringpuffer: neue Kameramessung erkennen und speichern ---
+// Erkennung durch Vergleich mit dem letzten gespeicherten Wert (pro Task-Durchlauf)
+SampleCounter := SampleCounter + 1;
+IF (ABS(actualPosX - prevCamX) > camChangeEpsilon) OR 
+   (ABS(actualPosY - prevCamY) > camChangeEpsilon) OR
+   (ABS(actualPosTheta - prevCamTheta) > camChangeEpsilon) THEN
+	
+	RingBuffer[RingHead].x := actualPosX;
+	RingBuffer[RingHead].y := actualPosY;
+	RingBuffer[RingHead].theta := actualPosTheta;
+	RingBuffer[RingHead].timestamp := (SampleCounter * 0.333); // Timestamp in ms
+	
+	// Berechnen der P-Matrix
+	wheelArray[1] := velWheel1;
+	wheelArray[2] := velWheel2;
+	wheelArray[3] := velWheel3;
+	
+	RingBuffer[RingHead].wheel1 := velWheel1; // Des drüber noch rauslöschen und in KalmannBeobachter anpassen
+	RingBuffer[RingHead].wheel2 := velWheel2;
+	RingBuffer[RingHead].wheel3 := velWheel3;
+	KalmannBeobachter(wheelSpeed := wheelArray); // Hier wird gerade nur die P-Matrix geupdated
+	
+	// Kopf weiter drehen (zirkulär)
+	RingHead := RingHead + 1;
+	IF RingHead >= 16 THEN
+		RingHead := 0;
+	END_IF;
+
+	// Anzahl Einträge anpassen
+	IF RingCount < 16 THEN
+		RingCount := RingCount + 1;
+	END_IF;
+
+	// Prev-Werte aktualisieren
+	prevCamX := actualPosX;
+	prevCamY := actualPosY;
+	prevCamTheta := actualPosTheta;
+END_IF
+
 
 // Prüfen ob die erste Zielpositon schon erreicht wurde und setzt sie auf die nächste, falls erreicht
 IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY - targetPosY) < Threshold_NewPosition) ) THEN
@@ -143,7 +206,7 @@ IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY -
 	targetPosY 		:= PosArray[PositionNumber+1];
 END_IF
 
-enableMotorControl := TRUE;
+enableMotorControl := FALSE;
 
 // Wert des Positionsreglers berechnen
 FB_Positionsregler(targetPosX:=targetPosX, targetPosY:=targetPosY, targetPosTheta:=targetPosTheta, 
@@ -185,5 +248,203 @@ velWheel2 := -(UINT_TO_INT(n2fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/6
 velWheel3 := -(UINT_TO_INT(n3fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);]]></ST>
       </Implementation>
     </Action>
+    <Action Name="ACT_Kalmann" Id="{241caf24-dbb3-4af3-aa11-7028c98688ad}">
+      <Implementation>
+        <ST><![CDATA[// Prediction durchführen
+KalmannBeobachter()]]></ST>
+      </Implementation>
+    </Action>
+    <Method Name="KalmannBeobachter" Id="{a786f7f3-c6cc-4af7-af4c-05fa1ad9f61a}">
+      <Declaration><![CDATA[METHOD KalmannBeobachter
+VAR_INPUT
+    wheelSpeed : ARRAY[1..3] OF LREAL;   (* w1,w2,w3 *)
+END_VAR
+
+VAR_OUTPUT
+    stateX : LREAL;
+    stateY : LREAL;
+    stateYaw : LREAL;
+END_VAR
+
+VAR
+    (* Konstanten *)
+    sampleTime : LREAL := 0.333/1000; // in s
+    robotRadius : LREAL := 0.15;		  // in m
+
+    (* Zustand *)
+    x : LREAL := 0.0;
+    y : LREAL := 0.0;
+    yaw : LREAL := 0.0;
+
+    (* Body velocities *)
+    bodyVelX : LREAL;
+    bodyVelY : LREAL;
+    yawRate  : LREAL;
+
+    (* Weltkoordinaten Geschw. *)
+    worldVelX : LREAL;
+    worldVelY : LREAL;
+
+    (* Jacobian Elemente *)
+    jac13 : LREAL;
+    jac23 : LREAL;
+
+    (* Diskrete Übergangsterme *)
+    a13 : LREAL;
+    a23 : LREAL;
+
+    (* Kovarianzmatrix (symmetrisch gespeichert) *)
+    p11 : LREAL := 1.0;
+    p12 : LREAL := 0.0;
+    p13 : LREAL := 0.0;
+    p22 : LREAL := 1.0;
+    p23 : LREAL := 0.0;
+    p33 : LREAL := 0.5;
+
+    (* Temporäre Werte *)
+    p11n,p12n,p13n : LREAL;
+    p22n,p23n,p33n : LREAL;
+
+    (* Prozessrauschen *)
+    qx : LREAL := 0.001;
+    qy : LREAL := 0.001;
+    qyaw : LREAL := 0.001;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* ========================================================= *)
+(*  EKF PREDICTION STEP – 3 Wheel Omni Robot                *)
+(*  Zustandsvektor: x = [posX, posY, yaw]                   *)
+(*  Modell: rein kinematisch                                 *)
+(*  Diskretisierung: Vorwärts-Euler                          *)
+(* ========================================================= *)
+
+
+
+(* ========================================================= *)
+(* 1) Umrechnung Radgeschwindigkeiten → Body-Geschwindigkeit *)
+(*    (Roboter-Koordinatensystem)                            *)
+(* ========================================================= *)
+
+(* vx_body, vy_body hängen nur von den Radgeschwindigkeiten ab *)
+bodyVelX := -0.577350269 * wheelSpeed[2]
+            + 0.577350269 * wheelSpeed[3];
+
+bodyVelY :=  0.666666667 * wheelSpeed[1]
+            - 0.333333333 * wheelSpeed[2]
+            - 0.333333333 * wheelSpeed[3];
+
+(* Winkelgeschwindigkeit um Roboterzentrum *)
+yawRate := (wheelSpeed[1]
+           + wheelSpeed[2]
+           + wheelSpeed[3]) / (3.0 * robotRadius);
+
+
+
+(* ========================================================= *)
+(* 2) Transformation Body → Weltkoordinaten                  *)
+(*    Rotation mit aktuellem yaw-Winkel                      *)
+(* ========================================================= *)
+
+(* Weltgeschwindigkeit ergibt sich durch Rotation um yaw *)
+worldVelX := bodyVelX * COS(yaw)
+             - bodyVelY * SIN(yaw);
+
+worldVelY := bodyVelX * SIN(yaw)
+             + bodyVelY * COS(yaw);
+
+
+
+(* ========================================================= *)
+(* 3) Zustandsintegration (diskret)                          *)
+(*    x_k+1 = x_k + dt * f(x,u)                              *)
+(* ========================================================= *)
+
+x   := x   + sampleTime * worldVelX;
+y   := y   + sampleTime * worldVelY;
+yaw := yaw + sampleTime * yawRate;
+
+(* Optional: Winkel normalisieren auf [-pi,pi] *)
+(* erhöht numerische Stabilität langfristig *)
+IF yaw > 3.1415926535 THEN
+    yaw := yaw - 6.283185307;
+ELSIF yaw < -3.1415926535 THEN
+    yaw := yaw + 6.283185307;
+END_IF;
+
+
+
+(* ========================================================= *)
+(* 4) Jacobi-Matrix F = ∂f/∂x                                *)
+(*    Nur Ableitung nach yaw ist ≠ 0                         *)
+(* ========================================================= *)
+
+(* kontinuierliche Jacobi-Elemente *)
+jac13 := -bodyVelX * SIN(yaw)
+         -bodyVelY * COS(yaw);
+
+jac23 :=  bodyVelX * COS(yaw)
+         -bodyVelY * SIN(yaw);
+
+
+
+(* ========================================================= *)
+(* 5) Diskretisierung der Systemmatrix                       *)
+(*    F_d = I + F*dt (Euler-Näherung)                        *)
+(* ========================================================= *)
+
+a13 := jac13 * sampleTime;   (* entspricht F_d(1,3) *)
+a23 := jac23 * sampleTime;   (* entspricht F_d(2,3) *)
+
+
+
+(* ========================================================= *)
+(* 6) Kovarianz-Prediction                                   *)
+(*    P = F_d * P * F_d^T + Q_d                              *)
+(*                                                            *)
+(*    P ist symmetrisch gespeichert:                          *)
+(*    [ p11 p12 p13                                           *)
+(*      p12 p22 p23                                           *)
+(*      p13 p23 p33 ]                                         *)
+(* ========================================================= *)
+
+(* ---- Zwischenergebnis F_d * P * F_d^T ---- *)
+
+p11n := p11 + a13*(2.0*p13 + a13*p33);
+p12n := p12 + a13*p23 + a23*p13 + a13*a23*p33;
+p13n := p13 + a13*p33;
+
+p22n := p22 + a23*(2.0*p23 + a23*p33);
+p23n := p23 + a23*p33;
+
+p33n := p33;   (* yaw-Unsicherheit wächst nur durch Q *)
+
+
+
+(* ========================================================= *)
+(* 7) Prozessrauschen addieren                               *)
+(*    Q_d = Q * dt                                           *)
+(* ========================================================= *)
+
+p11 := p11n + qx   * sampleTime;
+p12 := p12n;
+p13 := p13n;
+
+p22 := p22n + qy   * sampleTime;
+p23 := p23n;
+
+p33 := p33n + qyaw * sampleTime;
+
+RingBuffer[RingHead].p11 := p11;
+RingBuffer[RingHead].p12 := p12;
+RingBuffer[RingHead].p13 := p13;
+RingBuffer[RingHead].p22 := p22;
+RingBuffer[RingHead].p23 := p23;
+RingBuffer[RingHead].p33 := p33;
+
+// +##################+++++++++++########
+// Hier weiter machen mit Daten im Ringpuffer speichern und vorwärt poropagieren für Werte
+// Ring Puffer muss wahrscheinlich in der Main angelegt werden -> sonst nicht persistent]]></ST>
+      </Implementation>
+    </Method>
   </POU>
 </TcPlcObject>

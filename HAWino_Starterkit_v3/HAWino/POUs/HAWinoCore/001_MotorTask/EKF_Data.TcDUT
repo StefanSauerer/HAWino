@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="EKF_Data" Id="{2b88a999-2f3a-4d36-b52e-5f3113db0285}">
+    <Declaration><![CDATA[TYPE EKF_Data :
+STRUCT
+	x : LREAL;
+	y : LREAL;
+	theta : LREAL;
+	
+	p11, p12, p13 : REAL;
+    p22, p23 : REAL;
+    p33 : REAL;
+	
+	wheel1, wheel2, wheel3 : REAL;
+	timestamp : REAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

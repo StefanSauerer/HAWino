@@ -155,6 +155,9 @@
     <Compile Include="PlcTask.TcTTO">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\HAWinoCore\001_MotorTask\EKF_Data.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\HAWinoCore\001_MotorTask\FB_Drehzahlregler.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -215,6 +218,10 @@
     <Folder Include="POUs" />
   </ItemGroup>
   <ItemGroup>
+    <PlaceholderReference Include="Tc2_Math">
+      <DefaultResolution>Tc2_Math, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc2_Math</Namespace>
+    </PlaceholderReference>
     <PlaceholderReference Include="Tc2_Standard">
       <DefaultResolution>Tc2_Standard, * (Beckhoff Automation GmbH)</DefaultResolution>
       <Namespace>Tc2_Standard</Namespace>

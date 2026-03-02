@@ -161,10 +161,17 @@
     <Compile Include="POUs\HAWinoCore\001_MotorTask\FB_Drehzahlregler.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\HAWinoCore\001_MotorTask\GVL.TcGVL">
+      <SubType>Code</SubType>
+      <LinkAlways>true</LinkAlways>
+    </Compile>
     <Compile Include="POUs\HAWinoCore\001_MotorTask\Main_MotorTask.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\HAWinoCore\001_MotorTask\FB_Positionsregler.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\HAWinoCore\001_MotorTask\State.TcDUT">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\HAWinoCore\01_Motors\Bumper.TcPOU">

@@ -98,7 +98,7 @@ VAR
 	
 	// Positionsliste
 	Threshold_NewPosition: LREAL := 50;
-	PosArray : ARRAY[0..21] OF LREAL := [5500,3500,5500,2000,4000,2000,4000,3500,4000,2000,3000,2000,3000,3500,3000,2000,1500,2000,1500,3500,5500,3500];
+	PosArray : ARRAY[0..21] OF LREAL := [5500,2000,4000,2000, 5500,2000,4000,2000, 5500,2000,4000,2000, 5500,2000,4000,2000, 5500,2000,4000,2000];
 	PositionNumber: INT := 0;
 	KalmanStateX: LREAL;
 	KalmanStateY: LREAL;
@@ -108,8 +108,8 @@ VAR
 	// --- Ringpuffer für Kameramesswerte ---
 
 	// Inline-struct als Array-Element
-	//RING_SIZE : INT := 16;
-	RingBuffer : ARRAY[0..16-1] OF EKF_Data;
+	//
+	RingBuffer : ARRAY[0..GVL.RING_SIZE-1] OF EKF_Data;
 	
 	RingHead : INT := 0; // Index für nächste Schreibposition
 	RingCount : INT := 0; // Anzahl gültiger Einträge (<= RING_SIZE)
@@ -121,7 +121,13 @@ VAR
 	prevCamTheta : LREAL := 0.0;
 	
 	// Schwellwert für Änderungsdetektion (klein)
-	camChangeEpsilon : LREAL := 10; // später wahrcsheinlich noch kleiner setzen
+	camChangeEpsilon : LREAL := 0.001; // später wahrcsheinlich noch kleiner setzen
+	
+    X_currentState : state := (x := 0.0, y := 0.0, theta := 0.0);
+	P_currentState : ARRAY[1..9] OF LREAL;
+	EKF_currentState : EKF_Data;
+	CameraTimestamp: LREAL;
+	idx : INT;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -158,45 +164,8 @@ CASE RobotIndex OF
 		actualPosTheta 	:= Camera.cameraData.theta4;
 END_CASE
 
-// Abspeichern der Kameraposition im Ringpuffer, falls neue Kameradatan ankommen
-// --- Ringpuffer: neue Kameramessung erkennen und speichern ---
-// Erkennung durch Vergleich mit dem letzten gespeicherten Wert (pro Task-Durchlauf)
-SampleCounter := SampleCounter + 1;
-IF (ABS(actualPosX - prevCamX) > camChangeEpsilon) OR 
-   (ABS(actualPosY - prevCamY) > camChangeEpsilon) OR
-   (ABS(actualPosTheta - prevCamTheta) > camChangeEpsilon) THEN
-	
-	RingBuffer[RingHead].x := actualPosX;
-	RingBuffer[RingHead].y := actualPosY;
-	RingBuffer[RingHead].theta := actualPosTheta;
-	RingBuffer[RingHead].timestamp := (SampleCounter * 0.333); // Timestamp in ms
-	
-	// Berechnen der P-Matrix
-	wheelArray[1] := velWheel1;
-	wheelArray[2] := velWheel2;
-	wheelArray[3] := velWheel3;
-	
-	RingBuffer[RingHead].wheel1 := velWheel1; // Des drüber noch rauslöschen und in KalmannBeobachter anpassen
-	RingBuffer[RingHead].wheel2 := velWheel2;
-	RingBuffer[RingHead].wheel3 := velWheel3;
-	KalmannBeobachter(wheelSpeed := wheelArray); // Hier wird gerade nur die P-Matrix geupdated
-	
-	// Kopf weiter drehen (zirkulär)
-	RingHead := RingHead + 1;
-	IF RingHead >= 16 THEN
-		RingHead := 0;
-	END_IF;
-
-	// Anzahl Einträge anpassen
-	IF RingCount < 16 THEN
-		RingCount := RingCount + 1;
-	END_IF;
-
-	// Prev-Werte aktualisieren
-	prevCamX := actualPosX;
-	prevCamY := actualPosY;
-	prevCamTheta := actualPosTheta;
-END_IF
+// Kalmann Filter durchlaufen um geschätzte Messwerte zu erhalten
+ACT_Kalmann();
 
 
 // Prüfen ob die erste Zielpositon schon erreicht wurde und setzt sie auf die nächste, falls erreicht
@@ -206,7 +175,7 @@ IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY -
 	targetPosY 		:= PosArray[PositionNumber+1];
 END_IF
 
-enableMotorControl := FALSE;
+enableMotorControl := TRUE;
 
 // Wert des Positionsreglers berechnen
 FB_Positionsregler(targetPosX:=targetPosX, targetPosY:=targetPosY, targetPosTheta:=targetPosTheta, 
@@ -250,32 +219,210 @@ velWheel3 := -(UINT_TO_INT(n3fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/6
     </Action>
     <Action Name="ACT_Kalmann" Id="{241caf24-dbb3-4af3-aa11-7028c98688ad}">
       <Implementation>
-        <ST><![CDATA[// Prediction durchführen
-KalmannBeobachter()]]></ST>
+        <ST><![CDATA[(*
+Hier soll der Algorythmus für den Ekf mit delay Measurment -> auch Out of Sequence Measurement (OOSM) genannt
+Dieser funktioniert dadurch, dass er durch Fixed-Lag Smoothing und Re-Propagation die alten Predictions überarbeitet und neue aufstellt.
+
+1. Prediction Durchgeführen(zu jedem Zeitschritt) -> P und X_hat berechnen
+2. Werte in Puffer abspeichern
+3. Prüfen ob neue Kameradaten erhalten
+3.1. Zu Kammerazeitstempel zugehörigen X_hat zeitstempel finden (der Teil ist noch garnicht umgesetzt, siehe CameraTimestamp := SampleCounter - 20;)
+3.2. Zu dem gefundenen Zeitstempel updaten und dann Kalmann algorythmus durchgehen
+3.3. Das dann vorwärtspropagieren bis zum aktuellen Zeitstempel
+
+Fragen:
+- Stimmt mein Prädigktionsmodell überhaupt?
+- Generell den algotythmus nochmal durchgehen für mehr Verständniss
+
+Sonstige ToDos, die mir beim Programmieren aufgefallen sind:
+- Nutzen wir wirklich die korrekte Kammeraposition oder wäre es sauberer HAWino.cameraPosition.x zu nutzen 
+- Die Variable HAWino.cameraPosition.e kann genutz werden um zu bestimmen, ob die Messung verworfen werden soll -> nicht nur für Kallmann sondern auch für die allgemeine Strucktur wichtig
+- Main Motor Task aufräumen (struckt für x,y,theta erstellen, ...)
+- Bumper und generell die statemachine wieder aktivieren
+- Die Positionssteuerung überarbeiten -> sollte nich weglaufen, wenn keine neue Position gegeben wird und das positionsarray sollte übersichtlicher werden
+*)
+
+
+
+
+// Prediction durchführen -> X_predict und P_predict bestimmen 
+wheelArray[1] := velWheel1;
+wheelArray[2] := velWheel2;
+wheelArray[3] := velWheel3;
+SampleCounter := SampleCounter + 1;
+
+propagate_state(
+	X_Start := X_currentState,
+	wheelSpeed := wheelArray, 
+	P_Start := P_currentState,
+	deltaT := 0.333,
+	X_Predict => X_currentState,
+	P_Predict => P_currentState
+);
+EKF_currentState.State := X_currentState;
+EKF_currentState.wheelSpeed := wheelArray;
+EKF_currentState.P_Start := P_currentState;
+// EKF_currentState.timestamp := (SampleCounter * 0.333); // Timestamp in ms achtung nicht geschützt vor überlauf!!!!!!!!!!!!!!!!!!
+EKF_currentState.timestamp := SampleCounter;
+// Werte in Rinpuffer speichern
+WriteToRingBuffer(newData := EKF_currentState);
+
+// Überprüfen ob neue Kameradaten erhalten wurden
+IF (ABS(actualPosX - prevCamX) > camChangeEpsilon) OR 
+   (ABS(actualPosY - prevCamY) > camChangeEpsilon) OR
+   (ABS(actualPosTheta - prevCamTheta) > camChangeEpsilon) THEN
+	
+   	// Wenn diese erhalten wurden die zur Messung zugehörige Prediction finden und diese anpassen
+	
+	// Gibt keinen sinnvollen Wert aus für den Timestamp, deshalb annahme: wir bekommen nach 20 Prozessschritten wieder einen neuen Wert
+	// CameraTimestamp := (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
+	CameraTimestamp := SampleCounter - 20;
+	
+	// Dann Vorwärtspropagieren der Veränderung bis zum aktuellen Zeitstmpel
+	idx := RingHead - 20;
+	IF (idx < 0) THEN
+		idx := GVL.RING_SIZE - idx;
+	END_IF
+	EKF_UpdateAtIndex(idx, actualPosX, actualPosY);
+	EKF_ReplayFrom(idx);
+
+
+	// Prev-Werte aktualisieren
+	prevCamX := actualPosX;
+	prevCamY := actualPosY;
+	prevCamTheta := actualPosTheta;
+END_IF
+	]]></ST>
       </Implementation>
     </Action>
-    <Method Name="KalmannBeobachter" Id="{a786f7f3-c6cc-4af7-af4c-05fa1ad9f61a}">
-      <Declaration><![CDATA[METHOD KalmannBeobachter
+    <Method Name="EKF_ReplayFrom" Id="{940ca85e-1bfc-4edf-845b-1a448a9fa4a7}">
+      <Declaration><![CDATA[METHOD EKF_ReplayFrom
 VAR_INPUT
+    startIdx : INT;
+END_VAR
+VAR
+    idx : INT;
+    nextIdx : INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[idx := startIdx;
+
+WHILE idx <> (RingHead - 1 + GVL.RING_SIZE) MOD GVL.RING_SIZE DO
+
+    nextIdx := (idx + 1) MOD GVL.RING_SIZE;
+
+    (* Zustand von korrigiertem Schritt laden *)
+    X_currentState := RingBuffer[idx].State;
+    P_currentState := RingBuffer[idx].P_Start;
+
+    (* Inputs des nächsten Zeitschritts *)
+    wheelArray := RingBuffer[nextIdx].wheelSpeed;
+
+    (* Prediction erneut ausführen *)
+    propagate_state(
+        X_Start := X_currentState,
+        wheelSpeed := wheelArray,
+        P_Start := P_currentState,
+        deltaT := 0.333,
+        X_Predict => X_currentState,
+        P_Predict => P_currentState
+    );
+
+    (* Überschreiben *)
+    RingBuffer[nextIdx].State := X_currentState;
+    RingBuffer[nextIdx].P_Start := P_currentState;
+
+    idx := nextIdx;
+
+END_WHILE;
+
+(* Aktuellen Zustand setzen *)
+X_currentState := RingBuffer[(RingHead - 1 + GVL.RING_SIZE) MOD GVL.RING_SIZE].State;
+P_currentState := RingBuffer[(RingHead - 1 + GVL.RING_SIZE) MOD GVL.RING_SIZE].P_Start;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="EKF_UpdateAtIndex" Id="{972af3b9-adbd-491f-9e3e-731bea6c1f68}">
+      <Declaration><![CDATA[METHOD EKF_UpdateAtIndex
+VAR_INPUT
+    idx : INT;
+    camX : LREAL;
+    camY : LREAL;
+END_VAR
+VAR
+    r1, r2 : LREAL;
+    s11, s12, s22 : LREAL;
+    detS : LREAL;
+    invS11, invS12, invS22 : LREAL;
+    k11,k12,k21,k22,k31,k32 : LREAL;
+	
+	// Messungenauigkeit der Kamera -> Noch ändern. Vielleicht kann man dafür auch die Werte aus der Kaemera hernehmen (e)!!!!!!!!!
+	R_camX : LREAL := 0.0004;
+	R_camY : LREAL := 0.0004;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* Zustand laden *)
+X_currentState := RingBuffer[idx].State;
+P_currentState := RingBuffer[idx].P_Start;
+
+(* Innovation *)
+r1 := camX - X_currentState.x;
+r2 := camY - X_currentState.y;
+
+(* S = HPH^T + R *)
+s11 := P_currentState[1] + R_camX; // HAWino.cameraPosition.e <- sollte eigentlich des sein oder -> mit dem alles updaten, auch die Kameraposition !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+s12 := P_currentState[2];
+s22 := P_currentState[5] + R_camY;
+
+detS := s11*s22 - s12*s12;
+
+invS11 :=  s22 / detS;
+invS12 := -s12 / detS;
+invS22 :=  s11 / detS;
+
+(* Kalman Gain *)
+k11 := P_currentState[1]*invS11 + P_currentState[2]*invS12;
+k12 := P_currentState[1]*invS12 + P_currentState[2]*invS22;
+
+k21 := P_currentState[2]*invS11 + P_currentState[5]*invS12;
+k22 := P_currentState[2]*invS12 + P_currentState[5]*invS22;
+
+k31 := P_currentState[3]*invS11 + P_currentState[6]*invS12;
+k32 := P_currentState[3]*invS12 + P_currentState[6]*invS22;
+
+(* State Update *)
+X_currentState.x := X_currentState.x + k11*r1 + k12*r2;
+X_currentState.y := X_currentState.y + k21*r1 + k22*r2;
+X_currentState.theta := X_currentState.theta + k31*r1 + k32*r2;
+
+(* P Update – vereinfachte Form *)
+P_currentState[1] := P_currentState[1] - (k11*s11 + k12*s12)*k11;
+P_currentState[2] := P_currentState[2] - (k11*s11 + k12*s12)*k21;
+P_currentState[3] := P_currentState[3] - (k11*s11 + k12*s12)*k31;
+P_currentState[5] := P_currentState[5] - (k21*s11 + k22*s12)*k21;
+P_currentState[6] := P_currentState[6] - (k21*s11 + k22*s12)*k31;
+P_currentState[9] := P_currentState[9] - (k31*s11 + k32*s12)*k31;
+
+(* Zurückschreiben *)
+RingBuffer[idx].State := X_currentState;
+RingBuffer[idx].P_Start := P_currentState;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="propagate_state" Id="{a786f7f3-c6cc-4af7-af4c-05fa1ad9f61a}">
+      <Declaration><![CDATA[METHOD propagate_state
+VAR_INPUT
+	X_Start : state;
     wheelSpeed : ARRAY[1..3] OF LREAL;   (* w1,w2,w3 *)
+	P_Start : ARRAY[1..9] OF LREAL;
+	deltaT : LREAL;
 END_VAR
 
 VAR_OUTPUT
-    stateX : LREAL;
-    stateY : LREAL;
-    stateYaw : LREAL;
+    X_Predict : State;
+	P_Predict : ARRAY[1..9] OF LREAL;
 END_VAR
 
 VAR
-    (* Konstanten *)
-    sampleTime : LREAL := 0.333/1000; // in s
-    robotRadius : LREAL := 0.15;		  // in m
-
-    (* Zustand *)
-    x : LREAL := 0.0;
-    y : LREAL := 0.0;
-    yaw : LREAL := 0.0;
-
     (* Body velocities *)
     bodyVelX : LREAL;
     bodyVelY : LREAL;
@@ -293,19 +440,7 @@ VAR
     a13 : LREAL;
     a23 : LREAL;
 
-    (* Kovarianzmatrix (symmetrisch gespeichert) *)
-    p11 : LREAL := 1.0;
-    p12 : LREAL := 0.0;
-    p13 : LREAL := 0.0;
-    p22 : LREAL := 1.0;
-    p23 : LREAL := 0.0;
-    p33 : LREAL := 0.5;
-
-    (* Temporäre Werte *)
-    p11n,p12n,p13n : LREAL;
-    p22n,p23n,p33n : LREAL;
-
-    (* Prozessrauschen *)
+    (* Prozessrauschen *)// Was is des eigentlich?!?!?!?!?!?
     qx : LREAL := 0.001;
     qy : LREAL := 0.001;
     qyaw : LREAL := 0.001;
@@ -336,7 +471,7 @@ bodyVelY :=  0.666666667 * wheelSpeed[1]
 (* Winkelgeschwindigkeit um Roboterzentrum *)
 yawRate := (wheelSpeed[1]
            + wheelSpeed[2]
-           + wheelSpeed[3]) / (3.0 * robotRadius);
+           + wheelSpeed[3]) / (3.0 * GVL.ROBOT_RADIUS);
 
 
 
@@ -346,11 +481,11 @@ yawRate := (wheelSpeed[1]
 (* ========================================================= *)
 
 (* Weltgeschwindigkeit ergibt sich durch Rotation um yaw *)
-worldVelX := bodyVelX * COS(yaw)
-             - bodyVelY * SIN(yaw);
+worldVelX := bodyVelX * COS(X_Start.theta)
+             - bodyVelY * SIN(X_Start.theta);
 
-worldVelY := bodyVelX * SIN(yaw)
-             + bodyVelY * COS(yaw);
+worldVelY := bodyVelX * SIN(X_Start.theta)
+             + bodyVelY * COS(X_Start.theta);
 
 
 
@@ -359,16 +494,17 @@ worldVelY := bodyVelX * SIN(yaw)
 (*    x_k+1 = x_k + dt * f(x,u)                              *)
 (* ========================================================= *)
 
-x   := x   + sampleTime * worldVelX;
-y   := y   + sampleTime * worldVelY;
-yaw := yaw + sampleTime * yawRate;
+X_Predict.x   	:= X_Start.x   + deltaT * worldVelX;
+X_Predict.y   	:= X_Start.y   + deltaT * worldVelY;
+X_Predict.theta := X_Start.theta + deltaT * yawRate;
 
 (* Optional: Winkel normalisieren auf [-pi,pi] *)
 (* erhöht numerische Stabilität langfristig *)
-IF yaw > 3.1415926535 THEN
-    yaw := yaw - 6.283185307;
-ELSIF yaw < -3.1415926535 THEN
-    yaw := yaw + 6.283185307;
+// Achtung, weiß noch nich ganz ob des so richtig !!!!!!!!!!!!!!!!!!!!!!!!!!!
+IF X_Predict.theta > 3.1415926535 THEN
+    X_Predict.theta := X_Predict.theta - 6.283185307;
+ELSIF X_Predict.theta < -3.1415926535 THEN
+    X_Predict.theta := X_Predict.theta + 6.283185307;
 END_IF;
 
 
@@ -379,11 +515,11 @@ END_IF;
 (* ========================================================= *)
 
 (* kontinuierliche Jacobi-Elemente *)
-jac13 := -bodyVelX * SIN(yaw)
-         -bodyVelY * COS(yaw);
+jac13 := -bodyVelX * SIN(X_Predict.theta)
+         -bodyVelY * COS(X_Predict.theta);
 
-jac23 :=  bodyVelX * COS(yaw)
-         -bodyVelY * SIN(yaw);
+jac23 :=  bodyVelX * COS(X_Predict.theta)
+         -bodyVelY * SIN(X_Predict.theta);
 
 
 
@@ -392,8 +528,8 @@ jac23 :=  bodyVelX * COS(yaw)
 (*    F_d = I + F*dt (Euler-Näherung)                        *)
 (* ========================================================= *)
 
-a13 := jac13 * sampleTime;   (* entspricht F_d(1,3) *)
-a23 := jac23 * sampleTime;   (* entspricht F_d(2,3) *)
+a13 := jac13 * deltaT;   (* entspricht F_d(1,3) *)
+a23 := jac23 * deltaT;   (* entspricht F_d(2,3) *)
 
 
 
@@ -409,14 +545,14 @@ a23 := jac23 * sampleTime;   (* entspricht F_d(2,3) *)
 
 (* ---- Zwischenergebnis F_d * P * F_d^T ---- *)
 
-p11n := p11 + a13*(2.0*p13 + a13*p33);
-p12n := p12 + a13*p23 + a23*p13 + a13*a23*p33;
-p13n := p13 + a13*p33;
+P_Predict[1] := P_Start[1] + a13*(2.0*P_Start[3] + a13*P_Start[9]);
+P_Predict[2] := P_Start[2] + a13*P_Start[6] + a23*P_Start[3] + a13*a23*P_Start[9];
+P_Predict[3] := P_Start[3] + a13*P_Start[9];
 
-p22n := p22 + a23*(2.0*p23 + a23*p33);
-p23n := p23 + a23*p33;
+P_Predict[5] := P_Start[5] + a23*(2.0*P_Start[6] + a23*P_Start[9]);
+P_Predict[6] := P_Start[6] + a23*P_Start[9];
 
-p33n := p33;   (* yaw-Unsicherheit wächst nur durch Q *)
+P_Predict[9] := P_Start[9];   (* yaw-Unsicherheit wächst nur durch Q *)
 
 
 
@@ -425,25 +561,69 @@ p33n := p33;   (* yaw-Unsicherheit wächst nur durch Q *)
 (*    Q_d = Q * dt                                           *)
 (* ========================================================= *)
 
-p11 := p11n + qx   * sampleTime;
-p12 := p12n;
-p13 := p13n;
+P_Predict[1] := P_Predict[1] + qx   * deltaT;
+// P_Predict[2] := P_Predict[2];
+// P_Predict[3] := P_Predict[3];
 
-p22 := p22n + qy   * sampleTime;
-p23 := p23n;
+P_Predict[5] := P_Predict[5] + qy   * deltaT;
+// P_Predict[6] := P_Predict[6];
 
-p33 := p33n + qyaw * sampleTime;
+P_Predict[9] := P_Predict[9] + qyaw * deltaT;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ReadFromRingBuffer" Id="{75492fe2-5b8d-48b3-bf84-3493bfa8847d}">
+      <Declaration><![CDATA[METHOD ReadFromRingBuffer : BOOL
+VAR_INPUT
+	offset : INT;   // 0 = neuester
+END_VAR
+VAR_OUTPUT
+    data : EKF_Data;
+END_VAR
+VAR
+    index : INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF offset >= RingCount THEN
+    // Nicht so viele Werte vorhanden
+    ReadFromRingBuffer := FALSE;
+    RETURN;
+END_IF
 
-RingBuffer[RingHead].p11 := p11;
-RingBuffer[RingHead].p12 := p12;
-RingBuffer[RingHead].p13 := p13;
-RingBuffer[RingHead].p22 := p22;
-RingBuffer[RingHead].p23 := p23;
-RingBuffer[RingHead].p33 := p33;
+// Index berechnen
+index := RingHead - 1 - offset;
 
-// +##################+++++++++++########
-// Hier weiter machen mit Daten im Ringpuffer speichern und vorwärt poropagieren für Werte
-// Ring Puffer muss wahrscheinlich in der Main angelegt werden -> sonst nicht persistent]]></ST>
+IF index < 0 THEN
+    index := index + GVL.RING_SIZE;
+END_IF
+
+data := RingBuffer[index];
+
+ReadFromRingBuffer := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="WriteToRingBuffer" Id="{7a1fa4ba-2658-4f9f-98ed-7fd176a86e19}">
+      <Declaration><![CDATA[METHOD WriteToRingBuffer
+VAR_INPUT
+    newData : EKF_Data;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// Sample ID hochzählen (optional)
+SampleCounter := SampleCounter + 1;
+
+// Schreiben
+RingBuffer[RingHead] := newData;
+
+// Head weiterschieben (Modulo 16)
+RingHead := RingHead + 1;
+IF RingHead >= GVL.RING_SIZE THEN
+    RingHead := 0;
+END_IF
+
+// Count nur erhöhen bis 16
+IF RingCount < GVL.RING_SIZE THEN
+    RingCount := RingCount + 1;
+END_IF]]></ST>
       </Implementation>
     </Method>
   </POU>

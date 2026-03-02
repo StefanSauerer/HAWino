@@ -3,15 +3,9 @@
   <DUT Name="EKF_Data" Id="{2b88a999-2f3a-4d36-b52e-5f3113db0285}">
     <Declaration><![CDATA[TYPE EKF_Data :
 STRUCT
-	x : LREAL;
-	y : LREAL;
-	theta : LREAL;
-	
-	p11, p12, p13 : REAL;
-    p22, p23 : REAL;
-    p33 : REAL;
-	
-	wheel1, wheel2, wheel3 : REAL;
+	State : state;
+	wheelSpeed : ARRAY[1..3] OF LREAL;   (* w1,w2,w3 *)
+	P_Start : ARRAY[1..9] OF LREAL;
 	timestamp : REAL;
 END_STRUCT
 END_TYPE

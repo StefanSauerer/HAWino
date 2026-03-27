@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="sFahrvektor" Id="{9fdf1d75-f4fb-48b9-b2cf-01fe7f6acdea}">
+    <Declaration><![CDATA[TYPE sFahrvektor :
+STRUCT
+	reWinkel : REAL;           // Fahrtrichtung
+	reGeschwindigkeit : REAL;   // Fahrgeschwindigkeit
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

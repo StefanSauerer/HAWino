@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="sPositions" Id="{bfef0853-728b-4fd4-b0c4-5120a61fcf44}">
+    <Declaration><![CDATA[TYPE sPositions :
+STRUCT
+	reX : REAL;       // X-Position
+	reY : REAL;       // Y-Position
+	reWinkel : REAL; // Ausrichtung
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

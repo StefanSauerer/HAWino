@@ -18,10 +18,14 @@ VAR_OUTPUT
 END_VAR
 VAR
 	// Positionsfehler
-	errorX		: 	LREAL;
-	errorY		: 	LREAL;
-	errorTheta	: 	LREAL;
+	errorX		: 	LREAL := 0;
+	errorY		: 	LREAL := 0;
+	errorTheta	: 	LREAL := 0;
 	
+	// Fehlersteigung
+	derrorX		: 	LREAL;
+	derrorY		: 	LREAL;
+	derrorTheta	: 	LREAL;
 	// Geschwindigkeit in Weltkoordinaten 
 	W_X_targetSpeed		: LREAL; 
 	W_Y_targetSpeed		: LREAL; 
@@ -33,32 +37,123 @@ VAR
 	R_Theta_targetSpeed	: LREAL;
 	
 	// Reglerparameter
-	KPX		: REAL 	:= 0.75;
-	KPY		: REAL	:= 0.5;
-	KPTheta	: REAL 	:= 0.3;
+	KPX		: LREAL 	:= 0.75;
+	KPY		: LREAL	:= 0.5;
+	KPTheta	: LREAL 	:= 0.3;
 	
 	speedThreshold	: LREAL := 0.01; //Annäherung nur aktiv bei Abweichung > threshold
 	AccelerationRate: LREAL := 5; 	//Höhere Werte = höhere Beschleunigung
+	
+	// Fuzzy Calkulation
+	MembershipE : ARRAY[1..5] OF LREAL;
+	MembershipDE : ARRAY[1..5] OF LREAL;
+	i: INT;
+	j: INT;
+	ruleIdx: INT;
+	weight: LREAL;
+	numerator : LREAL := 0.0;
+	denominator : LREAL := 0.0;
+	initDone: BOOL := FALSE;
+	
+	RuleTable : ARRAY[1..5, 1..5] OF INT;
+	OutputValue : ARRAY[1..5] OF REAL := [
+        0.0,   // ZS
+        0.25,  // PS
+        0.5,   // PM
+        0.75,  // PL
+        1.0    // HL
+    ];
 END_VAR
-]]></Declaration>
+
+	]]></Declaration>
     <Implementation>
-      <ST><![CDATA[// Berechnen der Regledifferenz
+      <ST><![CDATA[// Wollte ich eigentlich oben machen, aber wollte er iwie nicht. Auf dauer noch ändern
+IF NOT initDone THEN
+    // RuleTable initialisieren (Zeile-für-Zeile), vermeidet statische Literal-Initialisierung
+    RuleTable[1,1] := 5; RuleTable[1,2] := 5; RuleTable[1,3] := 4; RuleTable[1,4] := 4; RuleTable[1,5] := 3;
+    RuleTable[2,1] := 4; RuleTable[2,2] := 4; RuleTable[2,3] := 4; RuleTable[2,4] := 3; RuleTable[2,5] := 2;
+    RuleTable[3,1] := 4; RuleTable[3,2] := 4; RuleTable[3,3] := 3; RuleTable[3,4] := 2; RuleTable[3,5] := 4;
+    RuleTable[4,1] := 4; RuleTable[4,2] := 3; RuleTable[4,3] := 2; RuleTable[4,4] := 2; RuleTable[4,5] := 1;
+    RuleTable[5,1] := 3; RuleTable[5,2] := 2; RuleTable[5,3] := 2; RuleTable[5,4] := 1; RuleTable[5,5] := 1;
+
+    OutputValue[1] := 0.0;
+    OutputValue[2] := 0.25;
+    OutputValue[3] := 0.5;
+    OutputValue[4] := 0.75;
+    OutputValue[5] := 1.0;
+
+    initDone := TRUE;
+END_IF
+
+// Berechnugn der Fehlersteigung
+derrorX		:= errorX - (targetPosX - actualPosX);
+derrorY 	:= errorY - (targetPosY - actualPosY);
+derrorTheta	:= errorTheta - (targetPosTheta - actualPosTheta);
+
+// Berechnen der Regledifferenz
 errorX 		:= 	targetPosX - actualPosX;
 errorY 		:= 	targetPosY - actualPosY;
 errorTheta 	:= -(targetPosTheta - actualPosTheta);
 
+// ACT_GetFuzzyParam();
+
 // Berechnung der Stellgröße
-W_X_targetSpeed := (errorX *KPX);
-W_Y_targetSpeed := (errorY *KPY);
-W_Theta_targetSpeed := (errorTheta *KPTheta);
+W_X_targetSpeed := (errorX * KPX);
+W_Y_targetSpeed := (errorY * KPY);
+W_Theta_targetSpeed := (errorTheta * KPTheta);
 
 // Umrechnung von Welt in Motorcoordinaten
 R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPosTheta) - W_Y_targetSpeed * SIN(actualPosTheta);
 R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPosTheta) + W_X_targetSpeed * SIN(actualPosTheta);
 R_Theta_targetSpeed := W_Theta_targetSpeed;
-
+R_Theta_targetSpeed := 0;
 ACT_LimitACC();]]></ST>
     </Implementation>
+    <Action Name="ACT_GetFuzzyParam" Id="{4ee22feb-6be5-4906-80b6-3d87f4f37582}">
+      <Implementation>
+        <ST><![CDATA[// Berechnen des Kx Reglers
+METH_InputMembership(e := errorX, outArr := MembershipE);
+METH_InputMembership(e := derrorX, outArr := MembershipDE);
+
+// Defuzzyfication
+FOR i := 1 TO 5 DO
+    FOR j := 1 TO 5 DO
+        weight := MembershipE[i] * MembershipDE[j];
+        ruleIdx := RuleTable[i,j];
+
+        numerator := numerator + weight * OutputValue[ruleIdx];
+        denominator := denominator + weight;
+    END_FOR
+END_FOR
+
+IF denominator > 0 THEN
+    KPX := numerator / denominator;
+ELSE
+    KPX := 0.0; // fallback
+END_IF
+
+// Berechnen des Ky Reglers
+METH_InputMembership(e := errorY, outArr := MembershipE);
+METH_InputMembership(e := derrorY, outArr := MembershipDE);
+
+// Defuzzyfication
+FOR i := 1 TO 5 DO
+    FOR j := 1 TO 5 DO
+        weight := MembershipE[i] * MembershipDE[j];
+        ruleIdx := RuleTable[i,j];
+
+        numerator := numerator + weight * OutputValue[ruleIdx];
+        denominator := denominator + weight;
+    END_FOR
+END_FOR
+
+IF denominator > 0 THEN
+    KPY := numerator / denominator;
+ELSE
+    KPY := 0.0; // fallback
+END_IF]]></ST>
+      </Implementation>
+    </Action>
     <Action Name="ACT_LimitACC" Id="{e1d0b9f1-bfb7-427c-a749-b6c6114fd6e7}">
       <Implementation>
         <ST><![CDATA[//Smoothes Annähern an den Sollwert, anpassbar über integrationRate
@@ -88,5 +183,24 @@ IF ABS(vThetaCartesianToMotors - R_Theta_targetSpeed) > speedThreshold THEN
 END_IF]]></ST>
       </Implementation>
     </Action>
+    <Method Name="METH_InputMembership" Id="{8b1199f8-59f0-4cc6-be94-a8ade66a0e7f}">
+      <Declaration><![CDATA[METHOD METH_InputMembership
+VAR_INPUT
+	e	: LREAL;
+END_VAR
+VAR_IN_OUT
+	outArr : ARRAY[1..5] OF LREAL;
+END_VAR
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// einfache dreieckige Memberships als Beispiel (anpassen an deine MF)
+outArr[1] := MAX(0.0, ( -e - 0.5) / 0.5);      // NL (links)
+outArr[2] := MAX(0.0, 1.0 - ABS(e + 0.5) / 0.75); // NS
+outArr[3] := MAX(0.0, 1.0 - ABS(e) / 1.0);       // ZE
+outArr[4] := MAX(0.0, 1.0 - ABS(e - 0.5) / 0.75); // PS
+outArr[5] := MAX(0.0, (e - 0.5) / 0.5);        // PL]]></ST>
+      </Implementation>
+    </Method>
   </POU>
 </TcPlcObject>

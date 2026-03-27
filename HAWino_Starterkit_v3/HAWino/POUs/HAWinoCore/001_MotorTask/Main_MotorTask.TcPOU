@@ -66,6 +66,8 @@ VAR
 	cycletime 				: LREAL	:= 0.00033333; 	//Cycletime des Motortasks
 	enableMotorControl		: BOOL;
 	
+	RobotIndex : INT := -1;
+	
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Instanzierung der FBs
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -83,29 +85,39 @@ VAR
 	R_X_targetSpeed		: 	LREAL;
 	R_Y_targetSpeed		: 	LREAL;
 	R_Theta_targetSpeed	: 	LREAL;
-
 	// Tatsächliche Position
 	actualPosX		: 	LREAL;
 	actualPosY		: 	LREAL;
-	actualPosTheta	: 	LREAL;	
-END_VAR	]]></Declaration>
+	actualPosTheta	: 	LREAL;
+END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[//Umrechung der Klemmenwerte
 ACT_Drehzahlerfassung();
-
+RobotIndex := Var_HAWIno.Robot_Number;
+IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
+	// Falls außerhalb Bereich: Default auf 1 setzen 
+	RobotIndex := -1;
+END_IF;CASE RobotIndex OF
+	1:
+		actualPosX 		:= Camera.cameraData.x1;
+		actualPosY 		:= Camera.cameraData.y1;
+		actualPosTheta 	:= Camera.cameraData.theta1;
+	2:
+		actualPosX 		:= Camera.cameraData.x2;
+		actualPosY 		:= Camera.cameraData.y2;
+		actualPosTheta 	:= Camera.cameraData.theta2;
+	3:
+		actualPosX 		:= Camera.cameraData.x3;
+		actualPosY 		:= Camera.cameraData.y3;
+		actualPosTheta 	:= Camera.cameraData.theta3;
+	4:
+		actualPosX 		:= Camera.cameraData.x4;
+		actualPosY 		:= Camera.cameraData.y4;
+		actualPosTheta 	:= Camera.cameraData.theta4;
+END_CASE
 // Feste Geschwindigkeit und Winkel festlegen
 GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit := 100;
 GVL_Datatransfer23.gvFahrvektor.reWinkel := 0;
-
-// Aktuelle Position des Roboters
-actualPosX 		:= Camera.cameraData.x3;
-actualPosY 		:= Camera.cameraData.y3;
-actualPosTheta 	:= Camera.cameraData.theta3;
-
-GVL_Datatransfer23.gvPosition.reX 		:= actualPosX;
-GVL_Datatransfer23.gvPosition.reY 		:= actualPosY;
-GVL_Datatransfer23.gvPosition.reWinkel 	:= actualPosTheta;
-
 // Geschwindigkeit in Weltkoordinaten umrechnen
 W_X_targetSpeed 	:= GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * COS(GVL_Datatransfer23.gvFahrvektor.reWinkel);
 W_Y_targetSpeed 	:= GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * SIN(GVL_Datatransfer23.gvFahrvektor.reWinkel);

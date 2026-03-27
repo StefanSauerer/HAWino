@@ -97,10 +97,12 @@ ACT_Sollwertbegrenzung();
 errorM1 := targetVelocityMotor1 - actualVelMotor1;
 errorM2 := targetVelocityMotor2 - actualVelMotor2;
 errorM3 := targetVelocityMotor3 - actualVelMotor3;
+
 //Integratoren der Motoren
 IntegralM1 := IntegralM1 + (errorM1 * diffConst);
 IntegralM2 := IntegralM2 + (errorM2 * diffConst);
 IntegralM3 := IntegralM3 + (errorM3 * diffConst);
+
 //Zusammenführung der P und I Anteile der Motoren
 velocityM1Controled := (errorM1 *KP) + (KI *IntegralM1);
 velocityM2Controled := (errorM2 *KP) + (KI *IntegralM2);

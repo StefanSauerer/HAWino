@@ -1085,6 +1085,14 @@
 					<Vars VarGrpType="1" ContextId="3" AreaNo="48">
 						<Name>SOCTask Inputs</Name>
 						<Var>
+							<Name>Gripper.slider</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>Gripper.partGripped</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
 							<Name>Main_MotorTask.sliderGripper</Name>
 							<Type>BOOL</Type>
 						</Var>
@@ -1101,14 +1109,6 @@
 						<Var>
 							<Name>Main_MotorTask.wheelEncoderLocalVtheta</Name>
 							<Type>LREAL</Type>
-						</Var>
-						<Var>
-							<Name>Gripper.slider</Name>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
-							<Name>Gripper.partGripped</Name>
-							<Type>BOOL</Type>
 						</Var>
 						<Var>
 							<Name>PowerManager.shutdownButton</Name>

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
   <POU Name="CameraConnectionUDP" Id="{3b4b2ae9-c069-42e3-9b69-f42439287066}" SpecialFunc="None">
     <Declaration><![CDATA[{attribute 'c++_compatible'}
 FUNCTION_BLOCK CameraConnectionUDP IMPLEMENTS ITcIoUdpProtocolRecv
@@ -22,31 +22,13 @@ VAR
 	hrInit : HRESULT;
 	hrSend  : HRESULT; 	
 	counter	:	UDINT	:= 0;
-	x1,y1,theta1,x2,y2,theta2,x3,y3,theta3,x4,y4,theta4,x5,y5,theta5 : LREAL;
 END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[
 IF ipUdp <> 0 THEN
 	ipUdp.CheckReceived();
-END_IF
-
-
-x1 := robotPosition[1].x;
-y1 := robotPosition[1].y;
-theta1 := robotPosition[1].theta;
-x2 := robotPosition[2].x;
-y2 := robotPosition[2].y;
-theta2 := robotPosition[2].theta;
-x3 := robotPosition[3].x;
-y3 := robotPosition[3].y;
-theta3 := robotPosition[3].theta;
-x4 := robotPosition[4].x;
-y4 := robotPosition[4].y;
-theta4 := robotPosition[4].theta;
-x5 := robotPosition[5].x;
-y5 := robotPosition[5].y;
-theta5 := robotPosition[5].theta;]]></ST>
+END_IF]]></ST>
     </Implementation>
     <Method Name="FB_exit" Id="{0258286a-12f2-440d-8e54-fd50a76e4c92}">
       <Declaration><![CDATA[{attribute 'conditionalshow'}
@@ -226,80 +208,5 @@ METHOD TcRelease : UDINT
         <ST><![CDATA[]]></ST>
       </Implementation>
     </Method>
-    <LineIds Name="CameraConnectionUDP">
-      <LineId Id="22" Count="0" />
-      <LineId Id="3" Count="1" />
-      <LineId Id="2" Count="0" />
-      <LineId Id="44" Count="0" />
-      <LineId Id="106" Count="0" />
-      <LineId Id="105" Count="0" />
-      <LineId Id="107" Count="1" />
-      <LineId Id="110" Count="1" />
-      <LineId Id="109" Count="0" />
-      <LineId Id="113" Count="1" />
-      <LineId Id="112" Count="0" />
-      <LineId Id="116" Count="1" />
-      <LineId Id="115" Count="0" />
-      <LineId Id="119" Count="1" />
-      <LineId Id="118" Count="0" />
-    </LineIds>
-    <LineIds Name="CameraConnectionUDP.FB_exit">
-      <LineId Id="3" Count="2" />
-      <LineId Id="13" Count="0" />
-      <LineId Id="6" Count="1" />
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="CameraConnectionUDP.FB_init">
-      <LineId Id="3" Count="4" />
-      <LineId Id="25" Count="0" />
-      <LineId Id="8" Count="0" />
-      <LineId Id="28" Count="0" />
-      <LineId Id="9" Count="0" />
-      <LineId Id="29" Count="0" />
-      <LineId Id="10" Count="0" />
-      <LineId Id="13" Count="2" />
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="CameraConnectionUDP.FB_reinit">
-      <LineId Id="3" Count="0" />
-      <LineId Id="9" Count="0" />
-      <LineId Id="4" Count="0" />
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="CameraConnectionUDP.ReceiveData">
-      <LineId Id="22" Count="0" />
-      <LineId Id="4" Count="0" />
-      <LineId Id="92" Count="9" />
-      <LineId Id="60" Count="1" />
-      <LineId Id="73" Count="0" />
-      <LineId Id="75" Count="1" />
-      <LineId Id="84" Count="0" />
-      <LineId Id="78" Count="0" />
-      <LineId Id="189" Count="0" />
-      <LineId Id="86" Count="1" />
-      <LineId Id="89" Count="1" />
-      <LineId Id="190" Count="0" />
-      <LineId Id="91" Count="0" />
-      <LineId Id="62" Count="0" />
-      <LineId Id="168" Count="0" />
-      <LineId Id="124" Count="1" />
-      <LineId Id="123" Count="0" />
-      <LineId Id="63" Count="0" />
-      <LineId Id="54" Count="1" />
-      <LineId Id="57" Count="0" />
-      <LineId Id="56" Count="0" />
-    </LineIds>
-    <LineIds Name="CameraConnectionUDP.TcAddRef">
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="CameraConnectionUDP.TcQueryInterface">
-      <LineId Id="14" Count="3" />
-      <LineId Id="37" Count="4" />
-      <LineId Id="18" Count="3" />
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="CameraConnectionUDP.TcRelease">
-      <LineId Id="2" Count="0" />
-    </LineIds>
   </POU>
 </TcPlcObject>

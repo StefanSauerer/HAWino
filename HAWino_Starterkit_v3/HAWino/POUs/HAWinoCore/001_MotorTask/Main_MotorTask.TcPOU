@@ -92,14 +92,15 @@ VAR
 	targetPosTheta	: 	LREAL;
 	
 	// Tatsächliche Position
-	actualPosX		: 	LREAL;
-	actualPosY		: 	LREAL;
-	actualPosTheta	: 	LREAL;		
-	
+	actualPosX		: LREAL;
+	actualPosY		: LREAL;
+	actualPosTheta	: LREAL;		
+	actualError		: LREAL;
 	// Positionsliste
 	Threshold_NewPosition: LREAL := 50;
 	PosArray : ARRAY[0..21] OF LREAL := [5500,3500,5500,2000,4000,2000,4000,3500,4000,2000,3000,2000,3000,3500,3000,2000,1500,2000,1500,3500,5500,3500];
 	PositionNumber: INT := 0;
+	
 END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[//Umrechung der Klemmenwerte
@@ -114,26 +115,12 @@ RobotIndex := Var_HAWIno.Robot_Number;
 IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 	// Falls außerhalb Bereich: Default auf 1 setzen 
 	RobotIndex := -1;
+ELSE
+	actualPosX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
+	actualPosY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
+	actualPosTheta 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
+	actualError		:= Camera.cameraData.robotPosition[RobotIndex].e;
 END_IF;
-
-CASE RobotIndex OF
-	1:
-		actualPosX 		:= Camera.cameraData.x1;
-		actualPosY 		:= Camera.cameraData.y1;
-		actualPosTheta 	:= Camera.cameraData.theta1;
-	2:
-		actualPosX 		:= Camera.cameraData.x2;
-		actualPosY 		:= Camera.cameraData.y2;
-		actualPosTheta 	:= Camera.cameraData.theta2;
-	3:
-		actualPosX 		:= Camera.cameraData.x3;
-		actualPosY 		:= Camera.cameraData.y3;
-		actualPosTheta 	:= Camera.cameraData.theta3;
-	4:
-		actualPosX 		:= Camera.cameraData.x4;
-		actualPosY 		:= Camera.cameraData.y4;
-		actualPosTheta 	:= Camera.cameraData.theta4;
-END_CASE
 
 
 // Prüfen ob die erste Zielpositon schon erreicht wurde und setzt sie auf die nächste, falls erreicht

@@ -5,7 +5,6 @@
 VAR
 	BumperStrip	AT%I*:	BOOL;
 	Reset AT%I* : BOOL;
-	globalReset AT%I* : BOOL;
 	state: Bumperstatus := Bumperstatus.init;
 	Triggered AT%Q* : BOOL;
 	R_Reset: R_TRIG;

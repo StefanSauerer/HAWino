@@ -143,7 +143,7 @@ IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY -
 	targetPosY 		:= PosArray[PositionNumber+1];
 END_IF
 
-enableMotorControl := TRUE;
+enableMotorControl := FALSE;
 
 // Wert des Positionsreglers berechnen
 FB_Positionsregler(targetPosX:=targetPosX, targetPosY:=targetPosY, targetPosTheta:=targetPosTheta, 

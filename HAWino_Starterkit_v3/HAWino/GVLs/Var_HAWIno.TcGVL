@@ -5,12 +5,12 @@
 // 
 // CX-31C9D6 = 1
 // CX-35CFB8 = 2
-// CX-35CDC8 = 3 	!!Vorläufig
+// CX-35CDC8 = 3 
 // CX-35CDD6 = 4
 // CX-4D0046 = 5
 
 VAR_GLOBAL
-	Robot_Number : INT :=2;
+	Robot_Number : INT;
 END_VAR]]></Declaration>
   </GVL>
 </TcPlcObject>

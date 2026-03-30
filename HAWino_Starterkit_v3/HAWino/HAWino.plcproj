@@ -121,6 +121,10 @@
       <SubType>Code</SubType>
       <LinkAlways>true</LinkAlways>
     </Compile>
+    <Compile Include="GVLs\GVL_RobotConstant.TcGVL">
+      <SubType>Code</SubType>
+      <LinkAlways>true</LinkAlways>
+    </Compile>
     <Compile Include="GVLs\JobNumbers.TcGVL">
       <SubType>Code</SubType>
       <LinkAlways>true</LinkAlways>
@@ -160,10 +164,6 @@
     </Compile>
     <Compile Include="POUs\HAWinoCore\001_MotorTask\FB_Drehzahlregler.TcPOU">
       <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\HAWinoCore\001_MotorTask\GVL.TcGVL">
-      <SubType>Code</SubType>
-      <LinkAlways>true</LinkAlways>
     </Compile>
     <Compile Include="POUs\HAWinoCore\001_MotorTask\Main_MotorTask.TcPOU">
       <SubType>Code</SubType>

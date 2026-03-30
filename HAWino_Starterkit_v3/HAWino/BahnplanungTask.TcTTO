@@ -1,11 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
   <Task Name="BahnplanungTask" Id="{7ef91ab1-c9a1-42de-b1b7-d16691d55a51}">
     <!--CycleTime in micro seconds.-->
     <CycleTime>20000</CycleTime>
     <Priority>3</Priority>
     <PouCall>
       <Name>Gripper</Name>
+    </PouCall>
+    <PouCall>
+      <Name>Bumper</Name>
     </PouCall>
     <TaskFBGuid>{8009882a-dd29-46de-8838-8c4627feb08e}</TaskFBGuid>
     <Fb_init>{14677e02-3aee-4620-965b-17e5dc3a8379}</Fb_init>

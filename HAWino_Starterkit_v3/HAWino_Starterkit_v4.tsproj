@@ -2,6 +2,48 @@
 <TcSmProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.beckhoff.com/schemas/2012/07/TcSmProject" TcSmVersion="1.0" TcVersion="3.1.4026.19">
 	<DataTypes>
 		<DataType>
+			<Name GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}" AutoDeleteType="true">Position</Name>
+			<Comment><![CDATA[Definition des allgemeinen Position Datentyps]]></Comment>
+			<BitSize>256</BitSize>
+			<SubItem>
+				<Name>x</Name>
+				<Type GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</Type>
+				<Comment><![CDATA[e = Fehler des Kamerasystems]]></Comment>
+				<BitSize>64</BitSize>
+				<BitOffs>0</BitOffs>
+			</SubItem>
+			<SubItem>
+				<Name>y</Name>
+				<Type GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</Type>
+				<Comment><![CDATA[e = Fehler des Kamerasystems]]></Comment>
+				<BitSize>64</BitSize>
+				<BitOffs>64</BitOffs>
+			</SubItem>
+			<SubItem>
+				<Name>theta</Name>
+				<Type GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</Type>
+				<Comment><![CDATA[e = Fehler des Kamerasystems]]></Comment>
+				<BitSize>64</BitSize>
+				<BitOffs>128</BitOffs>
+			</SubItem>
+			<SubItem>
+				<Name>e</Name>
+				<Type GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</Type>
+				<Comment><![CDATA[e = Fehler des Kamerasystems]]></Comment>
+				<BitSize>64</BitSize>
+				<BitOffs>192</BitOffs>
+			</SubItem>
+		</DataType>
+		<DataType>
+			<Name GUID="{26928B13-6C0A-8B65-AF30-A387B13077E9}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..8] OF Position</Name>
+			<BitSize>2048</BitSize>
+			<BaseType GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</BaseType>
+			<ArrayInfo>
+				<LBound>1</LBound>
+				<Elements>8</Elements>
+			</ArrayInfo>
+		</DataType>
+		<DataType>
 			<Name GUID="{66B40A97-02CE-C520-86C7-E6EA3AB0062B}" AutoDeleteType="true">ST_PwrMgmt_HAWino_In</Name>
 			<BitSize>448</BitSize>
 			<SubItem>
@@ -78,87 +120,13 @@
 			</ArrayInfo>
 		</DataType>
 		<DataType>
-			<Name GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}" AutoDeleteType="true">Position</Name>
-			<Comment><![CDATA[Definition des allgemeinen Position Datentyps]]></Comment>
-			<BitSize>256</BitSize>
-			<SubItem>
-				<Name>x</Name>
-				<Type GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</Type>
-				<Comment><![CDATA[e = Fehler des Kamerasystems]]></Comment>
-				<BitSize>64</BitSize>
-				<BitOffs>0</BitOffs>
-			</SubItem>
-			<SubItem>
-				<Name>y</Name>
-				<Type GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</Type>
-				<Comment><![CDATA[e = Fehler des Kamerasystems]]></Comment>
-				<BitSize>64</BitSize>
-				<BitOffs>64</BitOffs>
-			</SubItem>
-			<SubItem>
-				<Name>theta</Name>
-				<Type GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</Type>
-				<Comment><![CDATA[e = Fehler des Kamerasystems]]></Comment>
-				<BitSize>64</BitSize>
-				<BitOffs>128</BitOffs>
-			</SubItem>
-			<SubItem>
-				<Name>e</Name>
-				<Type GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</Type>
-				<Comment><![CDATA[e = Fehler des Kamerasystems]]></Comment>
-				<BitSize>64</BitSize>
-				<BitOffs>192</BitOffs>
-			</SubItem>
-		</DataType>
-		<DataType>
-			<Name GUID="{26928B13-6C0A-8B65-AF30-A387B13077E9}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..8] OF Position</Name>
-			<BitSize>2048</BitSize>
-			<BaseType GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</BaseType>
-			<ArrayInfo>
-				<LBound>1</LBound>
-				<Elements>8</Elements>
-			</ArrayInfo>
-		</DataType>
-		<DataType>
-			<Name GUID="{E653CDAE-1A31-0819-E492-0347803C1564}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..9] OF REAL</Name>
-			<BitSize>288</BitSize>
-			<BaseType GUID="{18071995-0000-0000-0000-00000000000D}">REAL</BaseType>
+			<Name GUID="{BEDD1B47-23A4-70BA-89F7-A5EC05FD9AD8}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..9] OF LREAL</Name>
+			<BitSize>576</BitSize>
+			<BaseType GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</BaseType>
 			<ArrayInfo>
 				<LBound>1</LBound>
 				<Elements>9</Elements>
 			</ArrayInfo>
-		</DataType>
-		<DataType>
-			<Name GUID="{1C690493-9BB8-9FAA-04D7-D0781D5E86FD}" AutoDeleteType="true">mqttExtraCode</Name>
-			<BitSize>16</BitSize>
-			<BaseType GUID="{18071995-0000-0000-0000-000000000006}">INT</BaseType>
-			<EnumInfo>
-				<Text><![CDATA[sendNothing]]></Text>
-				<Enum>0</Enum>
-			</EnumInfo>
-			<EnumInfo>
-				<Text><![CDATA[sendIdle]]></Text>
-				<Enum>1</Enum>
-			</EnumInfo>
-			<EnumInfo>
-				<Text><![CDATA[sendCharging1]]></Text>
-				<Enum>2</Enum>
-			</EnumInfo>
-			<EnumInfo>
-				<Text><![CDATA[sendCharging2]]></Text>
-				<Enum>3</Enum>
-			</EnumInfo>
-			<Properties>
-				<Property>
-					<Name>qualified_only</Name>
-				</Property>
-				<Property>
-					<Name>strict</Name>
-				</Property>
-				<Property>
-					<Name>generate_implicit_init_function</Name>
-				</Property>
-			</Properties>
 		</DataType>
 		<DataType>
 			<Name GUID="{D23FD725-86F0-067F-A117-ADC7250A16F6}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..4] OF Position</Name>
@@ -975,7 +943,7 @@
 		<ImageData Id="1004">424dd6020000000000003600000028000000100000000e0000000100180000000000a0020000c40e0000c40e00000000000000000000ff00ffff00ffff00ffff00ffff00ffff00ff808080808080808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff</ImageData>
 		<ImageData Id="1005">424de6000000000000007600000028000000100000000e000000010004000000000070000000000000000000000000000000000000000000000000008000008000000080800080000000800080008080000080808000c0c0c0000000ff0000ff000000ffff00ff000000ff00ff00ffff0000ffffff00ffffffffffffffffff788833338887ffff78883bb38887ffffffff3bb3ffffffffffff8778fffffffffffffffffffffffffffffffff999ffff78f78fffffffffff78f78ffff999ffff78f7888fffffffff78f78f78f999ffff78f78f78ffffffff78f7888ff999ffffffffffffffffff</ImageData>
 	</ImageDatas>
-	<Project ProjectGUID="{953E7D24-8971-4ED8-AECF-7CA52AD733DF}" TargetNetId="5.53.205.214.1.1" Target64Bit="true" ShowHideConfigurations="#x106">
+	<Project ProjectGUID="{953E7D24-8971-4ED8-AECF-7CA52AD733DF}" TargetNetId="5.53.205.200.1.1" Target64Bit="true" ShowHideConfigurations="#x106">
 		<System>
 			<Settings MaxCpus="2">
 				<Cpu BaseTime="666"/>
@@ -999,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{9BD73553-580C-932E-CDA3-E856352C5ACF}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{9B1A31E3-2205-FD5D-EA84-3FB02827295E}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1070,12 +1038,12 @@
 							<Type>INT</Type>
 						</Var>
 						<Var>
-							<Name>MQTT.bComCheckAnswer</Name>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
 							<Name>MQTT.robotPositions</Name>
 							<Type GUID="{D23FD725-86F0-067F-A117-ADC7250A16F6}">ARRAY [1..4] OF Position</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.bComCheckAnswer</Name>
+							<Type>BOOL</Type>
 						</Var>
 						<Var>
 							<Name>MQTT.stMqtt_HAWino_Out</Name>
@@ -1131,19 +1099,6 @@
 							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
 						</Var>
 						<Var>
-							<Name>MQTT.extraCode</Name>
-							<Comment><![CDATA[ Enum um nach dem Code einen zusätzlichen Code zu schicken]]></Comment>
-							<Type GUID="{1C690493-9BB8-9FAA-04D7-D0781D5E86FD}">mqttExtraCode</Type>
-						</Var>
-						<Var>
-							<Name>MQTT.codeToSend</Name>
-							<Type>INT</Type>
-						</Var>
-						<Var>
-							<Name>MQTT.messageToSend</Name>
-							<Type>STRING(255)</Type>
-						</Var>
-						<Var>
 							<Name>MQTT.errorTextRobot</Name>
 							<Comment><![CDATA[ Fehlermeldungen]]></Comment>
 							<Type>STRING(80)</Type>
@@ -1167,10 +1122,6 @@
 							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
 						</Var>
 						<Var>
-							<Name>Camera.cameraData.robotPosition</Name>
-							<Type GUID="{26928B13-6C0A-8B65-AF30-A387B13077E9}">ARRAY [1..8] OF Position</Type>
-						</Var>
-						<Var>
 							<Name>Camera.cameraData.HH</Name>
 							<Type>LREAL</Type>
 						</Var>
@@ -1183,8 +1134,12 @@
 							<Type>LREAL</Type>
 						</Var>
 						<Var>
+							<Name>Camera.cameraData.MS</Name>
+							<Type>LREAL</Type>
+						</Var>
+						<Var>
 							<Name>IrDistanceSensors.distance_mm</Name>
-							<Type GUID="{E653CDAE-1A31-0819-E492-0347803C1564}">ARRAY [1..9] OF REAL</Type>
+							<Type GUID="{BEDD1B47-23A4-70BA-89F7-A5EC05FD9AD8}">ARRAY [1..9] OF LREAL</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="1" ContextId="2" AreaNo="32">
@@ -1227,12 +1182,24 @@
 							<Name>Gripper.driveVelocity</Name>
 							<Type>INT</Type>
 						</Var>
+						<Var>
+							<Name>Bumper.Triggered</Name>
+							<Type>BOOL</Type>
+						</Var>
 					</Vars>
 					<Vars VarGrpType="1" ContextId="1" AreaNo="16">
 						<Name>BahnplanungTask Inputs</Name>
 						<Var>
 							<Name>Gripper.Grippercurrent</Name>
 							<Type>UINT</Type>
+						</Var>
+						<Var>
+							<Name>Bumper.BumperStrip</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>Bumper.Reset</Name>
+							<Type>BOOL</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="2" AreaNo="1">
@@ -1263,6 +1230,10 @@
 						<Var>
 							<Name>Main_MotorTask.velocityToMotor3</Name>
 							<Type>INT</Type>
+						</Var>
+						<Var>
+							<Name>Camera.cameraData.robotPosition</Name>
+							<Type GUID="{26928B13-6C0A-8B65-AF30-A387B13077E9}">ARRAY [1..8] OF Position</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="1">
@@ -1401,15 +1372,10 @@
 						</OwnerA>
 					</UnrestoredVarLinks>
 					<UnrestoredVarLinks ImportTime="2024-10-17T11:01:53">
-						<OwnerA Name="InputDst" Prefix="TIPC^HAWino^HAWino Instance" Type="1">
-							<OwnerB Name="TIID^Device 1 (EtherCAT)^Term 1 (EK1200)^Digitale Eingänge A4 (EL1008)">
-								<Link VarA="Bumper.BumperStrip" TypeA="BOOL" InOutA="0" GuidA="{18071995-0000-0000-0000-000000000030}" VarB="Bumper (S1)^Input" Size="1" RestoreInfo="ANotFound"/>
-							</OwnerB>
-						</OwnerA>
 						<OwnerA Name="OutputSrc" Prefix="TIPC^HAWino^HAWino Instance" Type="2">
 							<OwnerB Name="TIPC^HAWino^HAWino Instance">
-								<Link VarA="Bumper.Triggered" TypeA="BOOL" InOutA="1" GuidA="{18071995-0000-0000-0000-000000000030}" VarB="BahnplanungTask Inputs^Main_BahnplanungTask.FB_Roboterstatus.bumperTriggered" RestoreInfo="ANotFound"/>
-								<Link VarA="Bumper.Triggered" TypeA="BOOL" InOutA="1" GuidA="{18071995-0000-0000-0000-000000000030}" VarB="BahnplanungTask Inputs^Main_BahnplanungTask.bumperTriggered" RestoreInfo="ANotFound"/>
+								<Link VarA="Bumper.Triggered" TypeA="BOOL" InOutA="1" GuidA="{18071995-0000-0000-0000-000000000030}" VarB="BahnplanungTask Inputs^Main_BahnplanungTask.FB_Roboterstatus.bumperTriggered" RestoreInfo="BNotFound"/>
+								<Link VarA="Bumper.Triggered" TypeA="BOOL" InOutA="1" GuidA="{18071995-0000-0000-0000-000000000030}" VarB="BahnplanungTask Inputs^Main_BahnplanungTask.bumperTriggered" RestoreInfo="BNotFound"/>
 							</OwnerB>
 						</OwnerA>
 					</UnrestoredVarLinks>
@@ -4388,6 +4354,7 @@ Bit1: Value smaller than Limit2]]></Comment>
 				<Link VarA="SOCTask Outputs^PowerManager.shutdownTrigger" VarB="InitiateShutdown^Output"/>
 			</OwnerB>
 			<OwnerB Name="TIID^Device 1 (EtherCAT)^Term 1 (EK1200)^Digitale Eingänge A4 (EL1008)">
+				<Link VarA="BahnplanungTask Inputs^Bumper.BumperStrip" VarB="Bumper (S1)^Input"/>
 				<Link VarA="MotorTask Inputs^Main_MotorTask.bumper" VarB="Bumper (S1)^Input"/>
 				<Link VarA="SOCTask Inputs^Gripper.slider" VarB="Channel 5^Input"/>
 				<Link VarA="SOCTask Inputs^Main_MotorTask.sliderGripper" VarB="Channel 5^Input"/>

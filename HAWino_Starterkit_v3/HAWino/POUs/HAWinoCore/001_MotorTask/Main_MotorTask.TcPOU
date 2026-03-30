@@ -92,14 +92,15 @@ VAR
 	targetPosTheta	: 	LREAL;
 	
 	// Tatsächliche Position
-	actualPosX		: 	LREAL;
-	actualPosY		: 	LREAL;
-	actualPosTheta	: 	LREAL;		
-	
+	actualPosX		: LREAL;
+	actualPosY		: LREAL;
+	actualPosTheta	: LREAL;		
+	actualError		: LREAL;
 	// Positionsliste
 	Threshold_NewPosition: LREAL := 50;
-	PosArray : ARRAY[0..21] OF LREAL := [5500,2000,4000,2000, 5500,2000,4000,2000, 5500,2000,4000,2000, 5500,2000,4000,2000, 5500,2000,4000,2000];
+	PosArray : ARRAY[0..21] OF LREAL := [5500,3500,5500,2000,4000,2000,4000,3500,4000,2000,3000,2000,3000,3500,3000,2000,1500,2000,1500,3500,5500,3500];
 	PositionNumber: INT := 0;
+
 	KalmanStateX: LREAL;
 	KalmanStateY: LREAL;
 	KalmanStateYaw: LREAL;
@@ -109,7 +110,7 @@ VAR
 
 	// Inline-struct als Array-Element
 	//
-	RingBuffer : ARRAY[0..GVL.RING_SIZE-1] OF EKF_Data;
+	RingBuffer : ARRAY[0..GVL_RobotConstant.RING_SIZE-1] OF EKF_Data;
 	
 	RingHead : INT := 0; // Index für nächste Schreibposition
 	RingCount : INT := 0; // Anzahl gültiger Einträge (<= RING_SIZE)
@@ -143,26 +144,13 @@ RobotIndex := Var_HAWIno.Robot_Number;
 IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 	// Falls außerhalb Bereich: Default auf 1 setzen 
 	RobotIndex := -1;
+ELSE
+	actualPosX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
+	actualPosY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
+	actualPosTheta 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
+	actualError		:= Camera.cameraData.robotPosition[RobotIndex].e;
 END_IF;
 
-CASE RobotIndex OF
-	1:
-		actualPosX 		:= Camera.cameraData.x1;
-		actualPosY 		:= Camera.cameraData.y1;
-		actualPosTheta 	:= Camera.cameraData.theta1;
-	2:
-		actualPosX 		:= Camera.cameraData.x2;
-		actualPosY 		:= Camera.cameraData.y2;
-		actualPosTheta 	:= Camera.cameraData.theta2;
-	3:
-		actualPosX 		:= Camera.cameraData.x3;
-		actualPosY 		:= Camera.cameraData.y3;
-		actualPosTheta 	:= Camera.cameraData.theta3;
-	4:
-		actualPosX 		:= Camera.cameraData.x4;
-		actualPosY 		:= Camera.cameraData.y4;
-		actualPosTheta 	:= Camera.cameraData.theta4;
-END_CASE
 
 // Kalmann Filter durchlaufen um geschätzte Messwerte zu erhalten
 ACT_Kalmann();
@@ -174,7 +162,6 @@ IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY -
 	targetPosX 		:= PosArray[PositionNumber];
 	targetPosY 		:= PosArray[PositionNumber+1];
 END_IF
-
 enableMotorControl := TRUE;
 
 // Wert des Positionsreglers berechnen
@@ -281,7 +268,7 @@ IF (ABS(actualPosX - prevCamX) > camChangeEpsilon) OR
 	// Dann Vorwärtspropagieren der Veränderung bis zum aktuellen Zeitstmpel
 	idx := RingHead - 20;
 	IF (idx < 0) THEN
-		idx := GVL.RING_SIZE - idx;
+		idx := GVL_RobotConstant.RING_SIZE - idx;
 	END_IF
 	EKF_UpdateAtIndex(idx, actualPosX, actualPosY);
 	EKF_ReplayFrom(idx);
@@ -307,9 +294,9 @@ END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[idx := startIdx;
 
-WHILE idx <> (RingHead - 1 + GVL.RING_SIZE) MOD GVL.RING_SIZE DO
+WHILE idx <> (RingHead - 1 + GVL_RobotConstant.RING_SIZE) MOD GVL_RobotConstant.RING_SIZE DO
 
-    nextIdx := (idx + 1) MOD GVL.RING_SIZE;
+    nextIdx := (idx + 1) MOD GVL_RobotConstant.RING_SIZE;
 
     (* Zustand von korrigiertem Schritt laden *)
     X_currentState := RingBuffer[idx].State;
@@ -337,8 +324,8 @@ WHILE idx <> (RingHead - 1 + GVL.RING_SIZE) MOD GVL.RING_SIZE DO
 END_WHILE;
 
 (* Aktuellen Zustand setzen *)
-X_currentState := RingBuffer[(RingHead - 1 + GVL.RING_SIZE) MOD GVL.RING_SIZE].State;
-P_currentState := RingBuffer[(RingHead - 1 + GVL.RING_SIZE) MOD GVL.RING_SIZE].P_Start;]]></ST>
+X_currentState := RingBuffer[(RingHead - 1 + GVL_RobotConstant.RING_SIZE) MOD GVL_RobotConstant.RING_SIZE].State;
+P_currentState := RingBuffer[(RingHead - 1 + GVL_RobotConstant.RING_SIZE) MOD GVL_RobotConstant.RING_SIZE].P_Start;]]></ST>
       </Implementation>
     </Method>
     <Method Name="EKF_UpdateAtIndex" Id="{972af3b9-adbd-491f-9e3e-731bea6c1f68}">
@@ -471,7 +458,7 @@ bodyVelY :=  0.666666667 * wheelSpeed[1]
 (* Winkelgeschwindigkeit um Roboterzentrum *)
 yawRate := (wheelSpeed[1]
            + wheelSpeed[2]
-           + wheelSpeed[3]) / (3.0 * GVL.ROBOT_RADIUS);
+           + wheelSpeed[3]) / (3.0 * GVL_RobotConstant.ROBOT_RADIUS);
 
 
 
@@ -594,7 +581,7 @@ END_IF
 index := RingHead - 1 - offset;
 
 IF index < 0 THEN
-    index := index + GVL.RING_SIZE;
+    index := index + GVL_RobotConstant.RING_SIZE;
 END_IF
 
 data := RingBuffer[index];
@@ -616,12 +603,12 @@ RingBuffer[RingHead] := newData;
 
 // Head weiterschieben (Modulo 16)
 RingHead := RingHead + 1;
-IF RingHead >= GVL.RING_SIZE THEN
+IF RingHead >= GVL_RobotConstant.RING_SIZE THEN
     RingHead := 0;
 END_IF
 
 // Count nur erhöhen bis 16
-IF RingCount < GVL.RING_SIZE THEN
+IF RingCount < GVL_RobotConstant.RING_SIZE THEN
     RingCount := RingCount + 1;
 END_IF]]></ST>
       </Implementation>

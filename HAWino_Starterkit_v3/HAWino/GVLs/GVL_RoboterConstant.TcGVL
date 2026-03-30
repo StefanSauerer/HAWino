@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <GVL Name="GVL_RoboterConstant" Id="{d06b8df7-d20b-432a-8b10-eb5482f41d63}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+	 ROBOT_RADIUS : LREAL := 0.15;		  // in m
+	 RING_SIZE : INT := 60;
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

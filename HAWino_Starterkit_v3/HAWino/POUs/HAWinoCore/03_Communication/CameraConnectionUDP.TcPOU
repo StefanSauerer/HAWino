@@ -23,31 +23,13 @@ VAR
 	hrInit : HRESULT;
 	hrSend  : HRESULT; 	
 	counter	:	UDINT	:= 0;
-	x1,y1,theta1,x2,y2,theta2,x3,y3,theta3,x4,y4,theta4,x5,y5,theta5 : LREAL;
 END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[
 IF ipUdp <> 0 THEN
 	ipUdp.CheckReceived();
-END_IF
-
-
-x1 := robotPosition[1].x;
-y1 := robotPosition[1].y;
-theta1 := robotPosition[1].theta;
-x2 := robotPosition[2].x;
-y2 := robotPosition[2].y;
-theta2 := robotPosition[2].theta;
-x3 := robotPosition[3].x;
-y3 := robotPosition[3].y;
-theta3 := robotPosition[3].theta;
-x4 := robotPosition[4].x;
-y4 := robotPosition[4].y;
-theta4 := robotPosition[4].theta;
-x5 := robotPosition[5].x;
-y5 := robotPosition[5].y;
-theta5 := robotPosition[5].theta;]]></ST>
+END_IF]]></ST>
     </Implementation>
     <Method Name="FB_exit" Id="{0258286a-12f2-440d-8e54-fd50a76e4c92}">
       <Declaration><![CDATA[{attribute 'conditionalshow'}

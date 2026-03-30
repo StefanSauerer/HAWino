@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
   <POU Name="MQTT" Id="{3b364ef0-24c5-4b55-9f63-1e0f62f8b4d0}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM MQTT
 VAR
@@ -12,7 +12,6 @@ VAR
     sPayloadPub 	: STRING(255);
 	
 	
-	i, j : INT;
     fbTimer : TON := (PT := T#1S); // Timer for LifeBit
 	fbTimerPubPos : TON := (PT := T#20MS); // Timer for Publishing Position
 	fbTimerPubSoC : TON := (PT := T#10S); // Timer for Publishing SoC
@@ -99,26 +98,6 @@ VAR
 	
 	MyJob : STRING(255);  // Variable zur Speicherung der empfangenen Jobnummer
 	myJobNum AT %Q* : INT := 0;
-	
-	// Statusnachricht von Gewerk 1
-	extraCode AT %I* : mqttExtraCode;	// Enum um nach dem Code einen zusätzlichen Code zu schicken
-	codeToSend AT %I* : INT;
-	messageToSend AT %I* : STRING(255);
-	
-	// Erkennung der steigenden Flanke am Signal sendNow
-	// Statusnachricht von Gewerk 1
-	
-	
-	// Erkennung der steigenden Flanke am Signal sendCode
-	rTrigSendCode : R_TRIG;
-	// Erkennung der steigenden Flanke am Signal sendMessage
-	rTrigSendMessage : R_TRIG;
-	// Erkennung der steigenden Flanke am Signal sendBumperResetAck
-	rTrigSendBumperResetAck : R_TRIG;
-	// Erkennung der steigenden Flanke am Signal sendPartLostResetAck
-	rTrigSendPartLostResetAck : R_TRIG;
-	// Erkennung der steigenden Flanke am Signal sendGlobalResetAck
-	rTrigSendGlobalResetAck : R_TRIG;
 	
 	// Akku Strom und Spannung
 	supplyCurrent_A			AT%I* : REAL; 
@@ -364,17 +343,5 @@ END_IF
 
 ]]></ST>
     </Implementation>
-    <LineIds Name="MQTT">
-      <LineId Id="6666" Count="16" />
-      <LineId Id="6693" Count="0" />
-      <LineId Id="6856" Count="3" />
-      <LineId Id="6988" Count="76" />
-      <LineId Id="7355" Count="0" />
-      <LineId Id="7357" Count="7" />
-      <LineId Id="7356" Count="0" />
-      <LineId Id="7065" Count="20" />
-      <LineId Id="7126" Count="38" />
-      <LineId Id="5147" Count="0" />
-    </LineIds>
   </POU>
 </TcPlcObject>

@@ -999,7 +999,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{AC6ED25E-5C23-F83B-F938-CC462D9642CC}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{BF90B362-CE26-D7E0-0651-5B684F6C6D87}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1085,14 +1085,6 @@
 					<Vars VarGrpType="1" ContextId="3" AreaNo="48">
 						<Name>SOCTask Inputs</Name>
 						<Var>
-							<Name>Gripper.slider</Name>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
-							<Name>Gripper.partGripped</Name>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
 							<Name>Main_MotorTask.sliderGripper</Name>
 							<Type>BOOL</Type>
 						</Var>
@@ -1126,6 +1118,14 @@
 							<Type>INT</Type>
 						</Var>
 						<Var>
+							<Name>Gripper.slider</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>Gripper.partGripped</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
 							<Name>MQTT.livePosition</Name>
 							<Comment><![CDATA[ aktuelle Roboterposition vom Beobachter]]></Comment>
 							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
@@ -1152,11 +1152,6 @@
 					<Vars VarGrpType="2" ContextId="2" AreaNo="33">
 						<Name>PlcTask Outputs</Name>
 						<Var>
-							<Name>HAWino.initDone</Name>
-							<Comment><![CDATA[ Outputs]]></Comment>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
 							<Name>HAWino.cameraReceivedPakets</Name>
 							<Comment><![CDATA[ Counter für erhaltene Kamerapakete]]></Comment>
 							<Type>UINT</Type>
@@ -1165,6 +1160,11 @@
 							<Name>HAWino.cameraPosition</Name>
 							<Comment><![CDATA[ Aktuelle roboterspezifische Kameraposition]]></Comment>
 							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
+						</Var>
+						<Var>
+							<Name>HAWino.initDone</Name>
+							<Comment><![CDATA[ Outputs]]></Comment>
+							<Type>BOOL</Type>
 						</Var>
 						<Var>
 							<Name>Camera.cameraData.robotPosition</Name>

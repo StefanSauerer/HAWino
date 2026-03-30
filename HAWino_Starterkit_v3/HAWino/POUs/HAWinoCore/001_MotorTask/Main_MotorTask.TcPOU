@@ -115,9 +115,7 @@ END_IF;CASE RobotIndex OF
 		actualPosY 		:= Camera.cameraData.y4;
 		actualPosTheta 	:= Camera.cameraData.theta4;
 END_CASE
-// Feste Geschwindigkeit und Winkel festlegen
-GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit := 100;
-GVL_Datatransfer23.gvFahrvektor.reWinkel := 0;
+
 // Geschwindigkeit in Weltkoordinaten umrechnen
 W_X_targetSpeed 	:= GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * COS(GVL_Datatransfer23.gvFahrvektor.reWinkel);
 W_Y_targetSpeed 	:= GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * SIN(GVL_Datatransfer23.gvFahrvektor.reWinkel);

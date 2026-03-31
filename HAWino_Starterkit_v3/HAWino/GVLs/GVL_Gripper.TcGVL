@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <GVL Name="GVL_Gripper" Id="{0855a5b1-f83d-43f2-9e50-ef3ff6d8f898}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL
+	cmdGripper : GripperCmd_Enum := GripperCmd_Enum.take;
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

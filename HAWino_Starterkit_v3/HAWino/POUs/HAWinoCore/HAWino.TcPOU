@@ -1,9 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
   <POU Name="HAWino" Id="{19efa873-38c9-4bfb-a6cf-5d3d5e993a21}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM HAWino
 VAR
-	//CX35CDD6
 	Robot_Number	AT%Q*	: INT;
 	operationState : DUT_SysState := DUT_SysState.init; 
 	RobotData : RobotInternalData;
@@ -144,31 +143,5 @@ CASE state OF
 	END_CASE;]]></ST>
       </Implementation>
     </Method>
-    <LineIds Name="HAWino">
-      <LineId Id="153" Count="0" />
-      <LineId Id="180" Count="0" />
-      <LineId Id="155" Count="0" />
-      <LineId Id="161" Count="0" />
-      <LineId Id="158" Count="0" />
-      <LineId Id="162" Count="1" />
-      <LineId Id="157" Count="0" />
-      <LineId Id="181" Count="0" />
-      <LineId Id="165" Count="0" />
-      <LineId Id="175" Count="0" />
-      <LineId Id="178" Count="0" />
-      <LineId Id="166" Count="1" />
-      <LineId Id="164" Count="0" />
-      <LineId Id="182" Count="0" />
-      <LineId Id="196" Count="0" />
-      <LineId Id="195" Count="0" />
-      <LineId Id="171" Count="1" />
-      <LineId Id="210" Count="0" />
-      <LineId Id="226" Count="0" />
-      <LineId Id="156" Count="0" />
-    </LineIds>
-    <LineIds Name="HAWino.InitSysId">
-      <LineId Id="532" Count="78" />
-      <LineId Id="86" Count="0" />
-    </LineIds>
   </POU>
 </TcPlcObject>

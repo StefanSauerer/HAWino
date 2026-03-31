@@ -64,7 +64,7 @@ VAR
 	rWheel 					: INT 	:= 40; 			//in mm
 	ue						: LREAL := 0.0625; 		//Getriebeuebersetzung 
 	cycletime 				: LREAL	:= 0.00033333; 	//Cycletime des Motortasks
-	enableMotorControl		: BOOL;
+	enableMotorControl		: BOOL  := FALSE;
 	
 	RobotIndex : INT := -1;
 	
@@ -151,9 +151,16 @@ ELSE
 	actualError		:= Camera.cameraData.robotPosition[RobotIndex].e;
 END_IF;
 
+// Gripper aktivieren -> Wird durch GVL_Gripper.cmdGripper gesetzt!
+IF GVL_Gripper.cmdGripper = GripperCmd_Enum.take THEN
+	Gripper.closeGripperCommand := TRUE;
+ELSIF GVL_Gripper.cmdGripper = GripperCmd_Enum.put THEN
+	Gripper.closeGripperCommand := FALSE;
+END_IF;
+
 
 // Kalmann Filter durchlaufen um geschätzte Messwerte zu erhalten
-ACT_Kalmann();
+// ACT_Kalmann();
 
 
 // Prüfen ob die erste Zielpositon schon erreicht wurde und setzt sie auf die nächste, falls erreicht
@@ -162,7 +169,10 @@ IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY -
 	targetPosX 		:= PosArray[PositionNumber];
 	targetPosY 		:= PosArray[PositionNumber+1];
 END_IF
-enableMotorControl := TRUE;
+
+IF bumper THEN
+	enableMotorControl := FALSE;	
+END_IF
 
 // Wert des Positionsreglers berechnen
 FB_Positionsregler(targetPosX:=targetPosX, targetPosY:=targetPosY, targetPosTheta:=targetPosTheta, 

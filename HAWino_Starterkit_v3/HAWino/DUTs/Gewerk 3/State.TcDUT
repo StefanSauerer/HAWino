@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="State" Id="{41a93995-cd20-4bb0-a07a-0aad6be14f57}">
+    <Declaration><![CDATA[TYPE State : 
+	STRUCT
+		x : LREAL;
+		y : LREAL;
+		theta : LREAL;
+	END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

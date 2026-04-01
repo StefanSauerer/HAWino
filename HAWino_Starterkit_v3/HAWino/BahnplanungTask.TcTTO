@@ -10,6 +10,9 @@
     <PouCall>
       <Name>Bumper</Name>
     </PouCall>
+    <PouCall>
+      <Name>Test</Name>
+    </PouCall>
     <TaskFBGuid>{8009882a-dd29-46de-8838-8c4627feb08e}</TaskFBGuid>
     <Fb_init>{14677e02-3aee-4620-965b-17e5dc3a8379}</Fb_init>
     <Fb_exit>{55fea96f-4509-446f-bfd4-12476c7b661c}</Fb_exit>

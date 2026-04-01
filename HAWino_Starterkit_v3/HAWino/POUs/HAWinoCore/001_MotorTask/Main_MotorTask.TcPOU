@@ -64,7 +64,7 @@ VAR
 	rWheel 					: INT 	:= 40; 			//in mm
 	ue						: LREAL := 0.0625; 		//Getriebeuebersetzung 
 	cycletime 				: LREAL	:= 0.00033333; 	//Cycletime des Motortasks
-	enableMotorControl		: BOOL  := FALSE;
+	enableMotorControl		: BOOL  := TRUE;
 	
 	RobotIndex : INT := -1;
 	
@@ -158,10 +158,23 @@ ELSIF GVL_Gripper.cmdGripper = GripperCmd_Enum.put THEN
 	Gripper.closeGripperCommand := FALSE;
 END_IF;
 
+// Geschwindigkeitsvektor von Gruppe 2 in Weltkoordinaten umrechnen
+W_X_targetSpeed 	:= GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * COS(GVL_Datatransfer23.gvFahrvektor.reWinkel);
+W_Y_targetSpeed 	:= GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * SIN(GVL_Datatransfer23.gvFahrvektor.reWinkel);
+W_Theta_targetSpeed := GVL_Datatransfer23.gvFahrvektor.reWinkel;
+
+// Bei Positionsregelung: Umrechnung von Welt in Roboterkoordinaten
+R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPosTheta) - W_Y_targetSpeed * SIN(actualPosTheta);
+R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPosTheta) + W_X_targetSpeed * SIN(actualPosTheta);
+R_Theta_targetSpeed := W_Theta_targetSpeed;		
 
 // Kalmann Filter durchlaufen um geschätzte Messwerte zu erhalten
 // ACT_Kalmann();
 
+// Beste Positionsschätzung an Gruppe 2 übergeben
+GVL_Datatransfer23.gvPosition.reX := actualPosX;
+GVL_Datatransfer23.gvPosition.reY := actualPosY;
+GVL_Datatransfer23.gvPosition.reWinkel := actualPosTheta;
 
 // Prüfen ob die erste Zielpositon schon erreicht wurde und setzt sie auf die nächste, falls erreicht
 IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY - targetPosY) < Threshold_NewPosition) ) THEN
@@ -169,7 +182,6 @@ IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY -
 	targetPosX 		:= PosArray[PositionNumber];
 	targetPosY 		:= PosArray[PositionNumber+1];
 END_IF
-
 IF bumper THEN
 	enableMotorControl := FALSE;	
 END_IF
@@ -182,9 +194,14 @@ FB_Positionsregler(targetPosX:=targetPosX, targetPosY:=targetPosY, targetPosThet
 					vThetaCartesianToMotors => vThetaCartesianToMotors);
 					
 // Werte an Drehzahlregler übergeben
-FB_Drehzahlregler(targetVelX:= vXCartesianToMotors,
-					targetVelY := vYCartesianToMotors, 
-					tragetVelTheta:= vThetaCartesianToMotors,
+
+//Umschaltung auf Positionsreglung
+// FB_Drehzahlregler(targetVelX:= vXCartesianToMotors,
+// 					targetVelY := vYCartesianToMotors, 
+// 					tragetVelTheta:= vThetaCartesianToMotors,
+FB_Drehzahlregler(targetVelX:= R_X_targetSpeed,
+					targetVelY := R_Y_targetSpeed, 
+					tragetVelTheta:= R_Theta_targetSpeed,
 					enable := enableMotorControl,
 					bumper := bumper,
 					MotorReset := FALSE,

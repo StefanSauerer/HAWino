@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <POU Name="Main_Bahnplanung" Id="{44fc9111-07c7-42f2-9fb5-03f7fc5fe448}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MAIN_Bahnplanung
+VAR
+    (* 13 Kartenbausteine — jeder hält sein eigenes Array *)
+    arfbMaps       : ARRAY[1..13] OF FB_AngleMap;
+    fbNav          : FB_Navigation;
+
+    (* Ladesteuerung *)
+    inLoadIdx      : INT := 1;
+    boAllLoaded    : BOOL := FALSE;
+    boLoadError    : BOOL := FALSE;
+
+    (* Navigation *)
+    rePosX         : REAL := 180.0;
+    rePosY         : REAL :=  20.0;
+    inActiveGoal   : INT  :=   1;
+
+    areRobotX      : ARRAY[0..2] OF REAL;
+    areRobotY      : ARRAY[0..2] OF REAL;
+    aboRobotActive : ARRAY[0..2] OF BOOL;
+
+    reAngleTarget  : REAL;
+    reDistToGoal   : REAL;
+	reSpeed 	   : REAL;
+    boAtGoal       : BOOL;
+    boStop         : BOOL;
+    boNavError     : BOOL;
+	RobotIndex: INT;
+	actualPosX: LREAL;
+	actualPosY: LREAL;
+	actualPosTheta: LREAL;
+	actualError: LREAL;
+	END_VAR
+	
+	VAR_TEMP
+    tinI : INT; // Temporary variable
+	tinJ : INT := 0;
+	END_VAR
+	
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF NOT boAllLoaded AND NOT boLoadError THEN
+
+    (* Aktuellen Baustein laden *)
+    arfbMaps[inLoadIdx](
+        xinGoalID := inLoadIdx,
+        xboLoad   := TRUE);
+
+    (* Auf Fehler prüfen *)
+    IF arfbMaps[inLoadIdx].yboError THEN
+        boLoadError := TRUE;
+        RETURN;
+    END_IF
+
+    (* Wenn fertig: nächste Karte *)
+    IF arfbMaps[inLoadIdx].yboDone THEN
+        IF inLoadIdx < 13 THEN
+            inLoadIdx := inLoadIdx + 1;
+        ELSE
+            boAllLoaded := TRUE;
+        END_IF
+    END_IF
+
+    RETURN;   (* Erst navigieren wenn alle Karten geladen *)
+END_IF
+
+RobotIndex := Var_HAWIno.Robot_Number;
+IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
+	// Falls außerhalb Bereich: Default auf 1 setzen 
+	RobotIndex := -1;
+ELSE
+	actualPosX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
+	actualPosY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
+	actualPosTheta 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
+	actualError		:= Camera.cameraData.robotPosition[RobotIndex].e;
+END_IF;
+
+FOR tinI := 1 TO 4 BY 1 DO
+	IF NOT (RobotIndex = tinI) THEN
+   areRobotX[tinJ] := LREAL_TO_REAL(Camera.cameraData.robotPosition[tinI].x) / 10;
+   areRobotY[tinJ] := LREAL_TO_REAL(Camera.cameraData.robotPosition[tinI].y) / 10;
+   tinJ := tinJ + 1;
+   END_IF
+END_FOR
+
+FOR tinJ := 0 TO 2 BY 1 DO
+IF areRobotX[tinJ] = 0 AND areRobotY[tinJ] = 0 THEN
+	aboRobotActive[tinJ] := FALSE;
+	ELSE 
+		aboRobotActive[tinJ] := TRUE;
+	END_IF
+END_FOR
+
+
+reSpeed := 100;
+(* ── Navigation ────────────────────────────────────── *)
+fbNav(
+    xrePosX        := GVL_Datatransfer23.gvPosition.reX / 10,
+    xrePosY        := GVL_Datatransfer23.gvPosition.reY / 10,
+    xinGoalID      := inActiveGoal,
+    xreRobotX      := areRobotX,
+    xreRobotY      := areRobotY,
+    xboRobotActive := aboRobotActive,
+    xyarMaps       := arfbMaps,
+    yreAngleTarget => reAngleTarget,
+    yreDistToGoal  => reDistToGoal,
+    yboAtGoal      => boAtGoal,
+    yboStop        => boStop,
+    yboError       => boNavError);
+	
+	
+	IF reDistToGoal < 50 THEN
+		reSpeed := reSpeed * reDistToGoal /50;
+	END_IF
+	
+	IF boAtGoal THEN 
+		reSpeed := 0;
+	END_IF
+	
+	GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit := reSpeed;
+	GVL_Datatransfer23.gvFahrvektor.reWinkel :=  reAngleTarget;]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

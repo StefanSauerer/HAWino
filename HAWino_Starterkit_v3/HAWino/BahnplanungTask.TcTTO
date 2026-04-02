@@ -11,7 +11,7 @@
       <Name>Bumper</Name>
     </PouCall>
     <PouCall>
-      <Name>Test</Name>
+      <Name>MAIN_Bahnplanung</Name>
     </PouCall>
     <TaskFBGuid>{8009882a-dd29-46de-8838-8c4627feb08e}</TaskFBGuid>
     <Fb_init>{14677e02-3aee-4620-965b-17e5dc3a8379}</Fb_init>

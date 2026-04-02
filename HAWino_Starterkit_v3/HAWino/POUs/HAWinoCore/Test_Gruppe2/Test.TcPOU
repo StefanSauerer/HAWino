@@ -8,7 +8,7 @@ END_VAR
     <Implementation>
       <ST><![CDATA[// Feste Geschwindigkeit und Winkel festlegen
 GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit := 100;
-GVL_Datatransfer23.gvFahrvektor.reWinkel := 0;]]></ST>
+GVL_Datatransfer23.gvFahrvektor.reWinkel := 180;]]></ST>
     </Implementation>
   </POU>
 </TcPlcObject>

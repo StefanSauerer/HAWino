@@ -1,0 +1,140 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <POU Name="FB_Navigation" Id="{47de1444-cb17-492a-8a9c-9d58d0e140ab}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Navigation
+VAR_INPUT
+    xrePosX        : REAL;
+    xrePosY        : REAL;
+    xinGoalID      : INT;
+    xreRobotX      : ARRAY[0..2] OF REAL;
+    xreRobotY      : ARRAY[0..2] OF REAL;
+    xboRobotActive : ARRAY[0..2] OF BOOL;
+END_VAR
+VAR_OUTPUT
+    yreAngleTarget : REAL;
+    yreDistToGoal  : REAL;
+    yboAtGoal      : BOOL;
+    yboStop        : BOOL;
+    yboError       : BOOL;
+END_VAR
+VAR_IN_OUT
+    (* Referenz auf die 13 Kartenbausteine — von außen übergeben *)
+    xyarMaps : ARRAY[1..13] OF FB_AngleMap;
+END_VAR
+VAR
+    _inPosX        : INT;
+    _inPosY        : INT;
+    _inRawAngle    : INT;
+    _reStatGx      : REAL;
+    _reStatGy      : REAL;
+    _reDynGx       : REAL;
+    _reDynGy       : REAL;
+    _reTotalGx     : REAL;
+    _reTotalGy     : REAL;
+    _reDiffX       : REAL;
+    _reDiffY       : REAL;
+    _reDist        : REAL;
+    _reDistSq      : REAL;
+    _inIdx         : INT := 0;
+    _crePI         : REAL := 3.14159265358979;
+    _creRepulseK   : REAL := 1000.0;
+    _creRepulseRad : REAL := 500.0;
+    _creStopDist   : REAL := 5.0;
+    _creGoalRadius : REAL := 5.0;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[(* ── Eingaben prüfen ───────────────────────────────── *)
+IF xinGoalID < 1 OR xinGoalID > 13 THEN
+    yboError := TRUE;
+    RETURN;
+END_IF
+yboError := FALSE;
+yboStop  := FALSE;
+
+(* ── 1) Euklidischer Abstand zum Ziel ─────────────── *)
+//_reDiffX      := xrePosX - GVL_Maps.sreGoalX[xinGoalID];
+//_reDiffY      := xrePosY - GVL_Maps.sreGoalY[xinGoalID];
+//yreDistToGoal := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
+
+(* ── Eingaben prüfen ───────────────────────────────── *)
+IF xinGoalID < 1 OR xinGoalID > 13 THEN
+    yboError := TRUE;
+    RETURN;
+END_IF
+
+IF NOT xyarMaps[xinGoalID].yboDone THEN
+    yboError := TRUE;   (* Karte noch nicht geladen *)
+    RETURN;
+END_IF
+yboError := FALSE;
+yboStop  := FALSE;
+
+(* ── 1) Abstand zum Ziel ───────────────────────────── *)
+_reDiffX      := xrePosX  - GVL_Maps.sreGoalX[xinGoalID];
+_reDiffY      := xrePosY - GVL_Maps.sreGoalY[xinGoalID];
+yreDistToGoal := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
+
+(* ── 2) Ziel erreicht? ─────────────────────────────── *)
+IF yreDistToGoal <= _creGoalRadius THEN
+    yboAtGoal      := TRUE;
+    yreAngleTarget := 0.0;
+    RETURN;
+END_IF
+yboAtGoal := FALSE;
+
+(* ── 3) Koordinaten begrenzen ──────────────────────── *)
+_inPosX := REAL_TO_INT(xrePosX);
+_inPosY := REAL_TO_INT(xrePosY);
+
+(* ── 4) Winkel aus der aktiven Karte lesen ─────────── *)
+_inRawAngle := xyarMaps[xinGoalID].GetAngle(
+                    xinPosX := _inPosX,
+                    xinPosY := _inPosY);
+
+IF _inRawAngle = -9999 THEN
+    yboStop := TRUE;
+    RETURN;
+END_IF
+
+(* ── 5) Einheitsvektor ─────────────────────────────── *)
+_reStatGx := COS(INT_TO_REAL(_inRawAngle) / 10.0 * _crePI / 180.0);
+_reStatGy := SIN(INT_TO_REAL(_inRawAngle) / 10.0 * _crePI / 180.0);
+
+(* ── 6) Dynamische Abstoßung ───────────────────────── *)
+_reDynGx := 0.0;
+_reDynGy := 0.0;
+
+FOR _inIdx := 0 TO 2 DO
+    IF NOT xboRobotActive[_inIdx] THEN CONTINUE; END_IF
+
+    _reDiffX := xrePosX - xreRobotX[_inIdx];
+    _reDiffY := xrePosY - xreRobotY[_inIdx];
+    _reDist  := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
+
+    IF _reDist < 0.1 OR _reDist > _creRepulseRad THEN CONTINUE; END_IF
+
+    IF _reDist < _creStopDist THEN
+        yboStop := TRUE;
+        RETURN;
+    END_IF
+
+    _reDistSq := _reDiffX * _reDiffX + _reDiffY * _reDiffY;
+    _reDynGx  := _reDynGx + _creRepulseK * _reDiffX / (_reDistSq * _reDist);
+    _reDynGy  := _reDynGy + _creRepulseK * _reDiffY / (_reDistSq * _reDist);
+END_FOR
+
+(* ── 7) Resultierender Winkel ──────────────────────── *)
+_reTotalGx := _reStatGx + _reDynGx;
+_reTotalGy := _reStatGy + _reDynGy;
+
+IF SQRT(_reTotalGx * _reTotalGx + _reTotalGy * _reTotalGy) < 0.001 THEN
+    yreAngleTarget := - INT_TO_REAL(_inRawAngle) / 10.0;
+ELSE
+    yreAngleTarget := - FC_ATAN2(
+                        xreY := _reTotalGy,
+                        xreX := _reTotalGx)
+                      * 180.0 / _crePI;
+END_IF]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

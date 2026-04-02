@@ -1,0 +1,128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <POU Name="FB_AngleMap" Id="{c31446c6-620f-4482-b5b3-9d926dd4eb88}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_AngleMap
+VAR_INPUT
+    xinGoalID  : INT;    (* 1..13 — welche Karte dieser Baustein lädt *)
+    xboLoad    : BOOL;   (* steigende Flanke startet Ladevorgang      *)
+END_VAR
+VAR_OUTPUT
+    yboDone    : BOOL;
+    yboError   : BOOL;
+    yinProgress: INT;
+END_VAR
+VAR
+    (* Eigenes Array — nur in dieser Instanz, nicht global *)
+    _sarMap      : ARRAY[0..399, 0..799] OF INT;
+
+    _inState     : INT := 0;
+    _stiPath     : STRING(255);
+    _udExpected  : UDINT := 400 * 800 * 2;
+    _fbFileOpen  : FB_FileOpen;
+    _fbFileRead  : FB_FileRead;
+    _fbFileClose : FB_FileClose;
+    _rTrigLoad   : R_TRIG;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+(* Flanke auf xboLoad erkennen *)
+_rTrigLoad(CLK := xboLoad);
+
+IF _rTrigLoad.Q AND NOT yboDone THEN
+    _inState := 0;
+    yboDone  := FALSE;
+    yboError := FALSE;
+END_IF
+
+IF yboDone OR yboError THEN RETURN; END_IF
+
+CASE _inState OF
+
+    0:  (* Pfad aufbauen *)
+        IF xinGoalID < 10 THEN
+            _stiPath := CONCAT(GVL_Maps.stiMapPath,
+                          CONCAT('angle_map_0',
+                            CONCAT(TO_STRING(xinGoalID), '.bin')));
+        ELSE
+            _stiPath := CONCAT(GVL_Maps.stiMapPath,
+                          CONCAT('angle_map_',
+                            CONCAT(TO_STRING(xinGoalID), '.bin')));
+        END_IF
+
+        _fbFileOpen(
+            sNetId    := '',
+            sPathName := _stiPath,
+            nMode     := FOPEN_MODEREAD OR FOPEN_MODEBINARY,
+            bExecute  := TRUE);
+
+        _inState := 1;
+
+    1:  (* Warten bis Datei offen *)
+        _fbFileOpen(bExecute := FALSE);
+
+        IF _fbFileOpen.bBusy THEN RETURN; END_IF
+
+        IF _fbFileOpen.bError THEN
+            yboError := TRUE;
+            RETURN;
+        END_IF
+
+        _fbFileRead(
+            sNetId     := '',
+            hFile      := _fbFileOpen.hFile,
+            pReadBuff  := ADR(_sarMap[0, 0]),
+            cbReadLen  := _udExpected,
+            bExecute   := TRUE);
+
+        _inState := 2;
+
+    2:  (* Warten bis Lesen fertig *)
+        _fbFileRead(bExecute := FALSE);
+
+        IF _fbFileRead.bBusy THEN RETURN; END_IF
+
+        IF _fbFileRead.bError OR _fbFileRead.cbRead <> _udExpected THEN
+            yboError := TRUE;
+            RETURN;
+        END_IF
+
+        _fbFileClose(
+            sNetId   := '',
+            hFile    := _fbFileOpen.hFile,
+            bExecute := TRUE);
+
+        _inState := 3;
+
+    3:  (* Warten bis Datei geschlossen *)
+        _fbFileClose(bExecute := FALSE);
+
+        IF _fbFileClose.bBusy THEN RETURN; END_IF
+
+        yinProgress := 100;
+        yboDone     := TRUE;
+        _inState    := 4;
+
+    4:  (* Fertig — nichts mehr tun *)
+        ;
+
+END_CASE
+
+(* Fortschritt während Laden *)
+IF _inState > 0 AND _inState < 4 THEN
+    yinProgress := _inState * 25;
+END_IF]]></ST>
+    </Implementation>
+    <Method Name="GETAngle" Id="{92fa7de6-9d84-442a-b9e6-cb63a622dec8}">
+      <Declaration><![CDATA[METHOD GETAngle : INT
+VAR_INPUT
+    xinPosX : INT;
+    xinPosY : INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[GetAngle := _sarMap[
+    MAX(0, MIN(xinPosY, 399)),
+    MAX(0, MIN(xinPosX, 799))];]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

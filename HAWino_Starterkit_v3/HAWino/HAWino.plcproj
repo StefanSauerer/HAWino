@@ -15,6 +15,7 @@
     <Implicit_KindOfTask>{210e1f9d-a1d3-4368-87a0-48db825a9d4e}</Implicit_KindOfTask>
     <Implicit_Jitter_Distribution>{da94bfe6-ed00-4ec9-a2d1-442dea602396}</Implicit_Jitter_Distribution>
     <LibraryReferences>{8c16abc0-f2da-470c-9f77-19ec34318f24}</LibraryReferences>
+    <Released>false</Released>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="BahnplanungTask.TcTTO">
@@ -85,11 +86,15 @@
       <SubType>Code</SubType>
       <LinkAlways>true</LinkAlways>
     </Compile>
+    <Compile Include="GVLs\GVL_Maps.TcGVL">
+      <SubType>Code</SubType>
+      <LinkAlways>true</LinkAlways>
+    </Compile>
     <Compile Include="GVLs\GVL_RobotConstant.TcGVL">
       <SubType>Code</SubType>
       <LinkAlways>true</LinkAlways>
     </Compile>
-	<Compile Include="GVLs\GVL_Datatransfer23.TcGVL">
+    <Compile Include="GVLs\GVL_Datatransfer23.TcGVL">
       <SubType>Code</SubType>
       <LinkAlways>true</LinkAlways>
     </Compile>
@@ -143,10 +148,19 @@
     <Compile Include="POUs\HAWinoCore\04_SystemManagment\PowerManager.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="POUs\HAWinoCore\HAWino.TcPOU">
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_AngleMap.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="POUs\HAWinoCore\Test_Gruppe2\Test.TcPOU">
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_Navigation.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FC_ATAN2.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\Main_Bahnplanung.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\HAWinoCore\HAWino.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="SOCTask.TcTTO">
@@ -166,7 +180,7 @@
     <Folder Include="POUs\HAWinoCore\03_Communication" />
     <Folder Include="POUs\HAWinoCore\02_IR-Sensors" />
     <Folder Include="POUs\HAWinoCore\04_SystemManagment" />
-    <Folder Include="POUs\HAWinoCore\Test_Gruppe2" />
+    <Folder Include="POUs\HAWinoCore\05_Bahnplanung" />
     <Folder Include="VISUs" />
     <Folder Include="POUs" />
   </ItemGroup>
@@ -208,7 +222,7 @@
   <ProjectExtensions>
     <PlcProjectOptions>
       <XmlArchive>
-    <o xml:space="preserve" t="OptionKey">
+        <o xml:space="preserve" t="OptionKey">
       <v n="Name">"&lt;ProjectRoot&gt;"</v>
       <d n="SubKeys" t="Hashtable" ckt="String" cvt="OptionKey">
         <v>{192FAD59-8248-4824-A8DE-9177C94C195A}</v>
@@ -263,7 +277,7 @@
       </d>
       <d n="Values" t="Hashtable" />
     </o>
-</XmlArchive>
+      </XmlArchive>
     </PlcProjectOptions>
   </ProjectExtensions>
 </Project>

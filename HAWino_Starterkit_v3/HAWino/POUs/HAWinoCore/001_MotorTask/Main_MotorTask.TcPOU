@@ -138,14 +138,28 @@ IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 	// Falls außerhalb Bereich: Default auf 1 setzen 
 	RobotIndex := -1;
 ELSE
-	actualPosX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
-	actualPosY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
-	actualPosTheta 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
-	actualError		:= Camera.cameraData.robotPosition[RobotIndex].e;
+	// Kammeraposition erst validieren
+	IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
+		// Falls schlechte Position lieber über Reifenumdrehungen 
+		actualPosX		:=	actualPosX;
+		actualPosY		:=	actualPosY;
+		actualPosTheta	:=	actualPosTheta;
+		
+	ELSE
+		// Falls Kameraposition gut nehmen
+		actualPosX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
+		actualPosY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
+		actualPosTheta 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
+		actualError		:= Camera.cameraData.robotPosition[RobotIndex].e;
+		CameraTimestamp := (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
+	END_IF
 END_IF;
+
+
 
 // Kalmann Filter durchlaufen um geschätzte Messwerte zu erhalten
 // ACT_Kalmann();
+
 
 // Beste Positionsschätzung an Gruppe 2 übergeben
 GVL_Datatransfer23.gvActualPosition.reX 		:= actualPosX;
@@ -169,7 +183,7 @@ IF bumper THEN
 END_IF
 
 // Test (später löschen)
-GVL_Datatransfer23.inControl := RobotControl.vector;
+GVL_Datatransfer23.inControl := RobotControl.stop;
 GVL_Datatransfer23.gvZielPosition.reX 		:= 6668;
 GVL_Datatransfer23.gvZielPosition.reY		:= 1892;
 GVL_Datatransfer23.gvZielPosition.reWinkel	:= 100;
@@ -282,19 +296,11 @@ Dieser funktioniert dadurch, dass er durch Fixed-Lag Smoothing und Re-Propagatio
 3.2. Zu dem gefundenen Zeitstempel updaten und dann Kalmann algorythmus durchgehen
 3.3. Das dann vorwärtspropagieren bis zum aktuellen Zeitstempel
 
-Fragen:
-- Stimmt mein Prädigktionsmodell überhaupt?
-- Generell den algotythmus nochmal durchgehen für mehr Verständniss
 
 Sonstige ToDos, die mir beim Programmieren aufgefallen sind:
-- Nutzen wir wirklich die korrekte Kammeraposition oder wäre es sauberer HAWino.cameraPosition.x zu nutzen 
 - Die Variable HAWino.cameraPosition.e kann genutz werden um zu bestimmen, ob die Messung verworfen werden soll -> nicht nur für Kallmann sondern auch für die allgemeine Strucktur wichtig
 - Main Motor Task aufräumen (struckt für x,y,theta erstellen, ...)
-- Bumper und generell die statemachine wieder aktivieren
-- Die Positionssteuerung überarbeiten -> sollte nich weglaufen, wenn keine neue Position gegeben wird und das positionsarray sollte übersichtlicher werden
 *)
-
-
 
 
 // Prediction durchführen -> X_predict und P_predict bestimmen 

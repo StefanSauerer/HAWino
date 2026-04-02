@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="RobotControl" Id="{d236904b-9b68-45a8-8317-038d66eccfaa}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE RobotControl :
+(
+	idle 	:= 0,
+	stop 	:= 1,
+	reset	:= 2,
+	vector	:= 3,
+	position := 4
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

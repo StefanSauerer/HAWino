@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="RobotStatus" Id="{c66232c0-df37-4b8c-b94d-89dfb30ce432}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE RobotStatus :
+(
+	offline 		:= 0,
+	betriebsbereit 	:= 1,
+	laufend			:= 2,
+	zielErreicht	:= 3,
+	fehler			:= 4
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

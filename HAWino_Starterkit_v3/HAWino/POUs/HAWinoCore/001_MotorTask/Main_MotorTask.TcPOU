@@ -165,36 +165,36 @@ END_IF;
 
 IF bumper THEN
 	enableMotorControl := FALSE;
-	GVL_Datatransfer23.inStatus := 3;	
+	GVL_Datatransfer23.inStatus := RobotStatus.fehler;	
 END_IF
 
 // Test (später löschen)
-GVL_Datatransfer23.inControl := 4;
+GVL_Datatransfer23.inControl := RobotControl.vector;
 GVL_Datatransfer23.gvZielPosition.reX 		:= 6668;
 GVL_Datatransfer23.gvZielPosition.reY		:= 1892;
-GVL_Datatransfer23.gvZielPosition.reWinkel	:= 360;
+GVL_Datatransfer23.gvZielPosition.reWinkel	:= 100;
 
 
 CASE GVL_Datatransfer23.inControl OF 
-	0:
+	RobotControl.idle:
 		R_X_targetSpeed		:= 0;
 		R_Y_targetSpeed		:= 0;
 		R_Theta_targetSpeed	:= 0;
 		enableMotorControl := TRUE;
-		GVL_Datatransfer23.inStatus	:= 1;
-	1:
+		GVL_Datatransfer23.inStatus	:= RobotStatus.betriebsbereit;
+	RobotControl.stop:
 		R_X_targetSpeed		:= 0;
 		R_Y_targetSpeed		:= 0;
 		R_Theta_targetSpeed	:= 0;
 		enableMotorControl := FALSE;
-		GVL_Datatransfer23.inStatus	:= 1;
-	2:
+		GVL_Datatransfer23.inStatus	:= RobotStatus.fehler;
+	RobotControl.reset:
 		R_X_targetSpeed		:= 0;
 		R_Y_targetSpeed		:= 0;
 		R_Theta_targetSpeed	:= 0;
 		enableMotorControl := TRUE;
-		GVL_Datatransfer23.inStatus	:= 1;
-	3:
+		GVL_Datatransfer23.inStatus	:= RobotStatus.betriebsbereit;
+	RobotControl.vector:
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Vector Regelung
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -208,8 +208,8 @@ CASE GVL_Datatransfer23.inControl OF
 		R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPosTheta) + W_X_targetSpeed * SIN(actualPosTheta);
 		R_Theta_targetSpeed := W_Theta_targetSpeed;		
 		
-		GVL_Datatransfer23.inStatus	:= 2;
-	4:	
+		GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
+	RobotControl.position:	
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Positions Regelung
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -228,10 +228,12 @@ CASE GVL_Datatransfer23.inControl OF
 								vXCartesianToMotors 	=> R_X_targetSpeed,
 								vYCartesianToMotors 	=> R_Y_targetSpeed,
 								vThetaCartesianToMotors => R_Theta_targetSpeed);
+								
+			GVL_Datatransfer23.inStatus	:= RobotStatus.betriebsbereit;
 		ELSE
-			GVL_Datatransfer23.inStatus := 1;
+			GVL_Datatransfer23.inStatus := RobotStatus.zielErreicht;
 		END_IF
-		GVL_Datatransfer23.inStatus	:= 2;
+		
 	END_CASE
 
 

@@ -21,9 +21,6 @@
     <Compile Include="BahnplanungTask.TcTTO">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="DUTs\Gewerk 2\RobotState.TcDUT">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="DUTs\Gewerk 2\sFahrvektor.TcDUT">
       <SubType>Code</SubType>
     </Compile>
@@ -43,6 +40,12 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="DUTs\Gewerk 3\ReglerState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Gewerk 3\RobotControl.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Gewerk 3\RobotStatus.TcDUT">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="DUTs\Gewerk 3\State.TcDUT">

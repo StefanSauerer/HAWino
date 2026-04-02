@@ -96,10 +96,6 @@ VAR
 	actualPosY		: LREAL;
 	actualPosTheta	: LREAL;		
 	actualError		: LREAL;
-	// Positionsliste
-	Threshold_NewPosition: LREAL := 50;
-	PosArray : ARRAY[0..21] OF LREAL := [5500,3500,5500,2000,4000,2000,4000,3500,4000,2000,3000,2000,3000,3500,3000,2000,1500,2000,1500,3500,5500,3500];
-	PositionNumber: INT := 0;
 
 	KalmanStateX: LREAL;
 	KalmanStateY: LREAL;
@@ -135,11 +131,9 @@ END_VAR
       <ST><![CDATA[//Umrechung der Klemmenwerte
 ACT_Drehzahlerfassung();
 	
-// Erste Zielposition initialisieren
-// targetPosX 		:= PosArray[PositionNumber];
-// targetPosY 		:= PosArray[PositionNumber+1];	//Zweites Element ist der y-Wert
-// targetPosTheta 	:= 0;
-
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Roboter-Positions-Bestimmung 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 RobotIndex := Var_HAWIno.Robot_Number;
 IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 	// Falls außerhalb Bereich: Default auf 1 setzen 
@@ -151,6 +145,18 @@ ELSE
 	actualError		:= Camera.cameraData.robotPosition[RobotIndex].e;
 END_IF;
 
+// Kalmann Filter durchlaufen um geschätzte Messwerte zu erhalten
+// ACT_Kalmann();
+
+// Beste Positionsschätzung an Gruppe 2 übergeben
+GVL_Datatransfer23.gvActualPosition.reX 		:= actualPosX;
+GVL_Datatransfer23.gvActualPosition.reY 		:= actualPosY;
+GVL_Datatransfer23.gvActualPosition.reWinkel 	:= actualPosTheta;
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Gipper und Bumper logik
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // Gripper aktivieren -> Wird durch GVL_Gripper.cmdGripper gesetzt!
 IF GVL_Gripper.cmdGripper = GripperCmd_Enum.take THEN
 	Gripper.closeGripperCommand := TRUE;
@@ -158,46 +164,59 @@ ELSIF GVL_Gripper.cmdGripper = GripperCmd_Enum.put THEN
 	Gripper.closeGripperCommand := FALSE;
 END_IF;
 
-// Geschwindigkeitsvektor von Gruppe 2 in Weltkoordinaten umrechnen
-W_X_targetSpeed 	:= GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * COS(GVL_Datatransfer23.gvFahrvektor.reWinkel * 3.14159265359 /180.0);
-W_Y_targetSpeed 	:= (-1)* GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * SIN(GVL_Datatransfer23.gvFahrvektor.reWinkel * 3.14159265359 /180.0);
-W_Theta_targetSpeed := 0;
-
-// Umrechnung der Geschwindigkeit von Welt in Roboterkoordinaten
-R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPosTheta) - W_Y_targetSpeed * SIN(actualPosTheta);
-R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPosTheta) + W_X_targetSpeed * SIN(actualPosTheta);
-R_Theta_targetSpeed := W_Theta_targetSpeed;		
-
-// Kalmann Filter durchlaufen um geschätzte Messwerte zu erhalten
-// ACT_Kalmann();
-
-// Beste Positionsschätzung an Gruppe 2 übergeben
-GVL_Datatransfer23.gvPosition.reX 		:= actualPosX;
-GVL_Datatransfer23.gvPosition.reY 		:= actualPosY;
-GVL_Datatransfer23.gvPosition.reWinkel 	:= actualPosTheta;
-
-// Prüfen ob die erste Zielpositon schon erreicht wurde und setzt sie auf die nächste, falls erreicht
-// IF ((ABS(actualPosX - targetPosX) < Threshold_NewPosition) AND (ABS(actualPosY - targetPosY) < Threshold_NewPosition) ) THEN
-// 	PositionNumber 	:= PositionNumber+2;		// um zwei ehöhen, da abwechselnd x und y
-// 	targetPosX 		:= PosArray[PositionNumber];
-// 	targetPosY 		:= PosArray[PositionNumber+1];
-// END_IF
 IF bumper THEN
 	enableMotorControl := FALSE;	
 END_IF
 
-// Wert des Positionsreglers berechnen
-// FB_Positionsregler(targetPosX:=targetPosX, targetPosY:=targetPosY, targetPosTheta:=targetPosTheta, 
-// 					actualPosX:=actualPosX, actualPosY:=actualPosY, actualPosTheta:=actualPosTheta,
-// 					vXCartesianToMotors 	=> vXCartesianToMotors,
-// 					vYCartesianToMotors 	=> vYCartesianToMotors,
-// 					vThetaCartesianToMotors => vThetaCartesianToMotors);
-// 					
-// Werte an Drehzahlregler übergeben
-//Umschaltung auf Positionsreglung
-// FB_Drehzahlregler(targetVelX:= vXCartesianToMotors,
-// 					targetVelY := vYCartesianToMotors, 
-// 					tragetVelTheta:= vThetaCartesianToMotors,
+// Test (später löschen)
+GVL_Datatransfer23.inControl := 4;
+GVL_Datatransfer23.gvZielPosition.reX 		:= 6668;
+GVL_Datatransfer23.gvZielPosition.reY		:= 1892;
+GVL_Datatransfer23.gvZielPosition.reWinkel	:= -3.14159265359;
+
+
+CASE GVL_Datatransfer23.inControl OF 
+	0:
+		R_X_targetSpeed		:= 0;
+		R_Y_targetSpeed		:= 0;
+		R_Theta_targetSpeed	:= 0;
+	1:
+		R_X_targetSpeed		:= 0;
+		R_Y_targetSpeed		:= 0;
+		R_Theta_targetSpeed	:= 0;
+	2:
+		R_X_targetSpeed		:= 0;
+		R_Y_targetSpeed		:= 0;
+		R_Theta_targetSpeed	:= 0;
+	3:
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Vector Regelung
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// Geschwindigkeitsvektor von Gruppe 2 in Weltkoordinaten umrechnen
+		W_X_targetSpeed 	:= 		 GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * COS(GVL_Datatransfer23.gvFahrvektor.reWinkel * 3.14159265359 /180.0);
+		W_Y_targetSpeed 	:= (-1)* GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * SIN(GVL_Datatransfer23.gvFahrvektor.reWinkel * 3.14159265359 /180.0);
+		W_Theta_targetSpeed := 0;	// Zielwinkel in der Vectorregelung immer auf 0 setzen
+		
+		// Umrechnung der Geschwindigkeit von Welt in Roboterkoordinaten
+		R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPosTheta) - W_Y_targetSpeed * SIN(actualPosTheta);
+		R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPosTheta) + W_X_targetSpeed * SIN(actualPosTheta);
+		R_Theta_targetSpeed := W_Theta_targetSpeed;		
+	4:	
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Positions Regelung
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	targetPosX 		:= GVL_Datatransfer23.gvZielPosition.reX;
+	targetPosY 		:= GVL_Datatransfer23.gvZielPosition.reY;
+	targetPosTheta 	:= GVL_Datatransfer23.gvZielPosition.reWinkel;
+	
+	// Wert des Positionsreglers berechnen
+	FB_Positionsregler(targetPosX:=targetPosX, targetPosY:=targetPosY, targetPosTheta:=targetPosTheta, 
+						actualPosX:=actualPosX, actualPosY:=actualPosY, actualPosTheta:=actualPosTheta,
+						vXCartesianToMotors 	=> R_X_targetSpeed,
+						vYCartesianToMotors 	=> R_Y_targetSpeed,
+						vThetaCartesianToMotors => R_Theta_targetSpeed);
+	END_CASE
+
 
 FB_Drehzahlregler(targetVelX:= R_X_targetSpeed,
 					targetVelY := R_Y_targetSpeed, 

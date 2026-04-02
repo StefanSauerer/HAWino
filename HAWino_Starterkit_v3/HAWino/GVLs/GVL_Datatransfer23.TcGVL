@@ -3,11 +3,14 @@
   <GVL Name="GVL_Datatransfer23" Id="{5499bb5a-06ba-4b61-acc2-672869a8aa83}">
     <Declaration><![CDATA[{attribute 'qualified_only'}
 VAR_GLOBAL
-	// gemeinsame Instanzen
-	gvFahrvektor : sFahrvektor;
-	gvPosition   : sPositions;
-	// Definition der Steuerungsvariable
-	inControl : INT;           // 0=idle, 1=Stop, 2=Reset, 3=Vektor, 4=Position
+	// Von Gewerk 2 zu Gewerk 3
+	gvFahrvektor 	: sFahrvektor;
+	gvZielPosition  : sPositions;
+	inControl : INT;     // Steuerungsvariable      // 0=idle, 1=Stop, 2=Reset, 3=Vektor, 4=Position
+	
+	// Von Gewerk 3 zu Gewerk 2
+	gvActualPosition	: sPositions;
+	inStatus			: INT; // Statusvariable	// 0=offline, 1=Betriebsbereit, 2=Laufend, 3 = Fehler
 END_VAR]]></Declaration>
   </GVL>
 </TcPlcObject>

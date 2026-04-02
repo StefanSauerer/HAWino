@@ -97,8 +97,8 @@ END_FOR
 reSpeed := 100;
 (* ── Navigation ────────────────────────────────────── *)
 fbNav(
-    xrePosX        := GVL_Datatransfer23.gvPosition.reX / 10,
-    xrePosY        := GVL_Datatransfer23.gvPosition.reY / 10,
+    xrePosX        := GVL_Datatransfer23.gvActualPosition.reX / 10,
+    xrePosY        := GVL_Datatransfer23.gvActualPosition.reY / 10,
     xinGoalID      := inActiveGoal,
     xreRobotX      := areRobotX,
     xreRobotY      := areRobotY,

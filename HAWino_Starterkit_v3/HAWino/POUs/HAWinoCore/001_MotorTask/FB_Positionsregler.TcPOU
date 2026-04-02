@@ -86,27 +86,27 @@ IF NOT initDone THEN
 END_IF
 
 // Berechnugn der Fehlersteigung
-derrorX		:= errorX - (targetPosX - actualPosX);
-derrorY 	:= errorY - (targetPosY - actualPosY);
-derrorTheta	:= errorTheta - (targetPosTheta - actualPosTheta);
+derrorX		:= errorX 		- (targetPosX - actualPosX);
+derrorY 	:= errorY 		- (targetPosY - actualPosY);
+derrorTheta	:= errorTheta 	- (targetPosTheta - actualPosTheta);
 
 // Berechnen der Regledifferenz
-errorX 		:= 	targetPosX - actualPosX;
-errorY 		:= 	targetPosY - actualPosY;
+errorX 		:= 	targetPosX 		- actualPosX;
+errorY 		:= 	targetPosY 		- actualPosY;
 errorTheta 	:= -(targetPosTheta - actualPosTheta);
 
 // ACT_GetFuzzyParam();
 
 // Berechnung der Stellgröße
-W_X_targetSpeed := (errorX * KPX);
-W_Y_targetSpeed := (errorY * KPY);
+W_X_targetSpeed 	:= (errorX * KPX);
+W_Y_targetSpeed 	:= (errorY * KPY);
 W_Theta_targetSpeed := (errorTheta * KPTheta);
 
 // Umrechnung von Welt in Motorcoordinaten
 R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPosTheta) - W_Y_targetSpeed * SIN(actualPosTheta);
 R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPosTheta) + W_X_targetSpeed * SIN(actualPosTheta);
 R_Theta_targetSpeed := W_Theta_targetSpeed;
-R_Theta_targetSpeed := 0;
+
 ACT_LimitACC();]]></ST>
     </Implementation>
     <Action Name="ACT_GetFuzzyParam" Id="{4ee22feb-6be5-4906-80b6-3d87f4f37582}">

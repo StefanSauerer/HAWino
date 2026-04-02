@@ -105,7 +105,6 @@ VAR
 	// --- Ringpuffer für Kameramesswerte ---
 
 	// Inline-struct als Array-Element
-	//
 	RingBuffer : ARRAY[0..GVL_RobotConstant.RING_SIZE-1] OF EKF_Data;
 	
 	RingHead : INT := 0; // Index für nächste Schreibposition
@@ -165,14 +164,15 @@ ELSIF GVL_Gripper.cmdGripper = GripperCmd_Enum.put THEN
 END_IF;
 
 IF bumper THEN
-	enableMotorControl := FALSE;	
+	enableMotorControl := FALSE;
+	GVL_Datatransfer23.inStatus := 3;	
 END_IF
 
 // Test (später löschen)
 GVL_Datatransfer23.inControl := 4;
 GVL_Datatransfer23.gvZielPosition.reX 		:= 6668;
 GVL_Datatransfer23.gvZielPosition.reY		:= 1892;
-GVL_Datatransfer23.gvZielPosition.reWinkel	:= -3.14159265359;
+GVL_Datatransfer23.gvZielPosition.reWinkel	:= 360;
 
 
 CASE GVL_Datatransfer23.inControl OF 
@@ -180,41 +180,58 @@ CASE GVL_Datatransfer23.inControl OF
 		R_X_targetSpeed		:= 0;
 		R_Y_targetSpeed		:= 0;
 		R_Theta_targetSpeed	:= 0;
+		enableMotorControl := TRUE;
+		GVL_Datatransfer23.inStatus	:= 1;
 	1:
 		R_X_targetSpeed		:= 0;
 		R_Y_targetSpeed		:= 0;
 		R_Theta_targetSpeed	:= 0;
+		enableMotorControl := FALSE;
+		GVL_Datatransfer23.inStatus	:= 1;
 	2:
 		R_X_targetSpeed		:= 0;
 		R_Y_targetSpeed		:= 0;
 		R_Theta_targetSpeed	:= 0;
+		enableMotorControl := TRUE;
+		GVL_Datatransfer23.inStatus	:= 1;
 	3:
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Vector Regelung
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// Geschwindigkeitsvektor von Gruppe 2 in Weltkoordinaten umrechnen
-		W_X_targetSpeed 	:= 		 GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * COS(GVL_Datatransfer23.gvFahrvektor.reWinkel * 3.14159265359 /180.0);
-		W_Y_targetSpeed 	:= (-1)* GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * SIN(GVL_Datatransfer23.gvFahrvektor.reWinkel * 3.14159265359 /180.0);
+		W_X_targetSpeed 	:= 		 GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * COS(GVL_Datatransfer23.gvFahrvektor.reWinkel * PI /180.0);
+		W_Y_targetSpeed 	:= (-1)* GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * SIN(GVL_Datatransfer23.gvFahrvektor.reWinkel * PI /180.0);
 		W_Theta_targetSpeed := 0;	// Zielwinkel in der Vectorregelung immer auf 0 setzen
 		
 		// Umrechnung der Geschwindigkeit von Welt in Roboterkoordinaten
 		R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPosTheta) - W_Y_targetSpeed * SIN(actualPosTheta);
 		R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPosTheta) + W_X_targetSpeed * SIN(actualPosTheta);
 		R_Theta_targetSpeed := W_Theta_targetSpeed;		
+		
+		GVL_Datatransfer23.inStatus	:= 2;
 	4:	
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Positions Regelung
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	targetPosX 		:= GVL_Datatransfer23.gvZielPosition.reX;
-	targetPosY 		:= GVL_Datatransfer23.gvZielPosition.reY;
-	targetPosTheta 	:= GVL_Datatransfer23.gvZielPosition.reWinkel;
-	
-	// Wert des Positionsreglers berechnen
-	FB_Positionsregler(targetPosX:=targetPosX, targetPosY:=targetPosY, targetPosTheta:=targetPosTheta, 
-						actualPosX:=actualPosX, actualPosY:=actualPosY, actualPosTheta:=actualPosTheta,
-						vXCartesianToMotors 	=> R_X_targetSpeed,
-						vYCartesianToMotors 	=> R_Y_targetSpeed,
-						vThetaCartesianToMotors => R_Theta_targetSpeed);
+		// Prüfen ob Zielpositon erreicht ==> Macht wahrscheinlich doch Gruppe 2
+		IF 	ABS(actualPosTheta 	- targetPosTheta)	> 10 OR 
+			ABS(actualPosX 		- targetPosX) 		> 10 OR 
+			ABS(actualPosY 		- targetPosY) 		> 10 THEN	
+			
+			targetPosX 		:= GVL_Datatransfer23.gvZielPosition.reX;
+			targetPosY 		:= GVL_Datatransfer23.gvZielPosition.reY;
+			targetPosTheta 	:= GVL_Datatransfer23.gvZielPosition.reWinkel* PI / 180.0;;
+			
+			// Wert des Positionsreglers berechnen
+			FB_Positionsregler(targetPosX:=targetPosX, targetPosY:=targetPosY, targetPosTheta:=targetPosTheta, 
+								actualPosX:=actualPosX, actualPosY:=actualPosY, actualPosTheta:=actualPosTheta,
+								vXCartesianToMotors 	=> R_X_targetSpeed,
+								vYCartesianToMotors 	=> R_Y_targetSpeed,
+								vThetaCartesianToMotors => R_Theta_targetSpeed);
+		ELSE
+			GVL_Datatransfer23.inStatus := 1;
+		END_IF
+		GVL_Datatransfer23.inStatus	:= 2;
 	END_CASE
 
 
@@ -439,6 +456,27 @@ P_currentState[9] := P_currentState[9] - (k31*s11 + k32*s12)*k31;
 (* Zurückschreiben *)
 RingBuffer[idx].State := X_currentState;
 RingBuffer[idx].P_Start := P_currentState;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NormalizeAngle" Id="{83b90488-147b-4b1b-9c7b-cbb33d68b649}">
+      <Declaration><![CDATA[METHOD NormalizeAngle
+VAR_INPUT
+	angle : REAL;
+END_VAR
+VAR_OUTPUT
+	NormalizeAngle :REAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[WHILE angle > PI DO
+    angle := angle - 2.0 * PI;
+END_WHILE
+
+WHILE angle < -PI DO
+    angle := angle + 2.0 * PI;
+END_WHILE
+
+NormalizeAngle := angle;]]></ST>
       </Implementation>
     </Method>
     <Method Name="propagate_state" Id="{a786f7f3-c6cc-4af7-af4c-05fa1ad9f61a}">

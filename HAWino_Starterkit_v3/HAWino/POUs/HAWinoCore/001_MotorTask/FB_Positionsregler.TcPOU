@@ -63,6 +63,8 @@ VAR
         0.75,  // PL
         1.0    // HL
     ];
+	oldErrorTheta: LREAL;
+	deltaTheta: LREAL;
 END_VAR
 
 	]]></Declaration>
@@ -85,15 +87,47 @@ IF NOT initDone THEN
     initDone := TRUE;
 END_IF
 
-// Berechnugn der Fehlersteigung
-derrorX		:= errorX 		- (targetPosX - actualPosX);
-derrorY 	:= errorY 		- (targetPosY - actualPosY);
-derrorTheta	:= errorTheta 	- (targetPosTheta - actualPosTheta);
+// --------------------------------------------------
+// Winkelfehlerberechnung (Theta)
+// --------------------------------------------------
 
-// Berechnen der Regledifferenz
-errorX 		:= 	targetPosX 		- actualPosX;
-errorY 		:= 	targetPosY 		- actualPosY;
-errorTheta 	:= -(targetPosTheta - actualPosTheta);
+// Winkelabweichung zwischen Soll und Ist berechnen
+deltaTheta := targetPosTheta - actualPosTheta;
+
+// Normierung der Winkelabweichung auf den Bereich [-PI, PI]
+// → stellt sicher, dass immer der kürzeste Drehweg verwendet wird
+IF deltaTheta > PI THEN
+    deltaTheta := deltaTheta - 2.0 * PI;
+ELSIF deltaTheta < -PI THEN
+    deltaTheta := deltaTheta + 2.0 * PI;
+END_IF;
+
+// Alten Fehlerwert für die Ableitung speichern
+oldErrorTheta := errorTheta;
+
+// Aktuellen Winkelfehler setzen
+// Vorzeichen ggf. an Drehrichtungskonvention anpassen
+errorTheta := -deltaTheta;
+
+// Änderung des Fehlers (D-Anteil)
+derrorTheta := errorTheta - oldErrorTheta;
+
+
+// --------------------------------------------------
+// Positionsfehlerberechnung (X, Y)
+// --------------------------------------------------
+
+// Fehleränderung berechnen (Differenz zum vorherigen Fehler)
+derrorX := errorX - (targetPosX - actualPosX);
+derrorY := errorY - (targetPosY - actualPosY);
+
+// Aktuellen Positionsfehler berechnen
+errorX := targetPosX - actualPosX;
+errorY := targetPosY - actualPosY;
+
+// --------------------------------------------------
+// Positionsregelung
+// --------------------------------------------------
 
 // ACT_GetFuzzyParam();
 

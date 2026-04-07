@@ -967,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{6100E7B2-4D5E-9644-4592-D08309DB99FB}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{4AB425C2-CD90-D517-069C-F4363CFDDFC1}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -4327,9 +4327,10 @@ Bit1: Value smaller than Limit2]]></Comment>
 		</SymbolWatch>
 	</Project>
 	<Mappings>
+		<MappingInfo Identifier="{00000000-2002-0850-0020-500800205008}" Id="#x02030050"/>
 		<MappingInfo Identifier="{00000000-2004-0850-0020-500810000403}" Id="#x02030010"/>
 		<MappingInfo Identifier="{08502001-0010-0304-0020-500810000403}" Id="#x02030040" Watchdog="00000000000000000000000000000000"/>
-		<MappingInfo Identifier="{08502002-2001-0850-0220-500803205008}" Id="#x02030050" Watchdog="04000000080000000400000004000000"/>
+		<MappingInfo Identifier="{08502002-2001-0850-0220-500803205008}" Id="#x02030060" Watchdog="04000000080000000400000004000000"/>
 		<MappingInfo Identifier="{08502002-0010-0304-0020-500810000403}" Id="#x02030030" Watchdog="00000000000000000000000000000000"/>
 		<MappingInfo Identifier="{08502003-0010-0304-0020-500810000403}" Id="#x02030020" Watchdog="00000000000000000000000000000000"/>
 		<OwnerA Name="TIPC^HAWino^HAWino Instance">
@@ -4392,6 +4393,7 @@ Bit1: Value smaller than Limit2]]></Comment>
 				<Link VarA="PlcTask Inputs^MQTT.stMqtt_HAWino_IN^nEstimatedRunningTime" VarB="SOCTask Outputs^PowerManager.stMqtt_HAWino_IN^nEstimatedRunningTime"/>
 				<Link VarA="PlcTask Inputs^MQTT.stMqtt_HAWino_IN^nRobotNumber" VarB="SOCTask Outputs^HAWino.Robot_Number"/>
 				<Link VarA="PlcTask Inputs^MQTT.supplyCurrent_A" VarB="SOCTask Outputs^PowerManager.supplyCurrent_A"/>
+				<Link VarA="PlcTask Inputs^MQTT.txtReadInit" VarB="PlcTask Outputs^HAWino.initDone"/>
 			</OwnerB>
 		</OwnerA>
 	</Mappings>

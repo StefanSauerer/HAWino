@@ -4392,6 +4392,7 @@ Bit1: Value smaller than Limit2]]></Comment>
 				<Link VarA="PlcTask Inputs^MQTT.stMqtt_HAWino_IN^nEstimatedRunningTime" VarB="SOCTask Outputs^PowerManager.stMqtt_HAWino_IN^nEstimatedRunningTime"/>
 				<Link VarA="PlcTask Inputs^MQTT.stMqtt_HAWino_IN^nRobotNumber" VarB="SOCTask Outputs^HAWino.Robot_Number"/>
 				<Link VarA="PlcTask Inputs^MQTT.supplyCurrent_A" VarB="SOCTask Outputs^PowerManager.supplyCurrent_A"/>
+				<Link VarA="PlcTask Inputs^MQTT.txtReadInit" VarB="PlcTask Outputs^HAWino.initDone"/>
 			</OwnerB>
 		</OwnerA>
 	</Mappings>

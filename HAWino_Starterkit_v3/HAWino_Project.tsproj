@@ -967,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{4AB425C2-CD90-D517-069C-F4363CFDDFC1}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{DE8CDB19-E035-97D1-3B0B-376873D32D58}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1052,6 +1052,14 @@
 					<Vars VarGrpType="1" ContextId="3" AreaNo="48">
 						<Name>SOCTask Inputs</Name>
 						<Var>
+							<Name>Gripper.slider</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>Gripper.partGripped</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
 							<Name>Main_MotorTask.sliderGripper</Name>
 							<Type>BOOL</Type>
 						</Var>
@@ -1068,14 +1076,6 @@
 						<Var>
 							<Name>Main_MotorTask.wheelEncoderLocalVtheta</Name>
 							<Type>LREAL</Type>
-						</Var>
-						<Var>
-							<Name>Gripper.slider</Name>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
-							<Name>Gripper.partGripped</Name>
-							<Type>BOOL</Type>
 						</Var>
 						<Var>
 							<Name>PowerManager.shutdownButton</Name>
@@ -1141,15 +1141,6 @@
 							<Type>REAL</Type>
 						</Var>
 						<Var>
-							<Name>MQTT.nBatteryTemperature</Name>
-							<Type>INT</Type>
-						</Var>
-						<Var>
-							<Name>MQTT.txtReadInit</Name>
-							<Comment><![CDATA[Input synccheck. robotdata has been read and can be used.]]></Comment>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
 							<Name>MQTT.stMqtt_HAWino_IN</Name>
 							<Comment><![CDATA[ Attention! Don't link TIME Variables, otherwise we get an error!]]></Comment>
 							<Type GUID="{66B40A97-02CE-C520-86C7-E6EA3AB0062B}">ST_PwrMgmt_HAWino_In</Type>
@@ -1157,6 +1148,15 @@
 						<Var>
 							<Name>IrDistanceSensors.distanceRaw</Name>
 							<Type GUID="{AA94C361-B6DB-9EE1-ECAB-B44C5FC1F3CF}">ARRAY [1..9] OF INT</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.nBatteryTemperature</Name>
+							<Type>INT</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.txtReadInit</Name>
+							<Comment><![CDATA[Input synccheck. robotdata has been read and can be used.]]></Comment>
+							<Type>BOOL</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="2" ContextId="1" AreaNo="17">

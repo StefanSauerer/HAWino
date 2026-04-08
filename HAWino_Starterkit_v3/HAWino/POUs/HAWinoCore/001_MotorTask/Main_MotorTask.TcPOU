@@ -76,25 +76,13 @@ VAR
 	FB_Positionsregler 	: FB_Positionsregler;
 	
 	
-	// Geschwindigkeit in Weltkoordinaten
-	W_X_targetSpeed		: 	LREAL; 
-	W_Y_targetSpeed		: 	LREAL; 
-	W_Theta_targetSpeed : 	LREAL; 
+	targetSpeed_World 	: sPosition;	// Geschwindigkeit in Weltkoordinaten
+	targetSpeed_Robot	: sPosition;	// Geschwindigkeit in Roboterkoordinaten
+	targetPos			: sPosition;	// Geschwindigkeitsvorgabe
+	actualPos			: sPosition;	// Tatsächliche Position	
+	actualError			: LREAL;		// Kamerafehler
 	
-	// Geschwindigkeit in Roboterkoordinaten
-	R_X_targetSpeed		: 	LREAL;
-	R_Y_targetSpeed		: 	LREAL;
-	R_Theta_targetSpeed	: 	LREAL;
 	
-	// Geschwindigkeitsvorgabe
-	targetPosX		: 	LREAL;
-	targetPosY		: 	LREAL;
-	targetPosTheta	: 	LREAL;
-	
-	// Tatsächliche Position
-	actualPos		: sPosition;		
-	actualError		: LREAL;
-
 	KalmanStateX	: LREAL;
 	KalmanStateY	: LREAL;
 	KalmanStateYaw	: LREAL;
@@ -195,7 +183,7 @@ IF bumper THEN
 	GVL_Datatransfer23.inStatus := RobotStatus.fehler;	
 END_IF
 
-// Test (später löschen)
+// Falls Daten von Gruppe 2 manuell überschrieben werden sollen
 // GVL_Datatransfer23.inControl := RobotControl.vector;
 // GVL_Datatransfer23.gvZielPosition.reX 		:= 6668;
 // GVL_Datatransfer23.gvZielPosition.reY		:= 1892;
@@ -204,21 +192,21 @@ END_IF
 
 CASE GVL_Datatransfer23.inControl OF 
 	RobotControl.idle:
-		R_X_targetSpeed		:= 0;
-		R_Y_targetSpeed		:= 0;
-		R_Theta_targetSpeed	:= 0;
+		targetSpeed_Robot.reX		:= 0;
+		targetSpeed_Robot.reY		:= 0;
+		targetSpeed_Robot.reWinkel	:= 0;
 		enableMotorControl := TRUE;
 		GVL_Datatransfer23.inStatus	:= RobotStatus.betriebsbereit;
 	RobotControl.stop:
-		R_X_targetSpeed		:= 0;
-		R_Y_targetSpeed		:= 0;
-		R_Theta_targetSpeed	:= 0;
+		targetSpeed_Robot.reX		:= 0;
+		targetSpeed_Robot.reY		:= 0;
+		targetSpeed_Robot.reWinkel	:= 0;
 		enableMotorControl := FALSE;
 		GVL_Datatransfer23.inStatus	:= RobotStatus.fehler;
 	RobotControl.reset:
-		R_X_targetSpeed		:= 0;
-		R_Y_targetSpeed		:= 0;
-		R_Theta_targetSpeed	:= 0;
+		targetSpeed_Robot.reX		:= 0;
+		targetSpeed_Robot.reY		:= 0;
+		targetSpeed_Robot.reWinkel	:= 0;
 		enableMotorControl := TRUE;
 		GVL_Datatransfer23.inStatus	:= RobotStatus.betriebsbereit;
 		
@@ -227,14 +215,14 @@ CASE GVL_Datatransfer23.inControl OF
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	RobotControl.vector:
 		// Geschwindigkeitsvektor von Gruppe 2 in Weltkoordinaten umrechnen
-		W_X_targetSpeed 	:= 		 GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * COS(GVL_Datatransfer23.gvFahrvektor.reWinkel * PI /180.0);
-		W_Y_targetSpeed 	:= (-1)* GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * SIN(GVL_Datatransfer23.gvFahrvektor.reWinkel * PI /180.0);
-		W_Theta_targetSpeed := 0;	// Zielwinkel in der Vectorregelung immer auf 0 setzen
+		targetSpeed_World.reX 	:= 		 GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * COS(GVL_Datatransfer23.gvFahrvektor.reWinkel * PI /180.0);
+		targetSpeed_World.reY 	:= (-1)* GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * SIN(GVL_Datatransfer23.gvFahrvektor.reWinkel * PI /180.0);
+		targetSpeed_World.reWinkel := 0;	// Zielwinkel in der Vectorregelung immer auf 0 setzen
 		
 		// Umrechnung der Geschwindigkeit von Welt in Roboterkoordinaten
-		R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPos.reWinkel) - W_Y_targetSpeed * SIN(actualPos.reWinkel);
-		R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPos.reWinkel) + W_X_targetSpeed * SIN(actualPos.reWinkel);
-		R_Theta_targetSpeed := W_Theta_targetSpeed;		
+		targetSpeed_Robot.reX 		:= targetSpeed_World.reX * COS(actualPos.reWinkel) - targetSpeed_World.reY * SIN(actualPos.reWinkel);
+		targetSpeed_Robot.reY 		:= targetSpeed_World.reY * COS(actualPos.reWinkel) + targetSpeed_World.reX * SIN(actualPos.reWinkel);
+		targetSpeed_Robot.reWinkel 	:= targetSpeed_World.reWinkel;		
 		
 		GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
 		
@@ -243,22 +231,21 @@ CASE GVL_Datatransfer23.inControl OF
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	RobotControl.position:	
 			// Prüfen ob Zielpositon erreicht ==> Macht wahrscheinlich doch Gruppe 2
-		IF 	ABS(actualPos.reWinkel 	- targetPosTheta)	> 10 OR 
-			ABS(actualPos.reX 		- targetPosX) 		> 10 OR 
-			ABS(actualPos.reY 		- targetPosY) 		> 10 THEN	
+		IF 	ABS(actualPos.reWinkel 	- targetPos.reWinkel)	> 10 OR 
+			ABS(actualPos.reX 		- targetPos.reX) 		> 10 OR 
+			ABS(actualPos.reY 		- targetPos.reY) 		> 10 THEN	
 			
-			targetPosX 		:= GVL_Datatransfer23.gvZielPosition.reX;
-			targetPosY 		:= GVL_Datatransfer23.gvZielPosition.reY;
-			targetPosTheta 	:= GVL_Datatransfer23.gvZielPosition.reWinkel* PI / 180.0;;
+			targetPos.reX 		:= GVL_Datatransfer23.gvZielPosition.reX;
+			targetPos.reY 		:= GVL_Datatransfer23.gvZielPosition.reY;
+			targetPos.reWinkel	:= GVL_Datatransfer23.gvZielPosition.reWinkel* PI / 180.0;;
 			
 			// Wert des Positionsreglers berechnen
-			FB_Positionsregler(targetPosX := targetPosX, targetPosY := targetPosY, targetPosTheta := targetPosTheta, 
-								actualPosX:=actualPos.reX, actualPosY:=actualPos.reY, actualPosTheta:=actualPos.reWinkel,
-								vXCartesianToMotors 	=> R_X_targetSpeed,
-								vYCartesianToMotors 	=> R_Y_targetSpeed,
-								vThetaCartesianToMotors => R_Theta_targetSpeed);
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
+								vXCartesianToMotors 	=> targetSpeed_Robot.reX,
+								vYCartesianToMotors 	=> targetSpeed_Robot.reY,
+								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
 								
-			GVL_Datatransfer23.inStatus	:= RobotStatus.betriebsbereit;
+			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
 		ELSE
 			GVL_Datatransfer23.inStatus := RobotStatus.zielErreicht;
 		END_IF
@@ -266,9 +253,9 @@ CASE GVL_Datatransfer23.inControl OF
 	END_CASE
 
 
-FB_Drehzahlregler(targetVelX			:= R_X_targetSpeed,
-					targetVelY 			:= R_Y_targetSpeed, 
-					tragetVelTheta		:= R_Theta_targetSpeed,
+FB_Drehzahlregler(targetVelX			:= targetSpeed_Robot.reX,
+					targetVelY 			:= targetSpeed_Robot.reY, 
+					tragetVelTheta		:= targetSpeed_Robot.reWinkel,
 					enable 				:= enableMotorControl,
 					bumper 				:= bumper,
 					MotorReset 			:= FALSE,

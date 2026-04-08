@@ -3,13 +3,8 @@
   <POU Name="FB_Positionsregler" Id="{5eaf5f69-503a-4e20-898f-d897551e6b9b}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_Positionsregler
 VAR_INPUT
-	targetPosX 		:	LREAL;
-	targetPosY 		:	LREAL;
-	targetPosTheta 	:	LREAL;
-	
-	actualPosX		: 	LREAL;
-	actualPosY		: 	LREAL;
-	actualPosTheta	: 	LREAL;
+	targetPos		: sPosition;
+	actualPos		: sPosition;
 END_VAR
 VAR_OUTPUT
 	vXCartesianToMotors		: LREAL :=0;
@@ -17,15 +12,9 @@ VAR_OUTPUT
 	vThetaCartesianToMotors	: LREAL :=0;
 END_VAR
 VAR
-	// Positionsfehler
-	errorX		: 	LREAL := 0;
-	errorY		: 	LREAL := 0;
-	errorTheta	: 	LREAL := 0;
-	
-	// Fehlersteigung
-	derrorX		: 	LREAL;
-	derrorY		: 	LREAL;
-	derrorTheta	: 	LREAL;
+	error		: sPosition;	// Positionsfehler
+	deltaError	: sPosition;	// Fehlersteigung
+
 	// Geschwindigkeit in Weltkoordinaten 
 	W_X_targetSpeed		: LREAL; 
 	W_Y_targetSpeed		: LREAL; 
@@ -64,7 +53,6 @@ VAR
         1.0    // HL
     ];
 	oldErrorTheta: LREAL;
-	deltaTheta: LREAL;
 END_VAR
 
 	]]></Declaration>
@@ -92,25 +80,25 @@ END_IF
 // --------------------------------------------------
 
 // Winkelabweichung zwischen Soll und Ist berechnen
-deltaTheta := targetPosTheta - actualPosTheta;
+error.reWinkel := targetPos.reWinkel - actualPos.reWinkel;
 
 // Normierung der Winkelabweichung auf den Bereich [-PI, PI]
 // → stellt sicher, dass immer der kürzeste Drehweg verwendet wird
-IF deltaTheta > PI THEN
-    deltaTheta := deltaTheta - 2.0 * PI;
-ELSIF deltaTheta < -PI THEN
-    deltaTheta := deltaTheta + 2.0 * PI;
+IF error.reWinkel > PI THEN
+    error.reWinkel := error.reWinkel - 2.0 * PI;
+ELSIF error.reWinkel < -PI THEN
+    error.reWinkel := error.reWinkel + 2.0 * PI;
 END_IF;
 
 // Alten Fehlerwert für die Ableitung speichern
-oldErrorTheta := errorTheta;
+oldErrorTheta := error.reWinkel;
 
 // Aktuellen Winkelfehler setzen
 // Vorzeichen ggf. an Drehrichtungskonvention anpassen
-errorTheta := -deltaTheta;
+error.reWinkel := -error.reWinkel;
 
 // Änderung des Fehlers (D-Anteil)
-derrorTheta := errorTheta - oldErrorTheta;
+deltaError.reWinkel := error.reWinkel - oldErrorTheta;
 
 
 // --------------------------------------------------
@@ -118,27 +106,27 @@ derrorTheta := errorTheta - oldErrorTheta;
 // --------------------------------------------------
 
 // Fehleränderung berechnen (Differenz zum vorherigen Fehler)
-derrorX := errorX - (targetPosX - actualPosX);
-derrorY := errorY - (targetPosY - actualPosY);
+deltaError.reX := error.reX - (targetPos.reX - actualPos.reX);
+deltaError.reY := error.reY - (targetPos.reY - actualPos.reY);
 
 // Aktuellen Positionsfehler berechnen
-errorX := targetPosX - actualPosX;
-errorY := targetPosY - actualPosY;
+error.reX := targetPos.reX - actualPos.reX;
+error.reY := targetPos.reY - actualPos.reY;
 
 // --------------------------------------------------
 // Positionsregelung
 // --------------------------------------------------
 
-// ACT_GetFuzzyParam();
+ACT_GetFuzzyParam();
 
 // Berechnung der Stellgröße
-W_X_targetSpeed 	:= (errorX * KPX);
-W_Y_targetSpeed 	:= (errorY * KPY);
-W_Theta_targetSpeed := (errorTheta * KPTheta);
+W_X_targetSpeed 	:= (error.reX 		* KPX);
+W_Y_targetSpeed 	:= (error.reY 		* KPY);
+W_Theta_targetSpeed := (error.reWinkel 	* KPTheta);
 
 // Umrechnung von Welt in Motorcoordinaten
-R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPosTheta) - W_Y_targetSpeed * SIN(actualPosTheta);
-R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPosTheta) + W_X_targetSpeed * SIN(actualPosTheta);
+R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPos.reWinkel) - W_Y_targetSpeed * SIN(actualPos.reWinkel);
+R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPos.reWinkel) + W_X_targetSpeed * SIN(actualPos.reWinkel);
 R_Theta_targetSpeed := W_Theta_targetSpeed;
 
 ACT_LimitACC();]]></ST>
@@ -146,8 +134,8 @@ ACT_LimitACC();]]></ST>
     <Action Name="ACT_GetFuzzyParam" Id="{4ee22feb-6be5-4906-80b6-3d87f4f37582}">
       <Implementation>
         <ST><![CDATA[// Berechnen des Kx Reglers
-METH_InputMembership(e := errorX, outArr := MembershipE);
-METH_InputMembership(e := derrorX, outArr := MembershipDE);
+METH_InputMembership(e := error.reX, outArr := MembershipE);
+METH_InputMembership(e := deltaError.reX, outArr := MembershipDE);
 
 // Defuzzyfication
 FOR i := 1 TO 5 DO
@@ -167,8 +155,8 @@ ELSE
 END_IF
 
 // Berechnen des Ky Reglers
-METH_InputMembership(e := errorY, outArr := MembershipE);
-METH_InputMembership(e := derrorY, outArr := MembershipDE);
+METH_InputMembership(e := error.reY, 		outArr := MembershipE);
+METH_InputMembership(e := deltaError.reY, 	outArr := MembershipDE);
 
 // Defuzzyfication
 FOR i := 1 TO 5 DO

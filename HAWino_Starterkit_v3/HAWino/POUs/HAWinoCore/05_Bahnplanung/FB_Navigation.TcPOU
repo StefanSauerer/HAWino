@@ -16,15 +16,18 @@ VAR_OUTPUT
     yboAtGoal      : BOOL;
     yboStop        : BOOL;
     yboError       : BOOL;
+    yboWarning     : BOOL;
+    yreMinDist     : REAL;
 END_VAR
 VAR_IN_OUT
     (* Referenz auf die 13 Kartenbausteine — von außen übergeben *)
     xyarMaps : ARRAY[1..13] OF FB_AngleMap;
 END_VAR
 VAR
+	_fbCollision   : FB_CollisionAvoidance;
     _inPosX        : INT;
     _inPosY        : INT;
-    _inRawAngle    : INT;
+    _reRawAngle    : REAL;
     _reStatGx      : REAL;
     _reStatGy      : REAL;
     _reDynGx       : REAL;
@@ -35,42 +38,30 @@ VAR
     _reDiffY       : REAL;
     _reDist        : REAL;
     _reDistSq      : REAL;
+	_reLastAngle   : REAL := 0.0;
+	_reDelta       : REAL;
+    _reAngleRaw    : REAL;
     _inIdx         : INT := 0;
     _crePI         : REAL := 3.14159265358979;
     _creRepulseK   : REAL := 1000.0;
     _creRepulseRad : REAL := 500.0;
     _creStopDist   : REAL := 5.0;
     _creGoalRadius : REAL := 5.0;
+	_creMaxDeltaDeg: REAL := 2.0;   (* max. Winkeländerung pro Zyklus *)
 END_VAR]]></Declaration>
     <Implementation>
-      <ST><![CDATA[(* ── Eingaben prüfen ───────────────────────────────── *)
-IF xinGoalID < 1 OR xinGoalID > 13 THEN
-    yboError := TRUE;
-    RETURN;
-END_IF
-yboError := FALSE;
-yboStop  := FALSE;
-
-(* ── 1) Euklidischer Abstand zum Ziel ─────────────── *)
-//_reDiffX      := xrePosX - GVL_Maps.sreGoalX[xinGoalID];
-//_reDiffY      := xrePosY - GVL_Maps.sreGoalY[xinGoalID];
-//yreDistToGoal := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
-
+      <ST><![CDATA[
 (* ── Eingaben prüfen ───────────────────────────────── *)
 IF xinGoalID < 1 OR xinGoalID > 13 THEN
-    yboError := TRUE;
-    RETURN;
+    yboError := TRUE; RETURN;
 END_IF
-
 IF NOT xyarMaps[xinGoalID].yboDone THEN
-    yboError := TRUE;   (* Karte noch nicht geladen *)
-    RETURN;
+    yboError := TRUE; RETURN;
 END_IF
 yboError := FALSE;
-yboStop  := FALSE;
 
 (* ── 1) Abstand zum Ziel ───────────────────────────── *)
-_reDiffX      := xrePosX  - GVL_Maps.sreGoalX[xinGoalID];
+_reDiffX      := xrePosX - GVL_Maps.sreGoalX[xinGoalID];
 _reDiffY      := xrePosY - GVL_Maps.sreGoalY[xinGoalID];
 yreDistToGoal := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
 
@@ -83,58 +74,114 @@ END_IF
 yboAtGoal := FALSE;
 
 (* ── 3) Koordinaten begrenzen ──────────────────────── *)
-_inPosX := REAL_TO_INT(xrePosX);
-_inPosY := REAL_TO_INT(xrePosY);
+_inPosX := REAL_TO_INT(TRUNC(xrePosX));
+_inPosY := REAL_TO_INT(TRUNC(xrePosY));
+_inPosX := MAX(0, MIN(_inPosX, 799));
+_inPosY := MAX(0, MIN(_inPosY, 399));
 
-(* ── 4) Winkel aus der aktiven Karte lesen ─────────── *)
-_inRawAngle := xyarMaps[xinGoalID].GetAngle(
-                    xinPosX := _inPosX,
-                    xinPosY := _inPosY);
-
-IF _inRawAngle = -9999 THEN
-    yboStop := TRUE;
-    RETURN;
+(* ── 4) Hindernischeck ─────────────────────────────── *)
+IF xyarMaps[xinGoalID].GetAngle(
+       xinPosX := _inPosX,
+       xinPosY := _inPosY) = -9999 THEN
+    yboStop := TRUE; RETURN;
 END_IF
 
-(* ── 5) Einheitsvektor ─────────────────────────────── *)
-_reStatGx := COS(INT_TO_REAL(_inRawAngle) / 10.0 * _crePI / 180.0);
-_reStatGy := SIN(INT_TO_REAL(_inRawAngle) / 10.0 * _crePI / 180.0);
+(* ── 5) Winkel interpoliert aus Karte ──────────────── *)
+_reRawAngle := xyarMaps[xinGoalID].GetAngleInterp(
+                   xrePosX := xrePosX,
+                   xrePosY := xrePosY);
 
-(* ── 6) Dynamische Abstoßung ───────────────────────── *)
-_reDynGx := 0.0;
-_reDynGy := 0.0;
+_reStatGx := COS(_reRawAngle * _crePI / 180.0);
+_reStatGy := SIN(_reRawAngle * _crePI / 180.0);
 
-FOR _inIdx := 0 TO 2 DO
-    IF NOT xboRobotActive[_inIdx] THEN CONTINUE; END_IF
+(* ── 6) Kollisionsvermeidung ───────────────────────── *)
+_fbCollision(
+    xrePosX        := xrePosX,
+    xrePosY        := xrePosY,
+    xreRobotX      := xreRobotX,
+    xreRobotY      := xreRobotY,
+    xboRobotActive := xboRobotActive);
 
-    _reDiffX := xrePosX - xreRobotX[_inIdx];
-    _reDiffY := xrePosY - xreRobotY[_inIdx];
-    _reDist  := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
+yboWarning := _fbCollision.yboWarning;
+yreMinDist := _fbCollision.yreMinDist;
 
-    IF _reDist < 0.1 OR _reDist > _creRepulseRad THEN CONTINUE; END_IF
+(* ── 7) Notstopp ───────────────────────────────────── *)
+IF _fbCollision.yboStop THEN
+    yboStop        := TRUE;
+    yreAngleTarget := THIS^.LimitAngleRate(
+                        xreAngleRaw    := _reRawAngle,
+                        xreMaxDeltaDeg := _creMaxDeltaDeg);
+    RETURN;
+END_IF
+yboStop := FALSE;
 
-    IF _reDist < _creStopDist THEN
-        yboStop := TRUE;
-        RETURN;
-    END_IF
+(* ── 8) Superposition ──────────────────────────────── *)
+_reTotalGx := _reStatGx + _fbCollision.yreDynGx;
+_reTotalGy := _reStatGy + _fbCollision.yreDynGy;
 
-    _reDistSq := _reDiffX * _reDiffX + _reDiffY * _reDiffY;
-    _reDynGx  := _reDynGx + _creRepulseK * _reDiffX / (_reDistSq * _reDist);
-    _reDynGy  := _reDynGy + _creRepulseK * _reDiffY / (_reDistSq * _reDist);
-END_FOR
-
-(* ── 7) Resultierender Winkel ──────────────────────── *)
-_reTotalGx := _reStatGx + _reDynGx;
-_reTotalGy := _reStatGy + _reDynGy;
-
+(* ── 9) Winkelberechnung + Rate Limiter ────────────── *)
 IF SQRT(_reTotalGx * _reTotalGx + _reTotalGy * _reTotalGy) < 0.001 THEN
-    yreAngleTarget := - INT_TO_REAL(_inRawAngle) / 10.0;
+    yreAngleTarget := THIS^.LimitAngleRate(
+                        xreAngleRaw    := _reRawAngle,
+                        xreMaxDeltaDeg := _creMaxDeltaDeg);
 ELSE
-    yreAngleTarget := - FC_ATAN2(
-                        xreY := _reTotalGy,
-                        xreX := _reTotalGx)
-                      * 180.0 / _crePI;
+    yreAngleTarget := THIS^.LimitAngleRate(
+                        xreAngleRaw    := FC_ATAN2(
+                                            xreY := _reTotalGy,
+                                            xreX := _reTotalGx)
+                                          * 180.0 / _crePI,
+                        xreMaxDeltaDeg := _creMaxDeltaDeg);
 END_IF]]></ST>
     </Implementation>
+    <Method Name="LimitAngleRate" Id="{5edcd3af-84e9-4477-be83-105752146b33}">
+      <Declaration><![CDATA[METHOD LimitAngleRate : REAL
+VAR_INPUT
+    xreAngleRaw     : REAL;   (* neuer ungbegrenzter Winkel *)
+    xreMaxDeltaDeg  : REAL;   (* max. Änderung pro Zyklus   *)
+END_VAR
+VAR
+    _reDelta : REAL;
+    _reResult: REAL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF _reLastAngle = 0 THEN
+	_reLastAngle := xreAngleRaw;
+END_IF
+
+(* ── Winkeldifferenz berechnen ─────────────────────── *)
+_reDelta := xreAngleRaw - _reLastAngle;
+
+(* ── Auf [-180, +180] normieren ────────────────────── *)
+WHILE _reDelta > 180.0 DO
+    _reDelta := _reDelta - 360.0;
+END_WHILE
+WHILE _reDelta < -180.0 DO
+    _reDelta := _reDelta + 360.0;
+END_WHILE
+
+(* ── Änderung begrenzen ─────────────────────────────── *)
+IF _reDelta > xreMaxDeltaDeg THEN
+    _reDelta := xreMaxDeltaDeg;
+ELSIF _reDelta < -xreMaxDeltaDeg THEN
+    _reDelta := -xreMaxDeltaDeg;
+END_IF
+
+(* ── Neuen Winkel berechnen ─────────────────────────── *)
+_reResult := _reLastAngle + _reDelta;
+
+(* ── Auf [-180, +180] halten ────────────────────────── *)
+IF _reResult > 180.0 THEN
+    _reResult := _reResult - 360.0;
+ELSIF _reResult < -180.0 THEN
+    _reResult := _reResult + 360.0;
+END_IF
+
+(* ── Für nächsten Zyklus speichern ─────────────────── *)
+_reLastAngle := _reResult;
+
+LimitAngleRate := _reResult;]]></ST>
+      </Implementation>
+    </Method>
   </POU>
 </TcPlcObject>

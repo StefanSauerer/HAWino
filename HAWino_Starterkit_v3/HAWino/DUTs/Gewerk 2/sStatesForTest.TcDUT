@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="sStatesForTest" Id="{f7ae5b27-5533-4627-879c-3ad1b5e00a44}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE sStatesForTest :
+(
+	Target1Vektor := 0,
+	CoordinatesInFrontOfTarget1,
+	Target1,
+	AfterTarget1,
+	Target2Vector,
+	CoordinatesInFrontOfTarget2,
+	Target2,
+	AfterTarget2,
+	ParkingVector,
+	Finished
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

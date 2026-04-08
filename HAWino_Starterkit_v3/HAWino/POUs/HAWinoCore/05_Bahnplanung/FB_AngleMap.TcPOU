@@ -124,5 +124,109 @@ END_VAR]]></Declaration>
     MAX(0, MIN(xinPosX, 799))];]]></ST>
       </Implementation>
     </Method>
+    <Method Name="GetAngleInterp" Id="{6261e78d-fd7c-4697-b00f-852b85dab3b9}">
+      <Declaration><![CDATA[METHOD GetAngleInterp : REAL
+VAR_INPUT
+    xrePosX : REAL;
+    xrePosY : REAL;
+END_VAR
+VAR
+    _inX0, _inX1 : INT;
+    _inY0, _inY1 : INT;
+    _reFx, _reFy : REAL;
+
+    _reA00, _reA10 : REAL;
+    _reA01, _reA11 : REAL;
+
+    _reSin00, _reSin10 : REAL;
+    _reSin01, _reSin11 : REAL;
+    _reCos00, _reCos10 : REAL;
+    _reCos01, _reCos11 : REAL;
+
+    _reSinInterp : REAL;
+    _reCosInterp : REAL;
+    _crePI       : REAL := 3.14159265358979;
+
+    (* Hilfsvariablen für korrektes Abschneiden *)
+    _reFloorX    : REAL;
+    _reFloorY    : REAL;
+    _inRaw00     : INT;
+    _inRaw10     : INT;
+    _inRaw01     : INT;
+    _inRaw11     : INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+(* FLOOR: abschneiden statt runden *)
+(* REAL_TO_INT rundet — deshalb manuell mit TRUNC *)
+_reFloorX := TRUNC(xrePosX);
+_reFloorY := TRUNC(xrePosY);
+
+(* Gebrochene Anteile — immer 0.0 bis <1.0 *)
+_reFx := xrePosX - _reFloorX;
+_reFy := xrePosY - _reFloorY;
+
+(* Pixelkoordinaten der 4 Eckpunkte *)
+_inX0 := MAX(0, MIN(REAL_TO_INT(_reFloorX),     798));
+_inX1 := MAX(0, MIN(REAL_TO_INT(_reFloorX) + 1, 799));
+_inY0 := MAX(0, MIN(REAL_TO_INT(_reFloorY),     398));
+_inY1 := MAX(0, MIN(REAL_TO_INT(_reFloorY) + 1, 399));
+
+(* Rohe INT-Werte aus dem Array *)
+_inRaw00 := _sarMap[_inY0, _inX0];
+_inRaw10 := _sarMap[_inY0, _inX1];
+_inRaw01 := _sarMap[_inY1, _inX0];
+_inRaw11 := _sarMap[_inY1, _inX1];
+
+(* Sonderwerte: wenn ein Nachbar Hindernis oder Ziel ist
+   → nur den gültigen Pixel verwenden                    *)
+IF _inRaw00 = -9999 OR _inRaw00 = -8888 THEN
+    _inRaw00 := _inRaw11;
+END_IF
+IF _inRaw10 = -9999 OR _inRaw10 = -8888 THEN
+    _inRaw10 := _inRaw00;
+END_IF
+IF _inRaw01 = -9999 OR _inRaw01 = -8888 THEN
+    _inRaw01 := _inRaw00;
+END_IF
+IF _inRaw11 = -9999 OR _inRaw11 = -8888 THEN
+    _inRaw11 := _inRaw00;
+END_IF
+
+(* Winkel in Grad (÷10 wegen Skalierung) *)
+_reA00 := INT_TO_REAL(_inRaw00) / 10.0;
+_reA10 := INT_TO_REAL(_inRaw10) / 10.0;
+_reA01 := INT_TO_REAL(_inRaw01) / 10.0;
+_reA11 := INT_TO_REAL(_inRaw11) / 10.0;
+
+(* Sin/Cos der 4 Winkel *)
+_reSin00 := SIN(_reA00 * _crePI / 180.0);
+_reSin10 := SIN(_reA10 * _crePI / 180.0);
+_reSin01 := SIN(_reA01 * _crePI / 180.0);
+_reSin11 := SIN(_reA11 * _crePI / 180.0);
+
+_reCos00 := COS(_reA00 * _crePI / 180.0);
+_reCos10 := COS(_reA10 * _crePI / 180.0);
+_reCos01 := COS(_reA01 * _crePI / 180.0);
+_reCos11 := COS(_reA11 * _crePI / 180.0);
+
+(* Bilineare Interpolation *)
+_reSinInterp := (1.0 - _reFx) * (1.0 - _reFy) * _reSin00
+              + _reFx          * (1.0 - _reFy) * _reSin10
+              + (1.0 - _reFx)  * _reFy          * _reSin01
+              + _reFx          * _reFy           * _reSin11;
+
+_reCosInterp := (1.0 - _reFx) * (1.0 - _reFy) * _reCos00
+              + _reFx          * (1.0 - _reFy) * _reCos10
+              + (1.0 - _reFx)  * _reFy          * _reCos01
+              + _reFx          * _reFy           * _reCos11;
+
+(* Vektor → Winkel in Grad *)
+GetAngleInterp := FC_ATAN2(
+                    xreY := _reSinInterp,
+                    xreX := _reCosInterp)
+                  * 180.0 / _crePI;]]></ST>
+      </Implementation>
+    </Method>
   </POU>
 </TcPlcObject>

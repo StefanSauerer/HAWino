@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <POU Name="FB_CollisionAvoidance" Id="{88b457a7-191a-4465-be81-bb2100bf80b3}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_CollisionAvoidance
+VAR_INPUT
+    xrePosX        : REAL;
+    xrePosY        : REAL;
+    xreRobotX      : ARRAY[0..2] OF REAL;
+    xreRobotY      : ARRAY[0..2] OF REAL;
+    xboRobotActive : ARRAY[0..2] OF BOOL;
+END_VAR
+VAR_OUTPUT
+    yreDynGx   : REAL;
+    yreDynGy   : REAL;
+    yboStop    : BOOL;
+    yboWarning : BOOL;
+    yreMinDist : REAL;
+END_VAR
+VAR
+    _inIdx     : INT;
+    _reDiffX   : REAL;
+    _reDiffY   : REAL;
+    _reDist    : REAL;
+    _reDistSq  : REAL;
+    _reRepulse : REAL;
+    _reWeight  : REAL;
+
+    _creRepulseK   : REAL := 1200.0;
+    _creRepulseRad : REAL := 60.0;
+    _creWarnDist   : REAL := 35.0;
+    _creStopDist   : REAL := 18.0;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+yreDynGx   := 0.0;
+yreDynGy   := 0.0;
+yboStop    := FALSE;
+yboWarning := FALSE;
+yreMinDist := _creRepulseRad;
+
+FOR _inIdx := 0 TO 2 DO
+    IF NOT xboRobotActive[_inIdx] THEN CONTINUE; END_IF
+
+    (* ── Abstand berechnen ─────────────────────────── *)
+    _reDiffX := xrePosX - xreRobotX[_inIdx];
+    _reDiffY := xrePosY - xreRobotY[_inIdx];
+    _reDist  := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
+
+    IF _reDist < yreMinDist THEN
+        yreMinDist := _reDist;
+    END_IF
+
+    (* ── Zonen prüfen ──────────────────────────────── *)
+    IF _reDist < _creStopDist THEN
+        yboStop := TRUE;
+    END_IF
+
+    IF _reDist < _creWarnDist THEN
+        yboWarning := TRUE;
+    END_IF
+
+    IF _reDist > _creRepulseRad THEN CONTINUE; END_IF
+    IF _reDist < 0.1 THEN CONTINUE; END_IF
+
+    (* ── Abstoßungsstärke ──────────────────────────── *)
+    _reDistSq  := MAX(_reDist * _reDist, 1.0);
+    _reRepulse := _creRepulseK / _reDistSq;
+
+    (* Verstärkung im Warnbereich *)
+    IF _reDist < _creWarnDist THEN
+        _reWeight  := 1.0 + (_creWarnDist - _reDist) / _creWarnDist * 3.0;
+        _reRepulse := _reRepulse * _reWeight;
+    END_IF
+
+    (* ── Abstoßungsvektor ──────────────────────────── *)
+    yreDynGx := yreDynGx + _reRepulse * _reDiffX / _reDist;
+    yreDynGy := yreDynGy + _reRepulse * _reDiffY / _reDist;
+
+END_FOR]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

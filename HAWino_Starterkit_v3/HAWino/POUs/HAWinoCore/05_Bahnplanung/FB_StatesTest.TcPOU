@@ -1,0 +1,111 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <POU Name="FB_StatesTest" Id="{df968e2c-77cc-4fca-870b-fcefcbefbe3f}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_StatesTest
+VAR_INPUT
+	xboVectorTargetReached : BOOL;
+	xinSatus : INT;
+END_VAR
+VAR_OUTPUT
+	yinControl : RobotControl;
+	ysTargetPosition : sPosition;
+	yinTargetMap : INT;
+END_VAR
+VAR
+	sStates : sStatesForTest;
+END_VAR
+VAR CONSTANT
+	//Robby 3
+	creTarget1X : REAL := 628.1;
+	creTarget1Y : REAL := 2668.6;
+	creTarget1Phi : REAL := 0.4;
+	creTarget2X : REAL := 1067.3;
+	creTarget2Y : REAL := 2672.3;
+	creTarget2Phi : REAL := -179.6;
+	
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[CASE sStates OF
+	
+	sStatesForTest.Target1Vektor : 
+	
+		yinTargetMap := 1;
+		IF xboVectorTargetReached THEN 
+			sStates := sStatesForTest.CoordinatesInFrontOfTarget1;
+		END_IF;
+		
+	sStatesForTest.CoordinatesInFrontOfTarget1 :
+		ysTargetPosition.reX := creTarget1X - 50;
+		ysTargetPosition.reY := creTarget1Y;
+		ysTargetPosition.reWinkel := creTarget1Phi;
+		IF xinSatus = 3 THEN 
+			sStates := sStatesForTest.Target1;
+		END_IF;
+		
+	sStatesForTest.Target1 :
+		ysTargetPosition.reX := creTarget1X;
+		IF xinSatus = 3 THEN 
+			sStates := sStatesForTest.AfterTarget1;
+		END_IF;
+		
+	sStatesForTest.AfterTarget1 :
+		ysTargetPosition.reX := creTarget1X - 50;
+		IF xinSatus = 3 THEN 
+			sStates := sStatesForTest.Target2Vector;
+		END_IF;
+		
+	sStatesForTest.Target2Vector :
+	
+		yinTargetMap := 2;
+		IF xboVectorTargetReached THEN 
+			sStates := sStatesForTest.CoordinatesInFrontOfTarget2;
+		END_IF;
+		
+	sStatesForTest.CoordinatesInFrontOfTarget2 :
+		ysTargetPosition.reX := creTarget2X - 50;
+		ysTargetPosition.reY := creTarget2Y;
+		ysTargetPosition.reWinkel := creTarget2Phi;
+		IF xinSatus = 3 THEN 
+			sStates := sStatesForTest.Target2;
+		END_IF;
+		
+	sStatesForTest.Target2 :
+	
+		ysTargetPosition.reX := creTarget2X;
+		IF xinSatus = 3 THEN 
+			sStates := sStatesForTest.AfterTarget2;
+		END_IF;
+		
+	sStatesForTest.AfterTarget2 :
+	
+		ysTargetPosition.reX := creTarget2X - 50;
+		IF xinSatus = 3 THEN 
+			sStates := sStatesForTest.ParkingVector;
+		END_IF;
+		
+	sStatesForTest.ParkingVector :
+	
+		yinTargetMap := 7;
+		IF xboVectorTargetReached THEN 
+			sStates := sStatesForTest.Finished;
+		END_IF;
+		
+	sStatesForTest.Finished : ;
+	
+END_CASE
+
+IF (sStatesForTest.Target1Vektor = sStates) OR (sStatesForTest.Target2Vector = sStates) OR (sStatesForTest.ParkingVector = sStates) THEN
+	yinControl := 3;
+END_IF
+
+IF (sStatesForTest.CoordinatesInFrontOfTarget1 = sStates) OR (sStatesForTest.Target1 = sStates) OR (sStatesForTest.AfterTarget1 = sStates)
+ OR (sStatesForTest.CoordinatesInFrontOfTarget2 = sStates) OR (sStatesForTest.Target2 = sStates) OR (sStatesForTest.AfterTarget2 = sStates) THEN
+	yinControl := 4;
+END_IF
+
+IF (sStatesForTest.Finished = sStates) THEN
+	yinControl := 1;
+END_IF]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

@@ -6,7 +6,8 @@ VAR
     (* 13 Kartenbausteine — jeder hält sein eigenes Array *)
     arfbMaps       : ARRAY[1..13] OF FB_AngleMap;
     fbNav          : FB_Navigation;
-
+	fbStates	   : FB_StatesTest;
+	
     (* Ladesteuerung *)
     inLoadIdx      : INT := 1;
     boAllLoaded    : BOOL := FALSE;
@@ -15,7 +16,7 @@ VAR
     (* Navigation *)
     rePosX         : REAL := 180.0;
     rePosY         : REAL :=  20.0;
-    inActiveGoal   : INT  :=   1;
+    inActiveGoal   : INT  :=   3;
 
     areRobotX      : ARRAY[0..2] OF REAL;
     areRobotY      : ARRAY[0..2] OF REAL;
@@ -32,7 +33,9 @@ VAR
 	actualPosY: LREAL;
 	actualPosTheta: LREAL;
 	actualError: LREAL;
-	END_VAR
+	boWarning: BOOL;
+	reMinDist: REAL;
+END_VAR
 	
 	VAR_TEMP
     tinI : INT; // Temporary variable
@@ -94,7 +97,16 @@ IF areRobotX[tinJ] = 0 AND areRobotY[tinJ] = 0 THEN
 END_FOR
 
 
-reSpeed := 100;
+fbStates (xboVectorTargetReached := boAtGoal,
+ xinSatus := GVL_Datatransfer23.inStatus,
+ yinControl => GVL_Datatransfer23.inControl,
+ ysTargetPosition => GVL_Datatransfer23.gvZielPosition,
+ yinTargetMap => inActiveGoal);
+	
+
+
+
+reSpeed := 300;
 (* ── Navigation ────────────────────────────────────── *)
 fbNav(
     xrePosX        := GVL_Datatransfer23.gvActualPosition.reX / 10,
@@ -108,9 +120,11 @@ fbNav(
     yreDistToGoal  => reDistToGoal,
     yboAtGoal      => boAtGoal,
     yboStop        => boStop,
+	yboWarning     => boWarning,
+    yreMinDist     => reMinDist,
     yboError       => boNavError);
 	
-	
+	reAngleTarget := - reAngleTarget;
 	IF reDistToGoal < 50 THEN
 		reSpeed := reSpeed * reDistToGoal /50;
 	END_IF

@@ -7,7 +7,7 @@ TYPE GripperCmd_Enum :
 (
 	noGrip 	:= 0,
 	take	:= 1,
-	put		:= 1
+	put		:= 2
 );
 END_TYPE
 ]]></Declaration>

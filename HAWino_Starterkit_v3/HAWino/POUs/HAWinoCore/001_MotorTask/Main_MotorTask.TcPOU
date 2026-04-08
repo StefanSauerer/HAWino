@@ -7,7 +7,7 @@ VAR
 	// Variablen, die zur Synchronisation über das PAI (Prozessabbild) in den Task geladen werden.
 	// -> Die Variablen werden von anderen Tasks gesetzt und müssen in den Task In/Outputs verknüpft werden
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//Inputs für die Regelung
+	// Inputs für die Regelung
 	n1fromMotor AT%I* : UINT; //Geschwindigkeit von der Motorklemme über den InfoData Kanal
 	n2fromMotor AT%I* : UINT;
 	n3fromMotor AT%I* : UINT;
@@ -22,11 +22,11 @@ VAR
 	// -> Die Variablen werden von anderen Tasks gelesen.
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	//Freigabe der Motoren
+	// Freigabe der Motoren
 	enableToMotor1 AT%Q*:BOOL:=FALSE;
 	enableToMotor2 AT%Q*:BOOL:=FALSE;
 	enableToMotor3 AT%Q*:BOOL:=FALSE;
-	//Sollwerte der Motoren
+	// Sollwerte der Motoren
 	velocityToMotor1 AT%Q*:INT:=0;
 	velocityToMotor2 AT%Q*:INT:=0;
 	velocityToMotor3 AT%Q*:INT:=0;
@@ -34,7 +34,7 @@ VAR
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Taskinterne Inputs
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//Wheel-Encoder Daten
+	// Wheel-Encoder Daten
 	wheelEncoderLocalVx AT%I*		:LREAL;
 	wheelEncoderLocalVy AT%I*		:LREAL;
 	wheelEncoderLocalVtheta AT%I*	:LREAL;
@@ -45,12 +45,12 @@ VAR
 	// Lokale Variablen
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
 	
-	//Übergabevariablen vom Lageregler zum Drehzahlregler
+	// Übergabevariablen vom Lageregler zum Drehzahlregler
 	vXCartesianToMotors 	:	LREAL;
 	vYCartesianToMotors 	:	LREAL;
 	vThetaCartesianToMotors :	LREAL;
 	
-	//Reglerdaten
+	// Reglerdaten
 	Motor1current: INT;
 	Motor2current: INT;
 	Motor3current: INT;
@@ -64,7 +64,7 @@ VAR
 	rWheel 					: INT 	:= 40; 			//in mm
 	ue						: LREAL := 0.0625; 		//Getriebeuebersetzung 
 	cycletime 				: LREAL	:= 0.00033333; 	//Cycletime des Motortasks
-	enableMotorControl		: BOOL  := FALSE;
+	enableMotorControl		: BOOL  := TRUE;
 	
 	RobotIndex : INT := -1;
 	
@@ -92,37 +92,36 @@ VAR
 	targetPosTheta	: 	LREAL;
 	
 	// Tatsächliche Position
-	actualPosX		: LREAL;
-	actualPosY		: LREAL;
-	actualPosTheta	: LREAL;		
+	actualPos		: sPosition;		
 	actualError		: LREAL;
 
-	KalmanStateX: LREAL;
-	KalmanStateY: LREAL;
-	KalmanStateYaw: LREAL;
-	wheelArray : ARRAY[1..3] OF LREAL;
+	KalmanStateX	: LREAL;
+	KalmanStateY	: LREAL;
+	KalmanStateYaw	: LREAL;
+	wheelArray 		: ARRAY[1..3] OF LREAL;
 	
 	// --- Ringpuffer für Kameramesswerte ---
 
 	// Inline-struct als Array-Element
 	RingBuffer : ARRAY[0..GVL_RobotConstant.RING_SIZE-1] OF EKF_Data;
 	
-	RingHead : INT := 0; // Index für nächste Schreibposition
-	RingCount : INT := 0; // Anzahl gültiger Einträge (<= RING_SIZE)
-	SampleCounter : ULINT := 0; // hochzählender Zähler für sampleId
+	RingHead 		: INT 	:= 0; // Index für nächste Schreibposition
+	RingCount 		: INT 	:= 0; // Anzahl gültiger Einträge (<= RING_SIZE)
+	SampleCounter 	: ULINT := 0; // hochzählender Zähler für sampleId
 	
 	// Vorheriger Kamerawert zur Änderungsdetektion
-	prevCamX : LREAL := 0.0;
-	prevCamY : LREAL := 0.0;
-	prevCamTheta : LREAL := 0.0;
+	prevCamX 	: LREAL := 0.0;
+	prevCamY 	: LREAL := 0.0;
+	prevCamTheta: LREAL := 0.0;
 	
 	// Schwellwert für Änderungsdetektion (klein)
 	camChangeEpsilon : LREAL := 0.001; // später wahrcsheinlich noch kleiner setzen
 	
-    X_currentState : state := (x := 0.0, y := 0.0, theta := 0.0);
-	P_currentState : ARRAY[1..9] OF LREAL;
-	EKF_currentState : EKF_Data;
-	CameraTimestamp: LREAL;
+    X_currentState 	: sPosition := (reX := 0.0, reY := 0.0, reWinkel := 0.0);
+	P_currentState 	: ARRAY[1..9] OF LREAL;
+	EKF_currentState: EKF_Data;
+	CameraTimestamp	: LREAL;
+	CurrentTime		: LREAL;
 	idx : INT;
 END_VAR
 ]]></Declaration>
@@ -141,17 +140,32 @@ ELSE
 	// Kammeraposition erst validieren
 	IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
 		// Falls schlechte Position lieber über Reifenumdrehungen 
-		actualPosX		:=	actualPosX;
-		actualPosY		:=	actualPosY;
-		actualPosTheta	:=	actualPosTheta;
-		
+		wheelArray[1]  := velWheel1;
+		wheelArray[2]  := velWheel2;
+		wheelArray[3]  := velWheel3;
+		// Ist die Letzte Kameramessung weniger als 3 Sekunden her
+		IF ABS(CurrentTime-CameraTimestamp) < 3 THEN 
+			propagate_state(
+				X_Start 	:= actualPos,
+				wheelSpeed 	:= wheelArray, 
+				P_Start 	:= P_currentState,
+				deltaT 		:= cycletime,
+				X_Predict 	=> actualPos,
+				P_Predict 	=> P_currentState
+			);
+			CurrentTime := CurrentTime + cycletime;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
+		ELSE
+			enableMotorControl := FALSE;
+			GVL_Datatransfer23.inStatus := RobotStatus.fehler;	
+		END_IF	
 	ELSE
 		// Falls Kameraposition gut nehmen
-		actualPosX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
-		actualPosY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
-		actualPosTheta 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
-		actualError		:= Camera.cameraData.robotPosition[RobotIndex].e;
-		CameraTimestamp := (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
+		actualPos.reX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
+		actualPos.reY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
+		actualPos.reWinkel 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
+		actualError			:= Camera.cameraData.robotPosition[RobotIndex].e;
+		CameraTimestamp 	:= (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
+		CurrentTime			:= CameraTimestamp;
 	END_IF
 END_IF;
 
@@ -162,9 +176,8 @@ END_IF;
 
 
 // Beste Positionsschätzung an Gruppe 2 übergeben
-GVL_Datatransfer23.gvActualPosition.reX 		:= actualPosX;
-GVL_Datatransfer23.gvActualPosition.reY 		:= actualPosY;
-GVL_Datatransfer23.gvActualPosition.reWinkel 	:= actualPosTheta;
+GVL_Datatransfer23.gvActualPosition		:= actualPos;
+
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Gipper und Bumper logik
@@ -183,7 +196,7 @@ IF bumper THEN
 END_IF
 
 // Test (später löschen)
-GVL_Datatransfer23.inControl := RobotControl.stop;
+GVL_Datatransfer23.inControl := RobotControl.vector;
 GVL_Datatransfer23.gvZielPosition.reX 		:= 6668;
 GVL_Datatransfer23.gvZielPosition.reY		:= 1892;
 GVL_Datatransfer23.gvZielPosition.reWinkel	:= 100;
@@ -218,8 +231,8 @@ CASE GVL_Datatransfer23.inControl OF
 		W_Theta_targetSpeed := 0;	// Zielwinkel in der Vectorregelung immer auf 0 setzen
 		
 		// Umrechnung der Geschwindigkeit von Welt in Roboterkoordinaten
-		R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPosTheta) - W_Y_targetSpeed * SIN(actualPosTheta);
-		R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPosTheta) + W_X_targetSpeed * SIN(actualPosTheta);
+		R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPos.reWinkel) - W_Y_targetSpeed * SIN(actualPos.reWinkel);
+		R_Y_targetSpeed 	:= W_Y_targetSpeed * COS(actualPos.reWinkel) + W_X_targetSpeed * SIN(actualPos.reWinkel);
 		R_Theta_targetSpeed := W_Theta_targetSpeed;		
 		
 		GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
@@ -228,17 +241,17 @@ CASE GVL_Datatransfer23.inControl OF
 	// Positions Regelung
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// Prüfen ob Zielpositon erreicht ==> Macht wahrscheinlich doch Gruppe 2
-		IF 	ABS(actualPosTheta 	- targetPosTheta)	> 10 OR 
-			ABS(actualPosX 		- targetPosX) 		> 10 OR 
-			ABS(actualPosY 		- targetPosY) 		> 10 THEN	
+		IF 	ABS(actualPos.reWinkel 	- targetPosTheta)	> 10 OR 
+			ABS(actualPos.reX 		- targetPosX) 		> 10 OR 
+			ABS(actualPos.reY 		- targetPosY) 		> 10 THEN	
 			
 			targetPosX 		:= GVL_Datatransfer23.gvZielPosition.reX;
 			targetPosY 		:= GVL_Datatransfer23.gvZielPosition.reY;
 			targetPosTheta 	:= GVL_Datatransfer23.gvZielPosition.reWinkel* PI / 180.0;;
 			
 			// Wert des Positionsreglers berechnen
-			FB_Positionsregler(targetPosX:=targetPosX, targetPosY:=targetPosY, targetPosTheta:=targetPosTheta, 
-								actualPosX:=actualPosX, actualPosY:=actualPosY, actualPosTheta:=actualPosTheta,
+			FB_Positionsregler(targetPosX := targetPosX, targetPosY := targetPosY, targetPosTheta := targetPosTheta, 
+								actualPosX:=actualPos.reX, actualPosY:=actualPos.reY, actualPosTheta:=actualPos.reWinkel,
 								vXCartesianToMotors 	=> R_X_targetSpeed,
 								vYCartesianToMotors 	=> R_Y_targetSpeed,
 								vThetaCartesianToMotors => R_Theta_targetSpeed);
@@ -251,21 +264,21 @@ CASE GVL_Datatransfer23.inControl OF
 	END_CASE
 
 
-FB_Drehzahlregler(targetVelX:= R_X_targetSpeed,
-					targetVelY := R_Y_targetSpeed, 
-					tragetVelTheta:= R_Theta_targetSpeed,
-					enable := enableMotorControl,
-					bumper := bumper,
-					MotorReset := FALSE,
-					actualVelMotor1 := -velWheel1, 
-					actualVelMotor2 := -velWheel2, 
-					actualVelMotor3 := -velWheel3,
-					enableToMotor1 => enableToMotor1,
-					enableToMotor2 => enableToMotor2,
-					enableToMotor3 => enableToMotor3,
-					velocityToMotor1=> velocityToMotor1, 
-					velocityToMotor2 => velocityToMotor2,
-					velocityToMotor3 => velocityToMotor3);
+FB_Drehzahlregler(targetVelX			:= R_X_targetSpeed,
+					targetVelY 			:= R_Y_targetSpeed, 
+					tragetVelTheta		:= R_Theta_targetSpeed,
+					enable 				:= enableMotorControl,
+					bumper 				:= bumper,
+					MotorReset 			:= FALSE,
+					actualVelMotor1 	:= -velWheel1, 
+					actualVelMotor2 	:= -velWheel2, 
+					actualVelMotor3 	:= -velWheel3,
+					enableToMotor1 		=> enableToMotor1,
+					enableToMotor2 		=> enableToMotor2,
+					enableToMotor3 		=> enableToMotor3,
+					velocityToMotor1	=> velocityToMotor1, 
+					velocityToMotor2	=> velocityToMotor2,
+					velocityToMotor3	=> velocityToMotor3);
 				
 				]]></ST>
     </Implementation>
@@ -326,9 +339,9 @@ EKF_currentState.timestamp := SampleCounter;
 WriteToRingBuffer(newData := EKF_currentState);
 
 // Überprüfen ob neue Kameradaten erhalten wurden
-IF (ABS(actualPosX - prevCamX) > camChangeEpsilon) OR 
-   (ABS(actualPosY - prevCamY) > camChangeEpsilon) OR
-   (ABS(actualPosTheta - prevCamTheta) > camChangeEpsilon) THEN
+IF (ABS(actualPos.reX 		- prevCamX) 	> camChangeEpsilon) OR 
+   (ABS(actualPos.reY 		- prevCamY) 	> camChangeEpsilon) OR
+   (ABS(actualPos.reWinkel 	- prevCamTheta) > camChangeEpsilon) THEN
 	
    	// Wenn diese erhalten wurden die zur Messung zugehörige Prediction finden und diese anpassen
 	
@@ -341,14 +354,14 @@ IF (ABS(actualPosX - prevCamX) > camChangeEpsilon) OR
 	IF (idx < 0) THEN
 		idx := GVL_RobotConstant.RING_SIZE - idx;
 	END_IF
-	EKF_UpdateAtIndex(idx, actualPosX, actualPosY);
+	EKF_UpdateAtIndex(idx, actualPos.reX, actualPos.reY);
 	EKF_ReplayFrom(idx);
 
 
 	// Prev-Werte aktualisieren
-	prevCamX := actualPosX;
-	prevCamY := actualPosY;
-	prevCamTheta := actualPosTheta;
+	prevCamX 		:= actualPos.reX;
+	prevCamY 		:= actualPos.reY;
+	prevCamTheta 	:= actualPos.reWinkel;
 END_IF
 	]]></ST>
       </Implementation>
@@ -424,8 +437,8 @@ X_currentState := RingBuffer[idx].State;
 P_currentState := RingBuffer[idx].P_Start;
 
 (* Innovation *)
-r1 := camX - X_currentState.x;
-r2 := camY - X_currentState.y;
+r1 := camX - X_currentState.reX;
+r2 := camY - X_currentState.reY;
 
 (* S = HPH^T + R *)
 s11 := P_currentState[1] + R_camX; // HAWino.cameraPosition.e <- sollte eigentlich des sein oder -> mit dem alles updaten, auch die Kameraposition !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -449,9 +462,9 @@ k31 := P_currentState[3]*invS11 + P_currentState[6]*invS12;
 k32 := P_currentState[3]*invS12 + P_currentState[6]*invS22;
 
 (* State Update *)
-X_currentState.x := X_currentState.x + k11*r1 + k12*r2;
-X_currentState.y := X_currentState.y + k21*r1 + k22*r2;
-X_currentState.theta := X_currentState.theta + k31*r1 + k32*r2;
+X_currentState.reX 		:= X_currentState.reX 		+ k11*r1 + k12*r2;
+X_currentState.reY 		:= X_currentState.reY 		+ k21*r1 + k22*r2;
+X_currentState.reWinkel := X_currentState.reWinkel 	+ k31*r1 + k32*r2;
 
 (* P Update – vereinfachte Form *)
 P_currentState[1] := P_currentState[1] - (k11*s11 + k12*s12)*k11;
@@ -469,10 +482,10 @@ RingBuffer[idx].P_Start := P_currentState;]]></ST>
     <Method Name="NormalizeAngle" Id="{83b90488-147b-4b1b-9c7b-cbb33d68b649}">
       <Declaration><![CDATA[METHOD NormalizeAngle
 VAR_INPUT
-	angle : REAL;
+	angle : LREAL;
 END_VAR
 VAR_OUTPUT
-	NormalizeAngle :REAL;
+	NormalizeAngle :LREAL;
 END_VAR
 ]]></Declaration>
       <Implementation>
@@ -490,14 +503,14 @@ NormalizeAngle := angle;]]></ST>
     <Method Name="propagate_state" Id="{a786f7f3-c6cc-4af7-af4c-05fa1ad9f61a}">
       <Declaration><![CDATA[METHOD propagate_state
 VAR_INPUT
-	X_Start : state;
+	X_Start : sPosition;
     wheelSpeed : ARRAY[1..3] OF LREAL;   (* w1,w2,w3 *)
 	P_Start : ARRAY[1..9] OF LREAL;
 	deltaT : LREAL;
 END_VAR
 
 VAR_OUTPUT
-    X_Predict : State;
+    X_Predict : sPosition;
 	P_Predict : ARRAY[1..9] OF LREAL;
 END_VAR
 
@@ -552,42 +565,41 @@ yawRate := (wheelSpeed[1]
            + wheelSpeed[2]
            + wheelSpeed[3]) / (3.0 * GVL_RobotConstant.ROBOT_RADIUS);
 
-
-
 (* ========================================================= *)
 (* 2) Transformation Body → Weltkoordinaten                  *)
 (*    Rotation mit aktuellem yaw-Winkel                      *)
 (* ========================================================= *)
 
 (* Weltgeschwindigkeit ergibt sich durch Rotation um yaw *)
-worldVelX := bodyVelX * COS(X_Start.theta)
-             - bodyVelY * SIN(X_Start.theta);
+worldVelX :=   bodyVelX * COS(X_Start.reWinkel)
+             - bodyVelY * SIN(X_Start.reWinkel);
 
-worldVelY := bodyVelX * SIN(X_Start.theta)
-             + bodyVelY * COS(X_Start.theta);
-
-
+worldVelY :=   bodyVelX * SIN(X_Start.reWinkel)
+             + bodyVelY * COS(X_Start.reWinkel);
 
 (* ========================================================= *)
 (* 3) Zustandsintegration (diskret)                          *)
 (*    x_k+1 = x_k + dt * f(x,u)                              *)
 (* ========================================================= *)
 
-X_Predict.x   	:= X_Start.x   + deltaT * worldVelX;
-X_Predict.y   	:= X_Start.y   + deltaT * worldVelY;
-X_Predict.theta := X_Start.theta + deltaT * yawRate;
+X_Predict.reX   	:= X_Start.reX   	+ deltaT * worldVelX;
+X_Predict.reY   	:= X_Start.reY   	+ deltaT * worldVelY;
+X_Predict.reWinkel 	:= X_Start.reWinkel + deltaT * yawRate;
 
-(* Optional: Winkel normalisieren auf [-pi,pi] *)
-(* erhöht numerische Stabilität langfristig *)
-// Achtung, weiß noch nich ganz ob des so richtig !!!!!!!!!!!!!!!!!!!!!!!!!!!
-IF X_Predict.theta > 3.1415926535 THEN
-    X_Predict.theta := X_Predict.theta - 6.283185307;
-ELSIF X_Predict.theta < -3.1415926535 THEN
-    X_Predict.theta := X_Predict.theta + 6.283185307;
+// Winkel normalisieren auf [-pi,pi]
+
+IF X_Predict.reWinkel > 3.1415926535 THEN
+    X_Predict.reWinkel := X_Predict.reWinkel - 6.283185307;
+ELSIF X_Predict.reWinkel < -3.1415926535 THEN
+    X_Predict.reWinkel := X_Predict.reWinkel + 6.283185307;
 END_IF;
 
 
 
+
+
+P_Predict := P_Start;
+(*
 (* ========================================================= *)
 (* 4) Jacobi-Matrix F = ∂f/∂x                                *)
 (*    Nur Ableitung nach yaw ist ≠ 0                         *)
@@ -648,7 +660,7 @@ P_Predict[5] := P_Predict[5] + qy   * deltaT;
 // P_Predict[6] := P_Predict[6];
 
 P_Predict[9] := P_Predict[9] + qyaw * deltaT;
-]]></ST>
+*)]]></ST>
       </Implementation>
     </Method>
     <Method Name="ReadFromRingBuffer" Id="{75492fe2-5b8d-48b3-bf84-3493bfa8847d}">

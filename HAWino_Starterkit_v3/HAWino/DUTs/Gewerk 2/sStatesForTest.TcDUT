@@ -8,11 +8,15 @@ TYPE sStatesForTest :
 (
 	Target1Vektor := 0,
 	CoordinatesInFrontOfTarget1,
+	Wait1,
 	Target1,
+	Wait2,
 	AfterTarget1,
 	Target2Vector,
 	CoordinatesInFrontOfTarget2,
+	Wait3,
 	Target2,
+	Wait4,
 	AfterTarget2,
 	ParkingVector,
 	Finished

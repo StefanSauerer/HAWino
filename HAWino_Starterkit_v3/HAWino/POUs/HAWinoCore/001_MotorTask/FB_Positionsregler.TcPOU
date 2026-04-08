@@ -27,7 +27,7 @@ VAR
 	
 	// Reglerparameter
 	KPX		: LREAL 	:= 0.75;
-	KPY		: LREAL	:= 0.5;
+	KPY		: LREAL		:= 0.5;
 	KPTheta	: LREAL 	:= 0.3;
 	
 	speedThreshold	: LREAL := 0.01; //Annäherung nur aktiv bei Abweichung > threshold

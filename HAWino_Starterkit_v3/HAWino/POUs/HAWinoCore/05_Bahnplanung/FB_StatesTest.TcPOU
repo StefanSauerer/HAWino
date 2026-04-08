@@ -13,6 +13,8 @@ VAR_OUTPUT
 END_VAR
 VAR
 	sStates : sStatesForTest;
+	tonDelayWait : TON;
+	tonDelayTargetReach : TON;
 END_VAR
 VAR CONSTANT
 	//Robby 3
@@ -28,28 +30,44 @@ END_VAR]]></Declaration>
       <ST><![CDATA[CASE sStates OF
 	
 	sStatesForTest.Target1Vektor : 
-	
+	Gripper.closeGripperCommand := FALSE;
 		yinTargetMap := 1;
 		IF xboVectorTargetReached THEN 
 			sStates := sStatesForTest.CoordinatesInFrontOfTarget1;
 		END_IF;
 		
 	sStatesForTest.CoordinatesInFrontOfTarget1 :
-		ysTargetPosition.reX := creTarget1X - 50;
+		ysTargetPosition.reX := creTarget1X - 100;
 		ysTargetPosition.reY := creTarget1Y;
 		ysTargetPosition.reWinkel := creTarget1Phi;
 		IF xinSatus = 3 THEN 
-			sStates := sStatesForTest.Target1;
+			sStates := sStatesForTest.Wait1;
 		END_IF;
+		
+	sStatesForTest.Wait1 : 
+	
+	
+
+		ysTargetPosition.reX := creTarget1X;
+		IF 	xinSatus = 1 AND tonDelayWait.Q THEN 
+			sStates := sStatesForTest.Target1;
+		END_IF
 		
 	sStatesForTest.Target1 :
-		ysTargetPosition.reX := creTarget1X;
+		
 		IF xinSatus = 3 THEN 
-			sStates := sStatesForTest.AfterTarget1;
+			sStates := sStatesForTest.Wait2;
 		END_IF;
 		
+	sStatesForTest.Wait2 : 
+		Gripper.closeGripperCommand := TRUE;
+		ysTargetPosition.reX := creTarget1X - 100;
+		IF 	xinSatus = 1 AND tonDelayWait.Q THEN 
+			sStates := sStatesForTest.AfterTarget1;
+		END_IF
+		
 	sStatesForTest.AfterTarget1 :
-		ysTargetPosition.reX := creTarget1X - 50;
+		
 		IF xinSatus = 3 THEN 
 			sStates := sStatesForTest.Target2Vector;
 		END_IF;
@@ -62,23 +80,36 @@ END_VAR]]></Declaration>
 		END_IF;
 		
 	sStatesForTest.CoordinatesInFrontOfTarget2 :
-		ysTargetPosition.reX := creTarget2X - 50;
+		ysTargetPosition.reX := creTarget2X + 100;
 		ysTargetPosition.reY := creTarget2Y;
 		ysTargetPosition.reWinkel := creTarget2Phi;
 		IF xinSatus = 3 THEN 
-			sStates := sStatesForTest.Target2;
+			sStates := sStatesForTest.Wait3;
 		END_IF;
+		
+		sStatesForTest.Wait3 : 
+		ysTargetPosition.reX := creTarget2X;
+		IF 	xinSatus = 1 AND tonDelayWait.Q THEN 
+			sStates := sStatesForTest.Target2;
+		END_IF	
 		
 	sStatesForTest.Target2 :
 	
-		ysTargetPosition.reX := creTarget2X;
+		
 		IF xinSatus = 3 THEN 
-			sStates := sStatesForTest.AfterTarget2;
+			sStates := sStatesForTest.Wait4;
 		END_IF;
+		
+		
+		sStatesForTest.Wait4 : 
+		Gripper.closeGripperCommand := FALSE;
+		ysTargetPosition.reX := creTarget2X + 100;
+		IF 	xinSatus = 1 AND tonDelayWait.Q THEN 
+			sStates := sStatesForTest.AfterTarget2;
+		END_IF	
 		
 	sStatesForTest.AfterTarget2 :
 	
-		ysTargetPosition.reX := creTarget2X - 50;
 		IF xinSatus = 3 THEN 
 			sStates := sStatesForTest.ParkingVector;
 		END_IF;
@@ -94,6 +125,8 @@ END_VAR]]></Declaration>
 	
 END_CASE
 
+tonDelayWait(IN := (sStatesForTest.Wait1 = sStates) OR (sStatesForTest.Wait2 = sStates) OR (sStatesForTest.Wait3 = sStates) OR (sStatesForTest.Wait4 = sStates), PT := T#0.1S);
+
 IF (sStatesForTest.Target1Vektor = sStates) OR (sStatesForTest.Target2Vector = sStates) OR (sStatesForTest.ParkingVector = sStates) THEN
 	yinControl := 3;
 END_IF
@@ -105,6 +138,10 @@ END_IF
 
 IF (sStatesForTest.Finished = sStates) THEN
 	yinControl := 1;
+END_IF
+
+IF (sStatesForTest.Wait1 = sStates) OR (sStatesForTest.Wait2 = sStates) OR (sStatesForTest.Wait3 = sStates) OR (sStatesForTest.Wait4 = sStates) THEN
+	yinControl := 0;
 END_IF]]></ST>
     </Implementation>
   </POU>

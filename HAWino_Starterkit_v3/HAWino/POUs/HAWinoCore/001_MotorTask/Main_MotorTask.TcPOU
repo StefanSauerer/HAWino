@@ -168,15 +168,8 @@ GVL_Datatransfer23.gvActualPosition		:= actualPos;
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Gipper und Bumper logik
+// Bumper logik
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Gripper aktivieren -> Wird durch GVL_Gripper.cmdGripper gesetzt!
-IF GVL_Gripper.cmdGripper = GripperCmd_Enum.take THEN
-	Gripper.closeGripperCommand := TRUE;
-ELSIF GVL_Gripper.cmdGripper = GripperCmd_Enum.put THEN
-	Gripper.closeGripperCommand := FALSE;
-END_IF;
 
 IF bumper THEN
 	enableMotorControl := FALSE;
@@ -184,7 +177,7 @@ IF bumper THEN
 END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
-// GVL_Datatransfer23.inControl := RobotControl.vector;
+// GVL_Datatransfer23.inControl := RobotControl.position;
 // GVL_Datatransfer23.gvZielPosition.reX 		:= 6668;
 // GVL_Datatransfer23.gvZielPosition.reY		:= 1892;
 // GVL_Datatransfer23.gvZielPosition.reWinkel	:= 100;
@@ -230,14 +223,14 @@ CASE GVL_Datatransfer23.inControl OF
 	// Positions Regelung
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	RobotControl.position:	
-			// Prüfen ob Zielpositon erreicht ==> Macht wahrscheinlich doch Gruppe 2
-		IF 	ABS(actualPos.reWinkel 	- targetPos.reWinkel)	> 10 OR 
-			ABS(actualPos.reX 		- targetPos.reX) 		> 10 OR 
-			ABS(actualPos.reY 		- targetPos.reY) 		> 10 THEN	
-			
-			targetPos.reX 		:= GVL_Datatransfer23.gvZielPosition.reX;
-			targetPos.reY 		:= GVL_Datatransfer23.gvZielPosition.reY;
-			targetPos.reWinkel	:= GVL_Datatransfer23.gvZielPosition.reWinkel* PI / 180.0;;
+		targetPos.reX 		:= GVL_Datatransfer23.gvZielPosition.reX;
+		targetPos.reY 		:= GVL_Datatransfer23.gvZielPosition.reY;
+		targetPos.reWinkel	:= GVL_Datatransfer23.gvZielPosition.reWinkel* PI / 180.0;;
+		// Prüfen ob Zielpositon erreicht
+		IF 	(ABS(actualPos.reWinkel - targetPos.reWinkel)	> 0.2 OR 
+			ABS(actualPos.reX 		- targetPos.reX) 		> 0.5 OR 
+			ABS(actualPos.reY 		- targetPos.reY) 		> 0.5) AND
+			Gripper.slider = TRUE							THEN	
 			
 			// Wert des Positionsreglers berechnen
 			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,

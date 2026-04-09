@@ -85,9 +85,9 @@ vY:=-targetVelY;
 vTheta:=-tragetVelTheta;
 
 //Umrechnung der Kartesischen Geschwindigkeit auf die einzelnen Motoren
-targetVelocityMotor1 := (-vX * COS(30.0*PI/180))	+ (vY * COS(60.0*PI/180))	+ (vTheta * 135.0);
-targetVelocityMotor2 := 0.0						+ (-vY)						+ (vTheta * 135.0);
-targetVelocityMotor3 := (vX * COS(30.0*PI/180))	+ (vY * COS(60.0*PI/180))	+ (vTheta * 135.0);
+targetVelocityMotor1 := ((-vX * COS(30.0*PI/180))	+ (vY * COS(60.0*PI/180))	+ (vTheta * 135.0));
+targetVelocityMotor2 := (0.0							+ (-vY)						+ (vTheta * 135.0));
+targetVelocityMotor3 := ((vX * COS(30.0*PI/180))		+ (vY * COS(60.0*PI/180))	+ (vTheta * 135.0));
 
 //Begrenzung der Sollwerte und anpassung aller Sollvorgaben an den Motor mit der Maximalen geschwindigkeit
 ACT_Sollwertbegrenzung();

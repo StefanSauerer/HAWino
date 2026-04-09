@@ -18,10 +18,10 @@ VAR
 END_VAR
 VAR CONSTANT
 	//Robby 3
-	creTarget1X : REAL := 628.1;
+	creTarget1X : REAL := 635.1;
 	creTarget1Y : REAL := 2668.6;
 	creTarget1Phi : REAL := 0.4;
-	creTarget2X : REAL := 1067.3;
+	creTarget2X : REAL := 1060.3;
 	creTarget2Y : REAL := 2672.3;
 	creTarget2Phi : REAL := -179.6;
 	
@@ -125,7 +125,7 @@ END_VAR]]></Declaration>
 	
 END_CASE
 
-tonDelayWait(IN := (sStatesForTest.Wait1 = sStates) OR (sStatesForTest.Wait2 = sStates) OR (sStatesForTest.Wait3 = sStates) OR (sStatesForTest.Wait4 = sStates), PT := T#0.1S);
+tonDelayWait(IN := (sStatesForTest.Wait1 = sStates) OR (sStatesForTest.Wait2 = sStates) OR (sStatesForTest.Wait3 = sStates) OR (sStatesForTest.Wait4 = sStates), PT := T#0.4S);
 
 IF (sStatesForTest.Target1Vektor = sStates) OR (sStatesForTest.Target2Vector = sStates) OR (sStatesForTest.ParkingVector = sStates) THEN
 	yinControl := 3;

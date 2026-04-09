@@ -25,8 +25,8 @@ VAR
     _reRepulse : REAL;
     _reWeight  : REAL;
 
-    _creRepulseK   : REAL := 1200.0;
-    _creRepulseRad : REAL := 60.0;
+    _creRepulseK   : REAL := 3000.0;
+    _creRepulseRad : REAL := 300.0;
     _creWarnDist   : REAL := 35.0;
     _creStopDist   : REAL := 18.0;
 END_VAR]]></Declaration>

@@ -26,8 +26,8 @@ VAR
 	R_Theta_targetSpeed	: LREAL;
 	
 	// Reglerparameter
-	KPX		: LREAL 	:= 0.75;
-	KPY		: LREAL		:= 0.5;
+	KPX		: LREAL 	:= 0.2;
+	KPY		: LREAL		:= 0.2;
 	KPTheta	: LREAL 	:= 0.3;
 	
 	speedThreshold	: LREAL := 0.01; //Annäherung nur aktiv bei Abweichung > threshold
@@ -71,7 +71,6 @@ IF NOT initDone THEN
     OutputValue[3] := 0.5;
     OutputValue[4] := 0.75;
     OutputValue[5] := 1.0;
-
     initDone := TRUE;
 END_IF
 
@@ -117,7 +116,7 @@ error.reY := targetPos.reY - actualPos.reY;
 // Positionsregelung
 // --------------------------------------------------
 
-ACT_GetFuzzyParam();
+// ACT_GetFuzzyParam();
 
 // Berechnung der Stellgröße
 W_X_targetSpeed 	:= (error.reX 		* KPX);

@@ -153,14 +153,10 @@ ELSE
 	// IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
 	IF TRUE THEN
 		// Falls schlechte Position lieber über Reifenumdrehungen 
-		wheelArray[1]  := velWheel1;
-		wheelArray[2]  := velWheel2;
-		wheelArray[3]  := velWheel3;
+		wheelArray[1]  := -velWheel1;
+		wheelArray[2]  := -velWheel2;
+		wheelArray[3]  := -velWheel3;
 		
-		// WheelSpeed manuell überschreiben
-// 		wheelArray[1]  := 20;
-// 		wheelArray[2]  := -20;
-// 		wheelArray[3]  := 0;
 		// Ist die Letzte Kameramessung weniger als 3 Sekunden her
 		IF ABS(CurrentTime - CameraTimestamp) < 300 THEN 
 // 			propagate_state(
@@ -171,32 +167,43 @@ ELSE
 // 				X_Predict 	=> actualPos,
 // 				P_Predict 	=> P_currentState
 // 			);
-			bodyVelX := -((2.0/3.0)*SIN(actualPos.reWinkel)       	* wheelArray[1])
-					-((2.0/3.0)*SIN((PI/3.0)-actualPos.reWinkel)	* wheelArray[2])
-					+((2.0/3.0)*SIN((PI/3.0)+actualPos.reWinkel)	* wheelArray[3]);
-					
-			bodyVelY := ((2.0/3.0) *COS(actualPos.reWinkel)		  	* wheelArray[1])
-					-((2.0/3.0)*COS((PI/3.0)-actualPos.reWinkel)	* wheelArray[2])
-					-((2.0/3.0)*COS((PI/3.0)+actualPos.reWinkel)	* wheelArray[3]);
-		
-		
-			yawRate := (wheelArray[1] + wheelArray[2] + wheelArray[3]) / (3.0 * GVL_RobotConstant.ROBOT_RADIUS);
+			(* --- Wheel -> Body --- *)
+			bodyVelX := -(2.0/3.0) * (
+						   -SIN(PI/3.0)    * wheelArray[1]
+						   -SIN(PI)        * wheelArray[2]
+						   -SIN(5.0*PI/3.0)* wheelArray[3]
+					   );
 			
-			(* Weltgeschwindigkeit ergibt sich durch Rotation um yaw *)
-			worldVelX :=   bodyVelX * COS(actualPos.reWinkel)
-						 - bodyVelY * SIN(actualPos.reWinkel);
-			worldVelY :=   bodyVelX * SIN(actualPos.reWinkel)
-						 + bodyVelY * COS(actualPos.reWinkel);
-						 
-			actualPos.reX   	:= actualPos.reX   	+ cycletime * worldVelX * 1000;
-			actualPos.reY   	:= actualPos.reY   	+ cycletime * worldVelY * 1000;
-			actualPos.reWinkel 	:= actualPos.reWinkel + cycletime * yawRate;
-			// Winkel normalisieren auf [-pi,pi]
-		IF actualPos.reWinkel > PI THEN
-			actualPos.reWinkel := actualPos.reWinkel - (2*PI);
-		ELSIF actualPos.reWinkel < -PI THEN
-			actualPos.reWinkel := actualPos.reWinkel + (2*PI);
-		END_IF;
+			bodyVelY := -(2.0/3.0) * (
+							COS(PI/3.0)    * wheelArray[1]
+						  + COS(PI)        * wheelArray[2]
+						  + COS(5.0*PI/3.0)* wheelArray[3]
+					   );
+			
+			yawRate := -(wheelArray[1] + wheelArray[2] + wheelArray[3]) 
+					   / (3.0 * GVL_RobotConstant.ROBOT_RADIUS);
+			
+			
+			(* --- Body -> World --- *)
+			worldVelX := bodyVelX * COS(actualPos.reWinkel)
+					   - bodyVelY * SIN(actualPos.reWinkel);
+			
+			worldVelY := bodyVelX * SIN(actualPos.reWinkel)
+					   + bodyVelY * COS(actualPos.reWinkel);
+			
+			
+			(* --- Integration --- *)
+			actualPos.reX := actualPos.reX + cycletime * worldVelX * 100;
+			actualPos.reY := actualPos.reY + cycletime * worldVelY * 100;
+			actualPos.reWinkel := actualPos.reWinkel + cycletime * yawRate;
+			
+			
+			(* --- Winkel normalisieren --- *)
+			IF actualPos.reWinkel > PI THEN
+				actualPos.reWinkel := actualPos.reWinkel - (2 * PI);
+			ELSIF actualPos.reWinkel < -PI THEN
+				actualPos.reWinkel := actualPos.reWinkel + (2 * PI);
+			END_IF;
 			CurrentTime := CurrentTime + cycletime;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
 		ELSE
 			enableMotorControl := FALSE;
@@ -300,7 +307,9 @@ CASE GVL_Datatransfer23.inControl OF
 		END_IF
 		
 	END_CASE
-
+targetSpeed_Robot.reX := 100;
+targetSpeed_Robot.reY := 0;
+targetSpeed_Robot.reWinkel:= 0;
 
 FB_Drehzahlregler(targetVelX			:= targetSpeed_Robot.reX,
 					targetVelY 			:= targetSpeed_Robot.reY, 

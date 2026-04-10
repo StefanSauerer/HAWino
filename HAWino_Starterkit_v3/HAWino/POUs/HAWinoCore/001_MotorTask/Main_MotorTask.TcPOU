@@ -135,30 +135,18 @@ IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 	// Falls außerhalb Bereich: Default auf 1 setzen 
 	RobotIndex := -1;
 ELSE
-	IF (init = FALSE) THEN		
-// 		actualPos.reWinkel :=0;
-// 		actualPos.reX := 0;
-// 		actualPos.reY := 0;
-		
-		actualPos.reWinkel := Camera.cameraData.robotPosition[RobotIndex].theta;
-		actualPos.reX := Camera.cameraData.robotPosition[RobotIndex].x;
-		actualPos.reY := Camera.cameraData.robotPosition[RobotIndex].y;	
-
-		actualPos.reWinkel := 0;
-		actualPos.reX := 5500;
-		actualPos.reY := 1680;		
-		init := TRUE;
-	END_IF
+	
 	// Kammeraposition erst validieren
-	// IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
-	IF TRUE THEN
+// 	IF TRUE THEN
+IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
 		// Falls schlechte Position lieber über Reifenumdrehungen 
 		wheelArray[1]  := -velWheel1;
 		wheelArray[2]  := -velWheel2;
 		wheelArray[3]  := -velWheel3;
 		
 		// Ist die Letzte Kameramessung weniger als 3 Sekunden her
-		IF ABS(CurrentTime - CameraTimestamp) < 300 THEN 
+// 		IF TRUE THEN
+		IF ABS(CurrentTime - CameraTimestamp) < 30 THEN 
 // 			propagate_state(
 // 				X_Start 	:= actualPos,
 // 				wheelSpeed 	:= wheelArray, 
@@ -180,9 +168,8 @@ ELSE
 						  + COS(5.0*PI/3.0)* wheelArray[3]
 					   );
 			
-			yawRate := -(wheelArray[1] + wheelArray[2] + wheelArray[3]) 
+			yawRate := (wheelArray[1] + wheelArray[2] + wheelArray[3]) 
 					   / (3.0 * GVL_RobotConstant.ROBOT_RADIUS);
-			
 			
 			(* --- Body -> World --- *)
 			worldVelX := bodyVelX * COS(actualPos.reWinkel)
@@ -193,9 +180,9 @@ ELSE
 			
 			
 			(* --- Integration --- *)
-			actualPos.reX := actualPos.reX + cycletime * worldVelX * 100;
-			actualPos.reY := actualPos.reY + cycletime * worldVelY * 100;
-			actualPos.reWinkel := actualPos.reWinkel + cycletime * yawRate;
+			actualPos.reX := actualPos.reX + cycletime * worldVelX;
+			actualPos.reY := actualPos.reY + cycletime * worldVelY;
+			actualPos.reWinkel := actualPos.reWinkel + cycletime * yawRate/1000;
 			
 			
 			(* --- Winkel normalisieren --- *)
@@ -307,9 +294,9 @@ CASE GVL_Datatransfer23.inControl OF
 		END_IF
 		
 	END_CASE
-targetSpeed_Robot.reX := 100;
-targetSpeed_Robot.reY := 0;
-targetSpeed_Robot.reWinkel:= 0;
+// targetSpeed_Robot.reX := 0;
+// targetSpeed_Robot.reY := 0;
+// targetSpeed_Robot.reWinkel:= 1;
 
 FB_Drehzahlregler(targetVelX			:= targetSpeed_Robot.reX,
 					targetVelY 			:= targetSpeed_Robot.reY, 

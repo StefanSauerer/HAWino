@@ -967,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{DB9AA8BF-D4BA-2F19-1C64-69EF17CB4AE3}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{46444496-3A4D-5575-F64D-2206817A5CAC}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1079,13 +1079,13 @@
 							<Type>BOOL</Type>
 						</Var>
 						<Var>
-							<Name>PowerManager.batteryVoltageRaw</Name>
-							<Comment><![CDATA[unverabreitete gemessene Spannung]]></Comment>
+							<Name>PowerManager.supplyCurrentRaw</Name>
+							<Comment><![CDATA[unverabreitete gemessener Strom]]></Comment>
 							<Type>INT</Type>
 						</Var>
 						<Var>
-							<Name>PowerManager.supplyCurrentRaw</Name>
-							<Comment><![CDATA[unverabreitete gemessener Strom]]></Comment>
+							<Name>PowerManager.batteryVoltageRaw</Name>
+							<Comment><![CDATA[unverabreitete gemessene Spannung]]></Comment>
 							<Type>INT</Type>
 						</Var>
 						<Var>

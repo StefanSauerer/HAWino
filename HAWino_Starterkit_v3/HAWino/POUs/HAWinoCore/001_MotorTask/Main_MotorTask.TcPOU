@@ -147,50 +147,15 @@ IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
 		// Ist die Letzte Kameramessung weniger als 3 Sekunden her
 // 		IF TRUE THEN
 		IF ABS(CurrentTime - CameraTimestamp) < 30 THEN 
-// 			propagate_state(
-// 				X_Start 	:= actualPos,
-// 				wheelSpeed 	:= wheelArray, 
-// 				P_Start 	:= P_currentState,
-// 				deltaT 		:= cycletime,
-// 				X_Predict 	=> actualPos,
-// 				P_Predict 	=> P_currentState
-// 			);
-			(* --- Wheel -> Body --- *)
-			bodyVelX := -(2.0/3.0) * (
-						   -SIN(PI/3.0)    * wheelArray[1]
-						   -SIN(PI)        * wheelArray[2]
-						   -SIN(5.0*PI/3.0)* wheelArray[3]
-					   );
+			propagate_state(
+				X_Start 	:= actualPos,
+				wheelSpeed 	:= wheelArray, 
+				P_Start 	:= P_currentState,
+				deltaT 		:= cycletime,
+				X_Predict 	=> actualPos,
+				P_Predict 	=> P_currentState
+			);
 			
-			bodyVelY := -(2.0/3.0) * (
-							COS(PI/3.0)    * wheelArray[1]
-						  + COS(PI)        * wheelArray[2]
-						  + COS(5.0*PI/3.0)* wheelArray[3]
-					   );
-			
-			yawRate := (wheelArray[1] + wheelArray[2] + wheelArray[3]) 
-					   / (3.0 * GVL_RobotConstant.ROBOT_RADIUS);
-			
-			(* --- Body -> World --- *)
-			worldVelX := bodyVelX * COS(actualPos.reWinkel)
-					   - bodyVelY * SIN(actualPos.reWinkel);
-			
-			worldVelY := bodyVelX * SIN(actualPos.reWinkel)
-					   + bodyVelY * COS(actualPos.reWinkel);
-			
-			
-			(* --- Integration --- *)
-			actualPos.reX := actualPos.reX + cycletime * worldVelX;
-			actualPos.reY := actualPos.reY + cycletime * worldVelY;
-			actualPos.reWinkel := actualPos.reWinkel + cycletime * yawRate/1000;
-			
-			
-			(* --- Winkel normalisieren --- *)
-			IF actualPos.reWinkel > PI THEN
-				actualPos.reWinkel := actualPos.reWinkel - (2 * PI);
-			ELSIF actualPos.reWinkel < -PI THEN
-				actualPos.reWinkel := actualPos.reWinkel + (2 * PI);
-			END_IF;
 			CurrentTime := CurrentTime + cycletime;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
 		ELSE
 			enableMotorControl := FALSE;
@@ -228,9 +193,9 @@ END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
 GVL_Datatransfer23.inControl := RobotControl.position;
-GVL_Datatransfer23.gvZielPosition.reX 		:= 1400;
+GVL_Datatransfer23.gvZielPosition.reX 		:= 4400;
 GVL_Datatransfer23.gvZielPosition.reY		:= 1800;
-GVL_Datatransfer23.gvZielPosition.reWinkel	:= 0;
+GVL_Datatransfer23.gvZielPosition.reWinkel	:= 180;
 
 
 CASE GVL_Datatransfer23.inControl OF 
@@ -278,7 +243,7 @@ CASE GVL_Datatransfer23.inControl OF
 		targetPos.reWinkel	:= GVL_Datatransfer23.gvZielPosition.reWinkel* PI / 180.0;;
 		// Prüfen ob Zielpositon erreicht
 		IF 	(ABS(actualPos.reWinkel - targetPos.reWinkel)	> 0.2 OR 
-			ABS(actualPos.reX 		- targetPos.reX) 		> 0.5 OR 
+			ABS(actualPos.reX 		- targetPos.reX) 		> 0.5 OR  
 			ABS(actualPos.reY 		- targetPos.reY) 		> 0.5) AND
 			Gripper.slider = TRUE							THEN	
 			
@@ -367,8 +332,7 @@ propagate_state(
 EKF_currentState.State := X_currentState;
 EKF_currentState.wheelSpeed := wheelArray;
 EKF_currentState.P_Start := P_currentState;
-// EKF_currentState.timestamp := (SampleCounter * 0.333); // Timestamp in ms achtung nicht geschützt vor überlauf!!!!!!!!!!!!!!!!!!
-EKF_currentState.timestamp := SampleCounter;
+
 // Werte in Rinpuffer speichern
 WriteToRingBuffer(newData := EKF_currentState);
 
@@ -380,8 +344,7 @@ IF (ABS(actualPos.reX 		- prevCamX) 	> camChangeEpsilon) OR
    	// Wenn diese erhalten wurden die zur Messung zugehörige Prediction finden und diese anpassen
 	
 	// Gibt keinen sinnvollen Wert aus für den Timestamp, deshalb annahme: wir bekommen nach 20 Prozessschritten wieder einen neuen Wert
-	// CameraTimestamp := (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
-	CameraTimestamp := SampleCounter - 20;
+	CameraTimestamp := (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
 	
 	// Dann Vorwärtspropagieren der Veränderung bis zum aktuellen Zeitstmpel
 	idx := RingHead - 20;
@@ -581,50 +544,41 @@ END_VAR]]></Declaration>
 
 
 
-(* ========================================================= *)
-(* 1) Umrechnung Radgeschwindigkeiten → Body-Geschwindigkeit *)
-(*    (Roboter-Koordinatensystem)                            *)
-(* ========================================================= *)
+(* --- Wheel -> Body --- *)
+bodyVelX := -(2.0/3.0) * (
+			   -SIN(PI/3.0)    * wheelSpeed[1]
+			   -SIN(PI)        * wheelSpeed[2]
+			   -SIN(5.0*PI/3.0)* wheelSpeed[3]
+		   );
 
-(* vx_body, vy_body hängen nur von den Radgeschwindigkeiten ab *)
+bodyVelY := -(2.0/3.0) * (
+				COS(PI/3.0)    * wheelSpeed[1]
+			  + COS(PI)        * wheelSpeed[2]
+			  + COS(5.0*PI/3.0)* wheelSpeed[3]
+		   );
 
-bodyVelX := -((2.0/3.0)*SIN(X_Start.reWinkel)       	* wheelSpeed[1])
-			-((2.0/3.0)*SIN((PI/3.0)-X_Start.reWinkel)	* wheelSpeed[2])
-			+((2.0/3.0)*SIN((PI/3.0)+X_Start.reWinkel)	* wheelSpeed[3]);
-			
-bodyVelY := ((2.0/3.0) *COS(X_Start.reWinkel)		  	* wheelSpeed[1])
-			-((2.0/3.0)*COS((PI/3.0)-X_Start.reWinkel)	* wheelSpeed[2])
-			-((2.0/3.0)*COS((PI/3.0)+X_Start.reWinkel)	* wheelSpeed[3]);
+yawRate := (wheelSpeed[1] + wheelSpeed[2] + wheelSpeed[3]) 
+		   / (3.0 * GVL_RobotConstant.ROBOT_RADIUS);
+
+(* --- Body -> World --- *)
+worldVelX := bodyVelX * COS(X_Start.reWinkel)
+		   - bodyVelY * SIN(X_Start.reWinkel);
+
+worldVelY := bodyVelX * SIN(X_Start.reWinkel)
+		   + bodyVelY * COS(X_Start.reWinkel);
 
 
-yawRate := (wheelSpeed[1] + wheelSpeed[2] + wheelSpeed[3]) / (3.0 * GVL_RobotConstant.ROBOT_RADIUS);
+(* --- Integration --- *)
+X_Predict.reX 		:= X_Start.reX + deltaT * worldVelX;
+X_Predict.reY 		:= X_Start.reY + deltaT * worldVelY;
+X_Predict.reWinkel 	:= X_Start.reWinkel + deltaT * yawRate/1000;
 
-(* ========================================================= *)
-(* 2) Transformation Body → Weltkoordinaten                  *)
-(*    Rotation mit aktuellem yaw-Winkel                      *)
-(* ========================================================= *)
 
-(* Weltgeschwindigkeit ergibt sich durch Rotation um yaw *)
-worldVelX :=   bodyVelX * COS(X_Start.reWinkel)
-             - bodyVelY * SIN(X_Start.reWinkel);
-
-worldVelY :=   bodyVelX * SIN(X_Start.reWinkel)
-             + bodyVelY * COS(X_Start.reWinkel);
-
-(* ========================================================= *)
-(* 3) Zustandsintegration (diskret)                          *)
-(*    x_k+1 = x_k + dt * f(x,u)                              *)
-(* ========================================================= *)
-
-X_Predict.reX   	:= X_Start.reX   	+ deltaT * worldVelX;
-X_Predict.reY   	:= X_Start.reY   	+ deltaT * worldVelY;
-X_Predict.reWinkel 	:= X_Start.reWinkel + deltaT * yawRate;
-
-// Winkel normalisieren auf [-pi,pi]
+(* --- Winkel normalisieren --- *)
 IF X_Predict.reWinkel > PI THEN
-    X_Predict.reWinkel := X_Predict.reWinkel - (2*PI);
+	X_Predict.reWinkel := X_Predict.reWinkel - (2 * PI);
 ELSIF X_Predict.reWinkel < -PI THEN
-    X_Predict.reWinkel := X_Predict.reWinkel + (2*PI);
+	X_Predict.reWinkel := X_Predict.reWinkel + (2 * PI);
 END_IF;
 
 

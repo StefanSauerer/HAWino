@@ -967,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{F2D651B6-8FCC-7A17-4DB0-8F654528D27C}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{82A75B66-3571-F319-A4E7-FCAF3413508A}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1037,12 +1037,12 @@
 							<Type>INT</Type>
 						</Var>
 						<Var>
-							<Name>MQTT.robotPositions</Name>
-							<Type GUID="{D23FD725-86F0-067F-A117-ADC7250A16F6}">ARRAY [1..4] OF Position</Type>
-						</Var>
-						<Var>
 							<Name>MQTT.bComCheckAnswer</Name>
 							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.robotPositions</Name>
+							<Type GUID="{D23FD725-86F0-067F-A117-ADC7250A16F6}">ARRAY [1..4] OF Position</Type>
 						</Var>
 						<Var>
 							<Name>MQTT.stMqtt_HAWino_Out</Name>

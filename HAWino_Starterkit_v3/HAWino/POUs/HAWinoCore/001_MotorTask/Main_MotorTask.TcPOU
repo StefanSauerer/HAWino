@@ -79,18 +79,23 @@ VAR
 	targetSpeed_World 	: sPosition;	// Geschwindigkeit in Weltkoordinaten
 	targetSpeed_Robot	: sPosition;	// Geschwindigkeit in Roboterkoordinaten
 	targetPos			: sPosition;	// Geschwindigkeitsvorgabe
-	actualPos			: sPosition;	// Tatsächliche Position	
+	actualPos			: sPosition:= (reX := 0.0, reY := 0.0, reWinkel := 0.0);	// Tatsächliche Position	
 	
 	actualError			: LREAL;		// Kamerafehler
 	
+	wheelArray 			: ARRAY[1..3] OF LREAL;
+	sumWheelSpeed		: ARRAY[1..3] OF LREAL;	// Mittelwert der Raddaten
+	prevPos				: sPosition := (reX := 0.0, reY := 0.0, reWinkel := 0.0);	// Tatsächliche Position
+	// Schwellwert für Änderungsdetektion (klein)
+	camChangeEpsilon 	: LREAL := 0.01; // später wahrcsheinlich noch kleiner setzen
+	delayTime			: LREAL := 0;		// verspätung der Kameradaten (sollte immer etwa 100 ms sein)
+	delayIteration		: INT	:= 0;
 	
+	// --- Ringpuffer für Kameramesswerte ---
 	KalmanStateX	: LREAL;
 	KalmanStateY	: LREAL;
 	KalmanStateYaw	: LREAL;
-	wheelArray 		: ARRAY[1..3] OF LREAL;
 	
-	// --- Ringpuffer für Kameramesswerte ---
-
 	// Inline-struct als Array-Element
 	RingBuffer : ARRAY[0..GVL_RobotConstant.RING_SIZE-1] OF EKF_Data;
 	
@@ -103,22 +108,12 @@ VAR
 	prevCamY 	: LREAL := 0.0;
 	prevCamTheta: LREAL := 0.0;
 	
-	// Schwellwert für Änderungsdetektion (klein)
-	camChangeEpsilon : LREAL := 0.001; // später wahrcsheinlich noch kleiner setzen
-	
     X_currentState 	: sPosition := (reX := 0.0, reY := 0.0, reWinkel := 0.0);
 	P_currentState 	: ARRAY[1..9] OF LREAL;
 	EKF_currentState: EKF_Data;
 	CameraTimestamp	: LREAL;
 	CurrentTime		: LREAL;
 	idx : INT;
-	
-	init: BOOL := FALSE;
-	yawRate: LREAL;
-	bodyVelX: LREAL;
-	bodyVelY: LREAL;
-	worldVelX: LREAL;
-	worldVelY: LREAL;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -133,44 +128,72 @@ RobotIndex := Var_HAWIno.Robot_Number;
 IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 	// Falls außerhalb Bereich: Default auf 1 setzen 
 	RobotIndex := -1;
-ELSE
-	
-	// Kammeraposition erst validieren
-// 	IF TRUE THEN
-IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
-		// Falls schlechte Position lieber über Reifenumdrehungen 
-		wheelArray[1]  := -velWheel1;
-		wheelArray[2]  := -velWheel2;
-		wheelArray[3]  := -velWheel3;
-		
-		// Ist die Letzte Kameramessung weniger als 3 Sekunden her
-// 		IF TRUE THEN
-		IF ABS(CurrentTime - CameraTimestamp) < 30 THEN 
-			propagate_state(
-				X_Start 	:= actualPos,
-				wheelSpeed 	:= wheelArray, 
-				P_Start 	:= P_currentState,
-				deltaT 		:= cycletime,
-				X_Predict 	=> actualPos,
-				P_Predict 	=> P_currentState
-			);
+ELSE	
+	// Falls sich die Kameradaten überhaupt ändern (Neue Messung)
+	IF 	(ABS(Camera.cameraData.robotPosition[RobotIndex].x			- prevPos.reX) 			> camChangeEpsilon) OR 
+   		(ABS(Camera.cameraData.robotPosition[RobotIndex].y 			- prevPos.reY) 			> camChangeEpsilon) OR
+   		(ABS(Camera.cameraData.robotPosition[RobotIndex].theta) 	- ABS(prevPos.reWinkel) > camChangeEpsilon) THEN
+
+		// Falls es eine schlechte Messung ist
+		IF Camera.cameraData.robotPosition[RobotIndex].e > 5 THEN
+			// Falls schlechte Position lieber über Reifenumdrehungen 
+			wheelArray[1]  := -velWheel1;
+			wheelArray[2]  := -velWheel2;
+			wheelArray[3]  := -velWheel3;
 			
-			CurrentTime := CurrentTime + cycletime;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
+			// Ist die Letzte Kameramessung weniger als 30 Sekunden her soll er einen Fehler ausgeben
+			IF ABS(CurrentTime - CameraTimestamp) < 30 THEN 
+				propagate_state(
+					X_Start 	:= actualPos,
+					wheelSpeed 	:= wheelArray, 
+					P_Start 	:= P_currentState,
+					deltaT 		:= cycletime,
+					X_Predict 	=> actualPos,
+					P_Predict 	=> P_currentState
+				);
+				
+				CurrentTime := CurrentTime + cycletime;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
+			ELSE
+				enableMotorControl := FALSE;
+				GVL_Datatransfer23.inStatus := RobotStatus.fehler;	
+			END_IF;
 		ELSE
-			enableMotorControl := FALSE;
-			GVL_Datatransfer23.inStatus := RobotStatus.fehler;	
-		END_IF	
-	ELSE
-		// Falls Kameraposition gut nehmen
-		actualPos.reX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
-		actualPos.reY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
-		actualPos.reWinkel 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
-		actualError			:= Camera.cameraData.robotPosition[RobotIndex].e;
-		CameraTimestamp 	:= (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
-		CurrentTime			:= CameraTimestamp;
+			// Falls Kameraposition gut nehmen
+			actualPos.reX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
+			actualPos.reY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
+			actualPos.reWinkel 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
+			actualError			:= Camera.cameraData.robotPosition[RobotIndex].e;
+			CameraTimestamp 	:= (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
+			CurrentTime			:= CameraTimestamp;
+			// Und um gespeicherte Raddaten vorwärtspropagieren 
+			// Mittelwert der Räder über verzögerten Zeitraum
+			wheelArray[1]  := -(sumWheelSpeed[1]/delayIteration);
+			wheelArray[2]  := -(sumWheelSpeed[2]/delayIteration);
+			wheelArray[3]  := -(sumWheelSpeed[3]/delayIteration);
+			propagate_state(
+					X_Start 	:= actualPos,
+					wheelSpeed 	:= wheelArray, 
+					P_Start 	:= P_currentState,
+					deltaT 		:= 0.1,			// um 100 ms vorwärtspropagieren
+					X_Predict 	=> actualPos,
+					P_Predict 	=> P_currentState
+				);
+		END_IF;	
+		// abspeichern der letzten Kameraposition und delayTime zurücksetzen
+		prevPos.reX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
+		prevPos.reY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
+		prevPos.reWinkel 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
+		delayTime			:= 0;
+		
+	ELSE // Falls keine neue Kameraposition kommt die Summe der Radgeschwindigkeiten abspeichern
+		sumWheelSpeed[1] := sumWheelSpeed[1] + velWheel1;
+		sumWheelSpeed[2] := sumWheelSpeed[2] + velWheel2;
+		sumWheelSpeed[3] := sumWheelSpeed[3] + velWheel3;
+		
+		delayTime 		:= delayTime + cycletime;
+		delayIteration 	:= delayIteration + 1;
 	END_IF
 END_IF;
-
 
 
 // Kalmann Filter durchlaufen um geschätzte Messwerte zu erhalten
@@ -191,11 +214,11 @@ IF bumper THEN
 END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
-// GVL_Datatransfer23.inControl := RobotControl.position;
+// GVL_Datatransfer23.inControl := RobotControl.stop;
 // GVL_Datatransfer23.gvZielPosition.reX 		:= 4400;
 // GVL_Datatransfer23.gvZielPosition.reY		:= 1800;
 // GVL_Datatransfer23.gvZielPosition.reWinkel	:= 180;
-
+// GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit := GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit/10;
 
 CASE GVL_Datatransfer23.inControl OF 
 	RobotControl.idle:

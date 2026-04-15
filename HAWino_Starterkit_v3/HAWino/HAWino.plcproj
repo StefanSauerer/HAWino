@@ -51,6 +51,9 @@
     <Compile Include="DUTs\Gewerk 3\RobotStatus.TcDUT">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="DUTs\Gewerk 3\WheelVelocity.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="DUTs\PowerManagement\FleetManagement.TcDUT">
       <SubType>Code</SubType>
     </Compile>

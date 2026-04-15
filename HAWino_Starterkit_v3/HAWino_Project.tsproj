@@ -967,19 +967,19 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{47A9608D-3D74-E9E4-8844-63CC20646F86}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{519911CB-C33D-297F-53EB-B6546FDCAA77}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
 						<Name>SOCTask Outputs</Name>
 						<Var>
-							<Name>HAWino.Robot_Number</Name>
-							<Type>INT</Type>
-						</Var>
-						<Var>
 							<Name>PowerManager.shutdownTrigger</Name>
 							<Comment><![CDATA[Zeitablauf, bis Robi ausschaltet]]></Comment>
 							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>HAWino.Robot_Number</Name>
+							<Type>INT</Type>
 						</Var>
 						<Var>
 							<Name>PowerManager.batteryVoltage_V</Name>
@@ -1107,14 +1107,14 @@
 							<Type>UINT</Type>
 						</Var>
 						<Var>
-							<Name>HAWino.initDone</Name>
-							<Comment><![CDATA[ Outputs]]></Comment>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
 							<Name>HAWino.cameraPosition</Name>
 							<Comment><![CDATA[ Aktuelle roboterspezifische Kameraposition]]></Comment>
 							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
+						</Var>
+						<Var>
+							<Name>HAWino.initDone</Name>
+							<Comment><![CDATA[ Outputs]]></Comment>
+							<Type>BOOL</Type>
 						</Var>
 						<Var>
 							<Name>Camera.cameraData.MS</Name>

@@ -107,7 +107,6 @@ END_VAR
       <ST><![CDATA[//Umrechung der Klemmenwerte
 ACT_Drehzahlerfassung();
 
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Roboter-Positions-Bestimmung 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -116,73 +115,8 @@ IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 	// Falls außerhalb Bereich: Default auf 1 setzen 
 	RobotIndex := -1;
 ELSE
-	
-	// Radwerte in FIFO abspeichern
-	wheelSpeed.wheel1  := -velWheel1;
-	wheelSpeed.wheel2  := -velWheel2;
-	wheelSpeed.wheel3  := -velWheel3;
-	
-	IF(bufferIdx < bufferLength) THEN
-		bufferWheelSpeed[bufferIdx] := wheelSpeed;
-		bufferIdx := bufferIdx + 1;
-	ELSE
-		// Falls Buffer voll wieder von vorne anfangen Werte zu überschreiben
-		bufferIdx := 0;
-	END_IF
-	// Kammeraposition erst validieren
-	IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
-	// Falls schlechte Position lieber über Reifenumdrehungen 
-		// Ist die Letzte Kameramessung weniger als 30 Sekunden her
-		IF ABS(CurrentTime - CameraTimestamp) < 30 THEN 
-			propagate_state(
-				X_Start 	:= actualPos,
-				wheelSpeed 	:= wheelSpeed, 
-				P_Start 	:= P_currentState,
-				deltaT 		:= cycletime,
-				X_Predict 	=> actualPos,
-				P_Predict 	=> P_currentState
-			);
-			
-			CurrentTime := CurrentTime + cycletime;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
-		ELSE
-			enableMotorControl := FALSE;
-			GVL_Datatransfer23.inStatus := RobotStatus.fehler;	
-		END_IF	
-	ELSE
-		// Falls Kameraposition gut nehmen
-		actualPos.reX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
-		actualPos.reY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
-		actualPos.reWinkel 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
-		actualError			:= Camera.cameraData.robotPosition[RobotIndex].e;
-		CameraTimestamp 	:= (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
-		CurrentTime			:= CameraTimestamp;
-		
-		// Mittelwert der Motordaten berechnen (Darf man, da in vectorfahrt keine Drehung)
-		averageWheelSpeed.wheel1 := 0;
-		averageWheelSpeed.wheel2 := 0;
-		averageWheelSpeed.wheel3 := 0;
-		
-		FOR i := 0 TO bufferLength DO
-			averageWheelSpeed.wheel1 :=  averageWheelSpeed.wheel1 + bufferWheelSpeed[i].wheel1;
-			averageWheelSpeed.wheel2 :=  averageWheelSpeed.wheel2 + bufferWheelSpeed[i].wheel2;
-			averageWheelSpeed.wheel3 :=  averageWheelSpeed.wheel3 + bufferWheelSpeed[i].wheel3;
-		END_FOR
-		averageWheelSpeed.wheel1 := averageWheelSpeed.wheel1 / (bufferLength + 1);
-		averageWheelSpeed.wheel2 := averageWheelSpeed.wheel2 / (bufferLength + 1);
-		averageWheelSpeed.wheel3 := averageWheelSpeed.wheel3 / (bufferLength + 1);
-		
-		// Diesen Wert dann nochmal um 100 ms vorwärtsrechnen mit den Motordaten
-		propagate_state(
-				X_Start 	:= actualPos,
-				wheelSpeed 	:= averageWheelSpeed, 
-				P_Start 	:= P_currentState,
-				deltaT 		:= cameraDelay,
-				X_Predict 	=> actualPos,
-				P_Predict 	=> P_currentState
-			);
-	END_IF
+	ACT_Kammeramessung();
 END_IF;
-
 
 // Beste Positionsschätzung an Gruppe 2 übergeben
 GVL_Datatransfer23.gvActualPosition		:= actualPos;
@@ -198,12 +132,14 @@ IF bumper THEN
 END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
-GVL_Datatransfer23.inControl := RobotControl.position;
-GVL_Datatransfer23.gvZielPosition.reX 		:= 1400;
-GVL_Datatransfer23.gvZielPosition.reY		:= 1800;
-GVL_Datatransfer23.gvZielPosition.reWinkel	:= 180;
+// GVL_Datatransfer23.inControl := RobotControl.position;
+// GVL_Datatransfer23.gvZielPosition.reX 		:= 1400;
+// GVL_Datatransfer23.gvZielPosition.reY		:= 800;
+// GVL_Datatransfer23.gvZielPosition.reWinkel	:= 180;
 
-
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Schrittkette
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 CASE GVL_Datatransfer23.inControl OF 
 	RobotControl.idle:
 		targetSpeed_Robot.reX		:= 0;
@@ -266,6 +202,9 @@ CASE GVL_Datatransfer23.inControl OF
 		
 	END_CASE
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Drehzahlregler
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 FB_Drehzahlregler(targetVelX			:= targetSpeed_Robot.reX,
 					targetVelY 			:= targetSpeed_Robot.reY, 
 					tragetVelTheta		:= targetSpeed_Robot.reWinkel,
@@ -296,6 +235,80 @@ Motor3current := UINT_TO_INT(currentfromMotor3);
 velWheel1 := -(UINT_TO_INT(n1fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);
 velWheel2 := -(UINT_TO_INT(n2fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);
 velWheel3 := -(UINT_TO_INT(n3fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="ACT_Kammeramessung" Id="{eb8f66d2-72e3-4fa5-970d-cd88c08592e9}">
+      <Implementation>
+        <ST><![CDATA[/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Radwerte in FIFO abspeichern
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+wheelSpeed.wheel1  := -velWheel1;
+wheelSpeed.wheel2  := -velWheel2;
+wheelSpeed.wheel3  := -velWheel3;
+
+IF(bufferIdx < bufferLength) THEN
+	bufferWheelSpeed[bufferIdx] := wheelSpeed;
+	bufferIdx := bufferIdx + 1;
+ELSE
+	// Falls Buffer voll wieder von vorne anfangen Werte zu überschreiben
+	bufferIdx := 0;
+END_IF
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Beste Kameraposition berechnen
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Kammeraposition erst validieren
+IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
+// Falls schlechte Position lieber über Reifenumdrehungen 
+	// Ist die Letzte Kameramessung weniger als 30 Sekunden her
+	IF ABS(CurrentTime - CameraTimestamp) < 30 THEN 
+		propagate_state(
+			X_Start 	:= actualPos,
+			wheelSpeed 	:= wheelSpeed, 
+			P_Start 	:= P_currentState,
+			deltaT 		:= cycletime,
+			X_Predict 	=> actualPos,
+			P_Predict 	=> P_currentState
+		);
+		
+		CurrentTime := CurrentTime + cycletime;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
+	ELSE
+		enableMotorControl := FALSE;
+		GVL_Datatransfer23.inStatus := RobotStatus.fehler;	
+	END_IF	
+ELSE
+	// Falls Kameraposition gut nehmen
+	actualPos.reX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
+	actualPos.reY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
+	actualPos.reWinkel 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
+	actualError			:= Camera.cameraData.robotPosition[RobotIndex].e;
+	CameraTimestamp 	:= (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
+	CurrentTime			:= CameraTimestamp;
+	
+	// Mittelwert der Motordaten berechnen (Darf man, da in vectorfahrt keine Drehung)
+	averageWheelSpeed.wheel1 := 0;
+	averageWheelSpeed.wheel2 := 0;
+	averageWheelSpeed.wheel3 := 0;
+	
+	FOR i := 0 TO bufferLength DO
+		averageWheelSpeed.wheel1 :=  averageWheelSpeed.wheel1 + bufferWheelSpeed[i].wheel1;
+		averageWheelSpeed.wheel2 :=  averageWheelSpeed.wheel2 + bufferWheelSpeed[i].wheel2;
+		averageWheelSpeed.wheel3 :=  averageWheelSpeed.wheel3 + bufferWheelSpeed[i].wheel3;
+	END_FOR
+	averageWheelSpeed.wheel1 := averageWheelSpeed.wheel1 / (bufferLength + 1);
+	averageWheelSpeed.wheel2 := averageWheelSpeed.wheel2 / (bufferLength + 1);
+	averageWheelSpeed.wheel3 := averageWheelSpeed.wheel3 / (bufferLength + 1);
+	
+	// Diesen Wert dann nochmal um 100 ms vorwärtsrechnen mit den Motordaten
+	propagate_state(
+			X_Start 	:= actualPos,
+			wheelSpeed 	:= averageWheelSpeed, 
+			P_Start 	:= P_currentState,
+			deltaT 		:= cameraDelay,
+			X_Predict 	=> actualPos,
+			P_Predict 	=> P_currentState
+		);
+END_IF]]></ST>
       </Implementation>
     </Action>
     <Method Name="NormalizeAngle" Id="{83b90488-147b-4b1b-9c7b-cbb33d68b649}">

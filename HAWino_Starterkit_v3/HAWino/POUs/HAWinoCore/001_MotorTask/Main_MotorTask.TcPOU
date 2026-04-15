@@ -82,43 +82,12 @@ VAR
 	actualPos			: sPosition;	// Tatsächliche Position	
 	
 	actualError			: LREAL;		// Kamerafehler
-	
-	
-	KalmanStateX	: LREAL;
-	KalmanStateY	: LREAL;
-	KalmanStateYaw	: LREAL;
 	wheelArray 		: ARRAY[1..3] OF LREAL;
 	
-	// --- Ringpuffer für Kameramesswerte ---
-
-	// Inline-struct als Array-Element
-	RingBuffer : ARRAY[0..GVL_RobotConstant.RING_SIZE-1] OF EKF_Data;
-	
-	RingHead 		: INT 	:= 0; // Index für nächste Schreibposition
-	RingCount 		: INT 	:= 0; // Anzahl gültiger Einträge (<= RING_SIZE)
-	SampleCounter 	: ULINT := 0; // hochzählender Zähler für sampleId
-	
-	// Vorheriger Kamerawert zur Änderungsdetektion
-	prevCamX 	: LREAL := 0.0;
-	prevCamY 	: LREAL := 0.0;
-	prevCamTheta: LREAL := 0.0;
-	
-	// Schwellwert für Änderungsdetektion (klein)
-	camChangeEpsilon : LREAL := 0.001; // später wahrcsheinlich noch kleiner setzen
-	
-    X_currentState 	: sPosition := (reX := 0.0, reY := 0.0, reWinkel := 0.0);
-	P_currentState 	: ARRAY[1..9] OF LREAL;
-	EKF_currentState: EKF_Data;
 	CameraTimestamp	: LREAL;
-	CurrentTime		: LREAL;
-	idx : INT;
+	CurrentTime		: LREAL;	
 	
-	init: BOOL := FALSE;
-	yawRate: LREAL;
-	bodyVelX: LREAL;
-	bodyVelY: LREAL;
-	worldVelX: LREAL;
-	worldVelY: LREAL;
+	P_currentState : ARRAY[1..9] OF LREAL;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -136,15 +105,13 @@ IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 ELSE
 	
 	// Kammeraposition erst validieren
-// 	IF TRUE THEN
-IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
+	IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
 		// Falls schlechte Position lieber über Reifenumdrehungen 
 		wheelArray[1]  := -velWheel1;
 		wheelArray[2]  := -velWheel2;
 		wheelArray[3]  := -velWheel3;
 		
-		// Ist die Letzte Kameramessung weniger als 3 Sekunden her
-// 		IF TRUE THEN
+		// Ist die Letzte Kameramessung weniger als 30 Sekunden her
 		IF ABS(CurrentTime - CameraTimestamp) < 30 THEN 
 			propagate_state(
 				X_Start 	:= actualPos,
@@ -192,7 +159,7 @@ END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
 // GVL_Datatransfer23.inControl := RobotControl.position;
-// GVL_Datatransfer23.gvZielPosition.reX 		:= 4400;
+// GVL_Datatransfer23.gvZielPosition.reX 		:= 1400;
 // GVL_Datatransfer23.gvZielPosition.reY		:= 1800;
 // GVL_Datatransfer23.gvZielPosition.reWinkel	:= 180;
 
@@ -291,187 +258,6 @@ velWheel2 := -(UINT_TO_INT(n2fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/6
 velWheel3 := -(UINT_TO_INT(n3fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);]]></ST>
       </Implementation>
     </Action>
-    <Action Name="ACT_Kalmann" Id="{241caf24-dbb3-4af3-aa11-7028c98688ad}">
-      <Implementation>
-        <ST><![CDATA[(*
-Hier soll der Algorythmus für den Ekf mit delay Measurment -> auch Out of Sequence Measurement (OOSM) genannt
-Dieser funktioniert dadurch, dass er durch Fixed-Lag Smoothing und Re-Propagation die alten Predictions überarbeitet und neue aufstellt.
-
-1. Prediction Durchgeführen(zu jedem Zeitschritt) -> P und X_hat berechnen
-2. Werte in Puffer abspeichern
-3. Prüfen ob neue Kameradaten erhalten
-3.1. Zu Kammerazeitstempel zugehörigen X_hat zeitstempel finden (der Teil ist noch garnicht umgesetzt, siehe CameraTimestamp := SampleCounter - 20;)
-3.2. Zu dem gefundenen Zeitstempel updaten und dann Kalmann algorythmus durchgehen
-3.3. Das dann vorwärtspropagieren bis zum aktuellen Zeitstempel
-
-
-Sonstige ToDos, die mir beim Programmieren aufgefallen sind:
-- Die Variable HAWino.cameraPosition.e kann genutz werden um zu bestimmen, ob die Messung verworfen werden soll -> nicht nur für Kallmann sondern auch für die allgemeine Strucktur wichtig
-- Main Motor Task aufräumen (struckt für x,y,theta erstellen, ...)
-*)
-
-
-// Prediction durchführen -> X_predict und P_predict bestimmen 
-wheelArray[1] := velWheel1;
-wheelArray[2] := velWheel2;
-wheelArray[3] := velWheel3;
-SampleCounter := SampleCounter + 1;
-
-propagate_state(
-	X_Start := X_currentState,
-	wheelSpeed := wheelArray, 
-	P_Start := P_currentState,
-	deltaT := 0.333,
-	X_Predict => X_currentState,
-	P_Predict => P_currentState
-);
-EKF_currentState.State := X_currentState;
-EKF_currentState.wheelSpeed := wheelArray;
-EKF_currentState.P_Start := P_currentState;
-
-// Werte in Rinpuffer speichern
-WriteToRingBuffer(newData := EKF_currentState);
-
-// Überprüfen ob neue Kameradaten erhalten wurden
-IF (ABS(actualPos.reX 		- prevCamX) 	> camChangeEpsilon) OR 
-   (ABS(actualPos.reY 		- prevCamY) 	> camChangeEpsilon) OR
-   (ABS(actualPos.reWinkel 	- prevCamTheta) > camChangeEpsilon) THEN
-	
-   	// Wenn diese erhalten wurden die zur Messung zugehörige Prediction finden und diese anpassen
-	
-	// Gibt keinen sinnvollen Wert aus für den Timestamp, deshalb annahme: wir bekommen nach 20 Prozessschritten wieder einen neuen Wert
-	CameraTimestamp := (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
-	
-	// Dann Vorwärtspropagieren der Veränderung bis zum aktuellen Zeitstmpel
-	idx := RingHead - 20;
-	IF (idx < 0) THEN
-		idx := GVL_RobotConstant.RING_SIZE - idx;
-	END_IF
-	EKF_UpdateAtIndex(idx, actualPos.reX, actualPos.reY);
-	EKF_ReplayFrom(idx);
-
-
-	// Prev-Werte aktualisieren
-	prevCamX 		:= actualPos.reX;
-	prevCamY 		:= actualPos.reY;
-	prevCamTheta 	:= actualPos.reWinkel;
-END_IF
-	]]></ST>
-      </Implementation>
-    </Action>
-    <Method Name="EKF_ReplayFrom" Id="{940ca85e-1bfc-4edf-845b-1a448a9fa4a7}">
-      <Declaration><![CDATA[METHOD EKF_ReplayFrom
-VAR_INPUT
-    startIdx : INT;
-END_VAR
-VAR
-    idx : INT;
-    nextIdx : INT;
-END_VAR]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[idx := startIdx;
-
-WHILE idx <> (RingHead - 1 + GVL_RobotConstant.RING_SIZE) MOD GVL_RobotConstant.RING_SIZE DO
-
-    nextIdx := (idx + 1) MOD GVL_RobotConstant.RING_SIZE;
-
-    (* Zustand von korrigiertem Schritt laden *)
-    X_currentState := RingBuffer[idx].State;
-    P_currentState := RingBuffer[idx].P_Start;
-
-    (* Inputs des nächsten Zeitschritts *)
-    wheelArray := RingBuffer[nextIdx].wheelSpeed;
-
-    (* Prediction erneut ausführen *)
-    propagate_state(
-        X_Start := X_currentState,
-        wheelSpeed := wheelArray,
-        P_Start := P_currentState,
-        deltaT := 0.333,
-        X_Predict => X_currentState,
-        P_Predict => P_currentState
-    );
-
-    (* Überschreiben *)
-    RingBuffer[nextIdx].State := X_currentState;
-    RingBuffer[nextIdx].P_Start := P_currentState;
-
-    idx := nextIdx;
-
-END_WHILE;
-
-(* Aktuellen Zustand setzen *)
-X_currentState := RingBuffer[(RingHead - 1 + GVL_RobotConstant.RING_SIZE) MOD GVL_RobotConstant.RING_SIZE].State;
-P_currentState := RingBuffer[(RingHead - 1 + GVL_RobotConstant.RING_SIZE) MOD GVL_RobotConstant.RING_SIZE].P_Start;]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="EKF_UpdateAtIndex" Id="{972af3b9-adbd-491f-9e3e-731bea6c1f68}">
-      <Declaration><![CDATA[METHOD EKF_UpdateAtIndex
-VAR_INPUT
-    idx : INT;
-    camX : LREAL;
-    camY : LREAL;
-END_VAR
-VAR
-    r1, r2 : LREAL;
-    s11, s12, s22 : LREAL;
-    detS : LREAL;
-    invS11, invS12, invS22 : LREAL;
-    k11,k12,k21,k22,k31,k32 : LREAL;
-	
-	// Messungenauigkeit der Kamera -> Noch ändern. Vielleicht kann man dafür auch die Werte aus der Kaemera hernehmen (e)!!!!!!!!!
-	R_camX : LREAL := 0.0004;
-	R_camY : LREAL := 0.0004;
-END_VAR
-]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[(* Zustand laden *)
-X_currentState := RingBuffer[idx].State;
-P_currentState := RingBuffer[idx].P_Start;
-
-(* Innovation *)
-r1 := camX - X_currentState.reX;
-r2 := camY - X_currentState.reY;
-
-(* S = HPH^T + R *)
-s11 := P_currentState[1] + R_camX; // HAWino.cameraPosition.e <- sollte eigentlich des sein oder -> mit dem alles updaten, auch die Kameraposition !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-s12 := P_currentState[2];
-s22 := P_currentState[5] + R_camY;
-
-detS := s11*s22 - s12*s12;
-
-invS11 :=  s22 / detS;
-invS12 := -s12 / detS;
-invS22 :=  s11 / detS;
-
-(* Kalman Gain *)
-k11 := P_currentState[1]*invS11 + P_currentState[2]*invS12;
-k12 := P_currentState[1]*invS12 + P_currentState[2]*invS22;
-
-k21 := P_currentState[2]*invS11 + P_currentState[5]*invS12;
-k22 := P_currentState[2]*invS12 + P_currentState[5]*invS22;
-
-k31 := P_currentState[3]*invS11 + P_currentState[6]*invS12;
-k32 := P_currentState[3]*invS12 + P_currentState[6]*invS22;
-
-(* State Update *)
-X_currentState.reX 		:= X_currentState.reX 		+ k11*r1 + k12*r2;
-X_currentState.reY 		:= X_currentState.reY 		+ k21*r1 + k22*r2;
-X_currentState.reWinkel := X_currentState.reWinkel 	+ k31*r1 + k32*r2;
-
-(* P Update – vereinfachte Form *)
-P_currentState[1] := P_currentState[1] - (k11*s11 + k12*s12)*k11;
-P_currentState[2] := P_currentState[2] - (k11*s11 + k12*s12)*k21;
-P_currentState[3] := P_currentState[3] - (k11*s11 + k12*s12)*k31;
-P_currentState[5] := P_currentState[5] - (k21*s11 + k22*s12)*k21;
-P_currentState[6] := P_currentState[6] - (k21*s11 + k22*s12)*k31;
-P_currentState[9] := P_currentState[9] - (k31*s11 + k32*s12)*k31;
-
-(* Zurückschreiben *)
-RingBuffer[idx].State := X_currentState;
-RingBuffer[idx].P_Start := P_currentState;]]></ST>
-      </Implementation>
-    </Method>
     <Method Name="NormalizeAngle" Id="{83b90488-147b-4b1b-9c7b-cbb33d68b649}">
       <Declaration><![CDATA[METHOD NormalizeAngle
 VAR_INPUT
@@ -644,60 +430,6 @@ P_Predict[5] := P_Predict[5] + qy   * deltaT;
 
 P_Predict[9] := P_Predict[9] + qyaw * deltaT;
 *)]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="ReadFromRingBuffer" Id="{75492fe2-5b8d-48b3-bf84-3493bfa8847d}">
-      <Declaration><![CDATA[METHOD ReadFromRingBuffer : BOOL
-VAR_INPUT
-	offset : INT;   // 0 = neuester
-END_VAR
-VAR_OUTPUT
-    data : EKF_Data;
-END_VAR
-VAR
-    index : INT;
-END_VAR]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[IF offset >= RingCount THEN
-    // Nicht so viele Werte vorhanden
-    ReadFromRingBuffer := FALSE;
-    RETURN;
-END_IF
-
-// Index berechnen
-index := RingHead - 1 - offset;
-
-IF index < 0 THEN
-    index := index + GVL_RobotConstant.RING_SIZE;
-END_IF
-
-data := RingBuffer[index];
-
-ReadFromRingBuffer := TRUE;]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="WriteToRingBuffer" Id="{7a1fa4ba-2658-4f9f-98ed-7fd176a86e19}">
-      <Declaration><![CDATA[METHOD WriteToRingBuffer
-VAR_INPUT
-    newData : EKF_Data;
-END_VAR]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[// Sample ID hochzählen (optional)
-SampleCounter := SampleCounter + 1;
-
-// Schreiben
-RingBuffer[RingHead] := newData;
-
-// Head weiterschieben (Modulo 16)
-RingHead := RingHead + 1;
-IF RingHead >= GVL_RobotConstant.RING_SIZE THEN
-    RingHead := 0;
-END_IF
-
-// Count nur erhöhen bis 16
-IF RingCount < GVL_RobotConstant.RING_SIZE THEN
-    RingCount := RingCount + 1;
-END_IF]]></ST>
       </Implementation>
     </Method>
   </POU>

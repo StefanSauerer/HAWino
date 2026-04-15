@@ -967,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{F2D651B6-8FCC-7A17-4DB0-8F654528D27C}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{34729A55-5C64-E3EA-B6C4-4552CAD84827}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1133,14 +1133,6 @@
 							<Type>REAL</Type>
 						</Var>
 						<Var>
-							<Name>MQTT.batteryVoltage_V</Name>
-							<Type>REAL</Type>
-						</Var>
-						<Var>
-							<Name>MQTT.nBatteryTemperature</Name>
-							<Type>INT</Type>
-						</Var>
-						<Var>
 							<Name>MQTT.txtReadInit</Name>
 							<Comment><![CDATA[Input synccheck. robotdata has been read and can be used.]]></Comment>
 							<Type>BOOL</Type>
@@ -1153,6 +1145,14 @@
 						<Var>
 							<Name>IrDistanceSensors.distanceRaw</Name>
 							<Type GUID="{AA94C361-B6DB-9EE1-ECAB-B44C5FC1F3CF}">ARRAY [1..9] OF INT</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.batteryVoltage_V</Name>
+							<Type>REAL</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.nBatteryTemperature</Name>
+							<Type>INT</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="2" ContextId="1" AreaNo="17">

@@ -82,7 +82,8 @@ VAR
 	targetSpeed_World 	: sPosition;	// Geschwindigkeit in Weltkoordinaten
 	targetSpeed_Robot	: sPosition;	// Geschwindigkeit in Roboterkoordinaten
 	targetPos			: sPosition;	// Geschwindigkeitsvorgabe
-	actualPos			: sPosition;	// Tatsächliche Position	
+	actualPos			: sPosition;	// Tatsächliche Position
+	perfectPos			: sPosition;	// Theoretisch perfekte Position	
 	
 	actualError			: LREAL;		// Kamerafehler
 	wheelSpeed 			: WheelVelocity;
@@ -99,8 +100,11 @@ VAR
 	
 	cameraDelay		: REAL := 0.1;
 	
-	i	: INT;
+	i	: INT;	// Iterrationsvariable
 	
+	diffPos		: sPosition;
+	
+	distanzeToRobot : LREAL;	// Abstandssensoren in mm
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -132,7 +136,7 @@ IF bumper THEN
 END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
-// GVL_Datatransfer23.inControl := RobotControl.position;
+// GVL_Datatransfer23.inControl := RobotControl.stop;
 // GVL_Datatransfer23.gvZielPosition.reX 		:= 1400;
 // GVL_Datatransfer23.gvZielPosition.reY		:= 800;
 // GVL_Datatransfer23.gvZielPosition.reWinkel	:= 180;
@@ -163,7 +167,7 @@ CASE GVL_Datatransfer23.inControl OF
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Vector Regelung
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	RobotControl.vector:
+	RobotControl.vector:	
 		// Geschwindigkeitsvektor von Gruppe 2 in Weltkoordinaten umrechnen
 		targetSpeed_World.reX 	:= 		 GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * COS(GVL_Datatransfer23.gvFahrvektor.reWinkel * PI /180.0);
 		targetSpeed_World.reY 	:= (-1)* GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit * SIN(GVL_Datatransfer23.gvFahrvektor.reWinkel * PI /180.0);
@@ -174,7 +178,20 @@ CASE GVL_Datatransfer23.inControl OF
 		targetSpeed_Robot.reY 		:= targetSpeed_World.reY * COS(actualPos.reWinkel) + targetSpeed_World.reX * SIN(actualPos.reWinkel);
 		targetSpeed_Robot.reWinkel 	:= targetSpeed_World.reWinkel;		
 		
-		GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
+		// Abstandssensoren auswerten
+		distanzeToRobot := MIN(IrDistanceSensors.distance_mm[1],IrDistanceSensors.distance_mm[2],IrDistanceSensors.distance_mm[3],IrDistanceSensors.distance_mm[4],IrDistanceSensors.distance_mm[5],
+								IrDistanceSensors.distance_mm[6],IrDistanceSensors.distance_mm[7],IrDistanceSensors.distance_mm[8],IrDistanceSensors.distance_mm[9]);
+		
+		// Stehen bleiben, falls Distanz ist kleiner als 100mm
+		IF distanzeToRobot < 100 THEN
+			targetSpeed_Robot.reX 		:= 0;
+			targetSpeed_Robot.reY 		:= 0;
+			targetSpeed_Robot.reWinkel 	:= 0;
+			GVL_Datatransfer23.inStatus	:= RobotStatus.betriebsbereit;
+		ELSE
+			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
+		END_IF
+		
 		
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Positions Regelung
@@ -308,6 +325,7 @@ ELSE
 			X_Predict 	=> actualPos,
 			P_Predict 	=> P_currentState
 		);
+	
 END_IF]]></ST>
       </Implementation>
     </Action>

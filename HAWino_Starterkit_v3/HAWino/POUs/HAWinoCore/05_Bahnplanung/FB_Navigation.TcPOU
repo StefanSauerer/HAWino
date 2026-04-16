@@ -3,8 +3,8 @@
   <POU Name="FB_Navigation" Id="{47de1444-cb17-492a-8a9c-9d58d0e140ab}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_Navigation
 VAR_INPUT
-    xrePosX        : LREAL;
-    xrePosY        : LREAL;
+    xrePosX        : REAL;
+    xrePosY        : REAL;
     xinGoalID      : INT;
     xreRobotX      : ARRAY[0..2] OF REAL;
     xreRobotY      : ARRAY[0..2] OF REAL;

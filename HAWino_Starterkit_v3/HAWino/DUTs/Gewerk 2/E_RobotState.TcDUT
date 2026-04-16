@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="E_RobotState" Id="{5565863f-3797-4927-b211-4928682782b2}">
+    <Declaration><![CDATA[TYPE E_RobotState :
+(
+    LoadMaps                    := 0,   // Initial state – load maps, then immediately Standby
+    Standby                     := 1,   // Wait for job
+    CheckConfirmJob             := 2,   // Check / confirm received job
+    SelectMapStart              := 3,   // Select map, write destination to DB, start algorithm
+    WaitpointReachedSource      := 4,   // Waitpoint (halt point) reached on source side
+    WaitPassiveSource           := 5,   // Halt point occupied – passive wait (source side)
+    AlgorithmPreviousSource     := 6,   // Start algorithm to previous target (source side)
+    SwitchCoordinatesSource     := 7,   // Switch point coordinates (source side)
+    DrivePoint1Align            := 8,   // Drive to point 1 + align angle (from array)
+    DrivePoint2Align            := 9,   // Drive to point 2 + align angle
+    AtChargingStation           := 10,  // At charging station (branch: job = charging)
+    WaitForChargingDone         := 11,  // Charging / wait for done command
+    DrivePoint1AfterCharge      := 12,  // Drive to point 1 before station (after charging)
+    AtStation                   := 13,  // Arrived at station
+    CloseGripper                := 14,  // Close gripper (workpiece present)
+    DrivePoint1WithWorkpiece    := 15,  // Drive to point 1 back WITH workpiece
+    DrivePoint1NoWorkpiece      := 16,  // Drive to point 1 back WITHOUT workpiece → ParkPos
+    DrivePoint3Align            := 17,  // Drive to point 3 + align angle
+    DrivePoint4                 := 18,  // Drive to point 4
+    ScanRFIDSource              := 19,  // Scan RFID (source) + signal to controller 1
+    DrivePoint3ToTarget         := 20,  // Drive to point 3 towards target station
+    SelectMapTarget             := 21,  // Select map for target station, write DB, start algorithm
+    WaitpointReachedTarget      := 22,  // Waitpoint reached on target side
+    WaitPassiveTarget           := 23,  // Halt point occupied – passive wait (target side)
+    AlgorithmPreviousTarget     := 24,  // Start algorithm to previous target (target side)
+    SwitchCoordinatesTarget     := 25,  // Switch point coordinates (target side)
+    DrivePoint5AlignRFID        := 26,  // Drive to point 5 (RFID alignment point) + align
+    DrivePoint6AtRFID           := 27,  // Drive to point 6 (at RFID sensor) + align
+    ScanRFIDTarget              := 28,  // Scan RFID (target) + signal to controller 1
+    DrivePoint5                 := 29,  // Drive to point 5 + align angle
+    DrivePoint8BeforeDrop       := 30,  // Drive to point 8 (before drop-off)
+    DrivePoint9Drop             := 31,  // Drive to point 9 (drop-off position)
+    OpenGripper                 := 32,  // Open gripper
+    DrivePoint8AfterDrop        := 33,  // Drive to point 8 (before drop-off – return)
+    SelectMapParkPosition       := 34   // Select parking map, output job-done signal
+);
+END_TYPE]]></Declaration>
+  </DUT>
+</TcPlcObject>

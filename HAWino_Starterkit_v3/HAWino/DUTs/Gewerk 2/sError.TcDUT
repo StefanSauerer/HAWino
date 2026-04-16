@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="sError" Id="{b07cfddf-774e-421f-a64f-950fcdebe519}">
+    <Declaration><![CDATA[TYPE sError :
+STRUCT
+	boErrorRoutePlanning: BOOL;
+	boErrorControl: BOOL;
+	boErrorNoWorkpiece: BOOL;
+	boErrorWorkpieceLost: BOOL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

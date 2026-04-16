@@ -136,7 +136,7 @@ IF bumper THEN
 END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
-GVL_Datatransfer23.inControl := RobotControl.stop;
+// GVL_Datatransfer23.inControl := RobotControl.position;
 // GVL_Datatransfer23.gvZielPosition.reX 		:= 1400;
 // GVL_Datatransfer23.gvZielPosition.reY		:= 800;
 // GVL_Datatransfer23.gvZielPosition.reWinkel	:= 180;

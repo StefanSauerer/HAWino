@@ -3,18 +3,19 @@
   <POU Name="FB_StatesTest" Id="{df968e2c-77cc-4fca-870b-fcefcbefbe3f}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_StatesTest
 VAR_INPUT
-	xboVectorTargetReached : BOOL;
-	xinSatus : INT;
+	xboVectorTargetReached : BOOL;  //kommt von Algo
+	xinSatus : INT; //Gewerk 3 Regelung
 END_VAR
 VAR_OUTPUT
-	yinControl : RobotControl;
-	ysTargetPosition : sPosition;
-	yinTargetMap : INT;
+	yinControl : RobotControl; //SChnittstellte Gewerk 3
+	ysTargetPosition : sPosition; //Schnittstelle Gewerk 3
+	yinTargetMap : INT; //Vektorregelung Ziel
 END_VAR
 VAR
 	sStates : sStatesForTest;
 	tonDelayWait : TON;
 	tonDelayTargetReach : TON;
+	tonDelayGripper : TON;
 END_VAR
 VAR CONSTANT
 	//Robby 3
@@ -107,7 +108,7 @@ END_VAR]]></Declaration>
 		IF 	xinSatus = 1 AND tonDelayWait.Q THEN 
 			sStates := sStatesForTest.AfterTarget2;
 		END_IF	
-		
+
 	sStatesForTest.AfterTarget2 :
 	
 		IF xinSatus = 3 THEN 

@@ -21,13 +21,43 @@
     <Compile Include="BahnplanungTask.TcTTO">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="DUTs\Gewerk 2\E_RobotState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Gewerk 2\sCmd.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Gewerk 2\sError.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="DUTs\Gewerk 2\sFahrvektor.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Gewerk 2\sGeneralState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Gewerk 2\sJob.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Gewerk 2\sJobState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Gewerk 2\sKoordinate.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Gewerk 2\sMqttIn.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Gewerk 2\sMqttOut.TcDUT">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="DUTs\Gewerk 2\sPosition.TcDUT">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="DUTs\Gewerk 2\sStatesForTest.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\Gewerk 2\sToken.TcDUT">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="DUTs\Gewerk 3\Bumperstatus.TcDUT">
@@ -104,6 +134,10 @@
       <SubType>Code</SubType>
       <LinkAlways>true</LinkAlways>
     </Compile>
+    <Compile Include="GVLs\GVL_RobotCoordinates.TcGVL">
+      <SubType>Code</SubType>
+      <LinkAlways>true</LinkAlways>
+    </Compile>
     <Compile Include="GVLs\MQTT_Bahnplanung_Sync.TcGVL">
       <SubType>Code</SubType>
       <LinkAlways>true</LinkAlways>
@@ -160,7 +194,16 @@
     <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_CollisionAvoidance.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_Mapping.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_MQTT.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_Navigation.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_RobotStateMachine.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_StatesTest.TcPOU">

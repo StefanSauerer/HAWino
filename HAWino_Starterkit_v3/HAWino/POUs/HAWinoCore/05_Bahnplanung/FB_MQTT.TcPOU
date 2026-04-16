@@ -1,0 +1,402 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <POU Name="FB_MQTT" Id="{388d27bc-39e1-4ed5-a7bc-1133db77a22c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_MQTT
+VAR
+    fbClient        : FB_IotMqttClient;
+    fbMessageQueue  : FB_IotMqttMessageQueue;
+    fbMessage       : FB_IotMqttMessage;
+    bSubscribed     : BOOL;
+    sReceived       : STRING;
+    bSendError   : BOOL;
+	bSendJob	:	BOOL;
+	bSendState	: BOOL;
+	bSendToken	: BOOL;
+    sReceivedjob	: STRING(1000);
+	sReceivedcmd 	: STRING(1000);
+	sSendError    : STRING(1000);
+	sSendJob    : STRING(1000);
+	sSendState    : STRING := 'State';
+	sSendToken    : STRING := 'Token';
+	sMqttSEND : sMqttOut;
+	sMqttRECEIVE : sMqttIn;
+	sSendCharging : STRING;
+	
+	//Alten Strings speichern
+	tempsSendError : STRING(1000);
+	tempsSendJob : STRING(1000);
+	tempsSendState : STRING(1000);
+	tempsSendToken : STRING(1000);
+	
+	    // JSON Parser
+    fbJson          : FB_JsonDomParser;
+    jsonDoc         : SJsonValue;
+    jsonNode        : SJsonValue;
+    
+    // Parsed Variablen Empfangen
+    boStop          : BOOL;
+    boReset         : BOOL;
+    boJobReset      : BOOL;
+	boRfidComplete	: BOOL;
+	boStartJob		: BOOL;
+	boTokenGrant	: BOOL;
+	boCancelCharging: BOOL;
+	
+	// Parsed Variablen Senden
+	boErrorRoutePlanning: BOOL := FALSE;
+	boErrorControl		: BOOL := FALSE;
+	boErrorNoWorkpiece	:BOOL := FALSE;
+	boErrorWorkpieceLost: BOOL := FALSE;
+	
+	//Brauchte ne VAR
+	charging_dock : INT;
+	loading_speed : INT;
+	sSendStop : STRING;
+	tempjob : STRING;
+	tempcmd : STRING;
+	tempserror : STRING;
+	tempsjob : STRING;
+	tempsstate : STRING;
+	tempstoken : STRING;
+	start : BOOL;
+	sReceivedStart : STRING;
+	LADEN : BOOL;
+	TONPosition : TON;
+	boTONFlanke : BOOL;
+	tempInit : STRING;
+	
+	
+	
+END_VAR
+
+VAR_INPUT
+	xsDataToSend : sMqttOut;
+	xsKoordinate : sKoordinate;
+END_VAR
+VAR_OUTPUT
+	ysDataToReceive : sMqttIn;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Verbindungsparameter setzen
+
+fbClient.sHostName	:=	'192.168.0.11';
+fbClient.nHostPort	:= 	1883;
+fbClient.sUserName	:=	'VPJ';
+fbClient.sUserPassword	:=	'R462';
+
+// Queue mit Client verknüpfen
+fbClient.ipMessageQueue := fbMessageQueue;
+fbClient.Execute(bConnect := TRUE);
+
+sMqttSEND := xsDataToSend;
+
+// Einmalig subscriben wenn verbunden
+IF fbClient.bConnected AND NOT bSubscribed THEN
+	tempjob := CONCAT('HAWino/', INT_TO_STRING(Robot_Number));
+	tempjob := CONCAT(tempjob, '/job');
+    fbClient.Subscribe(
+        sTopic := tempjob,
+        eQoS   := 0
+    );
+	tempcmd := CONCAT('HAWino/', INT_TO_STRING(Robot_Number));
+	tempcmd := CONCAT(tempcmd, '/cmd');
+	fbClient.Subscribe(
+        sTopic := tempcmd,
+        eQoS   := 0
+    );
+	
+	tempInit := CONCAT('HAWino/', INT_TO_STRING(Robot_Number));
+	tempInit := CONCAT(tempInit, '/init');
+	fbClient.Subscribe(
+        sTopic := tempInit,
+        eQoS   := 0
+    );
+	
+	tempserror := CONCAT('HAWino/', INT_TO_STRING(Robot_Number));
+	tempserror := CONCAT(tempserror, '/error');
+	
+	tempsjob := CONCAT('HAWino/', INT_TO_STRING(Robot_Number));
+	tempsjob := CONCAT(tempsjob, '/jobState');
+	
+	tempsstate := CONCAT('HAWino/', INT_TO_STRING(Robot_Number));
+	tempsstate := CONCAT(tempsstate, '/generalState');
+	
+	tempstoken := CONCAT('HAWino/', INT_TO_STRING(Robot_Number));
+	tempstoken := CONCAT(tempstoken, '/token');
+    bSubscribed := TRUE;
+END_IF
+
+// Nachrichten aus Queue lesen
+IF fbMessageQueue.nQueuedMessages > 0 THEN
+    fbMessageQueue.Dequeue(fbMessage := fbMessage);
+    fbMessage.GetPayload(
+        pPayload             := ADR(sReceived),
+        nPayloadSize         := SIZEOF(sReceived),
+        bSetNullTermination  := TRUE
+    );
+	    IF fbMessage.CompareTopic(sTopic := tempjob) THEN
+        fbMessage.GetPayload(pPayload := ADR(sReceivedjob), nPayloadSize := SIZEOF(sReceivedjob), bSetNullTermination := TRUE);
+    
+    	ELSIF fbMessage.CompareTopic(sTopic := tempcmd) THEN
+        fbMessage.GetPayload(pPayload := ADR(sReceivedcmd), nPayloadSize := SIZEOF(sReceivedcmd), bSetNullTermination := TRUE);
+		
+ 		ELSIF fbMessage.CompareTopic(sTopic := tempInit) THEN
+         fbMessage.GetPayload(pPayload := ADR(sReceivedStart), nPayloadSize := SIZEOF(sReceivedStart), bSetNullTermination := TRUE);
+		END_IF
+	
+// Start Parsen
+    // jsonDoc := fbJson.ParseDocument(sReceivedStart);
+	
+  (*   IF jsonDoc <> 0 THEN
+         // Init auslesen
+        jsonNode := fbJson.FindMember(jsonDoc, 'test');
+         IF jsonNode <> 0 THEN
+             start := fbJson.GetString(jsonNode) = 'TRUE';
+         END_IF
+	*)
+	
+	// JSON parsen CMD
+    jsonDoc := fbJson.ParseDocument(sReceivedcmd);
+    
+    IF jsonDoc <> 0 THEN
+        // boStop auslesen
+        jsonNode := fbJson.FindMember(jsonDoc, 'boStop');
+        IF jsonNode <> 0 THEN
+            sMqttRECEIVE.sCmd.boStop := fbJson.GetString(jsonNode) = 'TRUE';
+        END_IF
+        
+        // boReset auslesen
+        jsonNode := fbJson.FindMember(jsonDoc, 'boReset');
+        IF jsonNode <> 0 THEN
+            sMqttRECEIVE.sCmd.boReset := fbJson.GetString(jsonNode) = 'TRUE';
+        END_IF
+        
+        // boJobReset auslesen
+        jsonNode := fbJson.FindMember(jsonDoc, 'boJobReset');
+        IF jsonNode <> 0 THEN
+            sMqttRECEIVE.sCmd.boJobReset := fbJson.GetString(jsonNode) = 'TRUE';
+        END_IF
+		
+		// boRfidComplete auslesen
+        jsonNode := fbJson.FindMember(jsonDoc, 'boRfidComplete');
+        IF jsonNode <> 0 THEN
+            sMqttRECEIVE.sCmd.boRFIDComplete := fbJson.GetString(jsonNode) = 'TRUE';
+        END_IF
+		
+		// boStartJob auslesen
+        jsonNode := fbJson.FindMember(jsonDoc, 'boStartJob');
+        IF jsonNode <> 0 THEN
+            sMqttRECEIVE.sCmd.boStartJob := fbJson.GetString(jsonNode) = 'TRUE';
+        END_IF
+		
+		// boTokenGrant auslesen
+        jsonNode := fbJson.FindMember(jsonDoc, 'boTokenGrant');
+        IF jsonNode <> 0 THEN
+            sMqttRECEIVE.sCmd.boTokenGrant := fbJson.GetString(jsonNode) = 'TRUE';
+        END_IF
+		
+		// boCancelCharging auslesen
+        jsonNode := fbJson.FindMember(jsonDoc, 'boCancelCharging');
+        IF jsonNode <> 0 THEN
+            sMqttRECEIVE.sCmd.boCancelCharging := fbJson.GetString(jsonNode) = 'TRUE';
+        END_IF
+    END_IF
+	
+	// JSON parsen CMD
+    jsonDoc := fbJson.ParseDocument(sReceivedjob);
+	
+    IF jsonDoc <> 0 THEN
+        // JobID auslesen
+        jsonNode := fbJson.FindMember(jsonDoc, 'jobId');
+        IF jsonNode <> 0 THEN
+            sMqttRECEIVE.sJOB.inJobID := DINT_TO_INT(fbJson.GetInt(jsonNode));
+        END_IF
+        
+        // Destination 1 auslesen
+        jsonNode := fbJson.FindMember(jsonDoc, 'inDestination1');
+        IF jsonNode <> 0 THEN
+            sMqttRECEIVE.sJOB.inDestination1 := DINT_TO_INT(fbJson.GetInt(jsonNode));
+        END_IF
+        
+        // Destination 2 auslesen
+        jsonNode := fbJson.FindMember(jsonDoc, 'inDestination2');
+        IF jsonNode <> 0 THEN
+            sMqttRECEIVE.sJOB.inDestination2 := DINT_TO_INT(fbJson.GetInt(jsonNode));
+        END_IF
+    END_IF
+END_IF
+
+start := TRUE;
+
+IF start THEN
+	// Die gesendeten Strings abspeichern
+	tempsSendError := sSendError;
+	tempsSendJob := sSendJob;
+	tempsSendState := sSendState;
+	tempsSendToken := sSendToken;
+	
+	
+	// Kompletten Error-JSON zusammenbauen
+	sSendError := CONCAT('{"boErrorRoutePlanning":"', BOOL_TO_STRING(sMqttSEND.sError.boErrorRoutePlanning));
+	sSendError := CONCAT(sSendError, '","boErrorControl":"');
+	sSendError := CONCAT(sSendError, BOOL_TO_STRING(sMqttSEND.sError.boErrorControl));
+	sSendError := CONCAT(sSendError, '","boErrorNoWorkpiece":"');
+	sSendError := CONCAT(sSendError, BOOL_TO_STRING(sMqttSEND.sError.boErrorNoWorkpiece));
+	sSendError := CONCAT(sSendError, '","boErrorWorkpieceLost":"');
+	sSendError := CONCAT(sSendError, BOOL_TO_STRING(sMqttSEND.sError.boErrorWorkpieceLost));
+	sSendError := CONCAT(sSendError, '"}');
+	
+	// Kompletten jobState-JSON zusammenbauen
+	sSendJob := CONCAT('{"boWorkpieceLoaded":"', BOOL_TO_STRING(sMqttSEND.sJobState.boWorkpieceLoaded));
+	sSendJob := CONCAT(sSendJob, '","boTransportWorkpiece":"');
+	sSendJob := CONCAT(sSendJob, BOOL_TO_STRING(sMqttSEND.sJobState.boTransportWorkpiece));
+	sSendJob := CONCAT(sSendJob, '","boJobAccepted":"');
+	sSendJob := CONCAT(sSendJob, BOOL_TO_STRING(sMqttSEND.sJobState.boJobAccepted));
+	sSendJob := CONCAT(sSendJob, '","boWaitForRfidOut":"');
+	sSendJob := CONCAT(sSendJob, BOOL_TO_STRING(sMqttSEND.sJobState.boWaitForRfidOut));
+	sSendJob := CONCAT(sSendJob, '","boWaitForRfidIn":"');
+	sSendJob := CONCAT(sSendJob, BOOL_TO_STRING(sMqttSEND.sJobState.boWaitForRfidIn));
+	sSendJob := CONCAT(sSendJob, '","boWorkpiecePlaced":"');
+	sSendJob := CONCAT(sSendJob, BOOL_TO_STRING(sMqttSEND.sJobState.boWorkpiecePlaced));
+	sSendJob := CONCAT(sSendJob, '"}');
+	
+	
+	sMqttSEND.sGeneralState.strPosition := CONCAT(CONCAT(REAL_TO_STRING(xsKoordinate.rePosX),','),REAL_TO_STRING(xsKoordinate.rePosY));
+	
+	// Kompletten generalState-JSON zusammenbauen
+	sSendState := CONCAT('{"boReady":"', BOOL_TO_STRING(sMqttSEND.sGeneralState.boReady));
+	sSendState := CONCAT(sSendState, '","boCharging":"');
+	sSendState := CONCAT(sSendState, BOOL_TO_STRING(sMqttSEND.sGeneralState.boCharging));
+	sSendState := CONCAT(sSendState, '","strPosition":"');
+	sSendState := CONCAT(sSendState, sMqttSEND.sGeneralState.strPosition);
+	sSendState := CONCAT(sSendState, '"}');
+	
+	// Kompletten Token-JSON zusammenbauen mitm IF eine Fallunterscheidung
+	IF sMqttSEND.sToken.boTokenRequest THEN
+		sSendToken := CONCAT('{"category":"TOKEN_Request","robot_id":"', INT_TO_STRING(Robot_Number));
+		sSendToken := CONCAT(sSendToken, '"}');
+	END_IF
+	IF sMqttSEND.sToken.boTokenRelease THEN
+		sSendToken := CONCAT('{"category":"TOKEN_Release","robot_id":"', INT_TO_STRING(Robot_Number));
+		sSendToken := CONCAT(sSendToken, '"}');
+	END_IF
+	
+	//Charging Request
+	sSendCharging := CONCAT('{"robot":"', INT_TO_STRING(Robot_Number));
+	sSendCharging := CONCAT(sSendCharging, '","charge":"true');
+	sSendCharging := CONCAT(sSendCharging, '","charging_dock":"');
+	sSendCharging := CONCAT(sSendCharging, INT_TO_STRING(charging_dock));
+	sSendCharging := CONCAT(sSendCharging, '","loading_speed":"');
+	sSendCharging := CONCAT(sSendCharging, INT_TO_STRING(loading_speed));
+	sSendCharging := CONCAT(sSendCharging, '"}');
+	
+	//Aufladen stoppen
+	sSendStop := CONCAT('{"robot":"', INT_TO_STRING(Robot_Number));
+	sSendStop := CONCAT(sSendStop, '","charge":"false');
+	sSendStop := CONCAT(sSendStop, '","charging_dock":"');
+	sSendStop := CONCAT(sSendStop, INT_TO_STRING(charging_dock));
+	sSendStop := CONCAT(sSendStop, '","loading_speed":"');
+	sSendStop := CONCAT(sSendStop, INT_TO_STRING(loading_speed));
+	sSendStop := CONCAT(sSendStop, '"}');
+	
+	
+	
+	// Nur senden wenn sich etwas geändert hat
+	IF tempsSendError <> sSendError THEN
+		bSendError := TRUE;
+	END_IF
+	IF tempsSendJob <> sSendJob THEN
+		bSendJob := TRUE;
+	END_IF
+
+	
+	TONPosition(IN := NOT boTONFlanke ,PT := T#0.5S);
+	boTONFlanke := TONPOsition.Q;	
+	
+	IF boTONFlanke THEN
+		bSendState := TRUE;
+	END_IF
+
+	IF tempsSendToken <> sSendToken THEN
+		bSendToken := TRUE;
+	END_IF
+	
+	
+	IF fbClient.bConnected THEN
+		IF bSendError THEN
+			fbClient.Publish(
+				sTopic       := tempserror,
+				pPayload     := ADR(sSendError),
+				nPayloadSize := LEN(sSendError),
+				eQoS         := 0,
+				bRetain      := FALSE,
+				bQueue       := FALSE
+			);
+			bSendError := FALSE;
+		END_IF
+	
+		IF bSendJob THEN
+			fbClient.Publish(
+				sTopic       := tempsjob,
+				pPayload     := ADR(sSendJob),
+				nPayloadSize := LEN(sSendJob),
+				eQoS         := 0,
+				bRetain      := FALSE,
+				bQueue       := FALSE
+			);
+			bSendJob := FALSE;
+		END_IF
+	
+		IF bSendState THEN
+			fbClient.Publish(
+				sTopic       := tempsstate,
+				pPayload     := ADR(sSendState),
+				nPayloadSize := LEN(sSendState),
+				eQoS         := 0,
+				bRetain      := FALSE,
+				bQueue       := FALSE
+			);
+			bSendState := FALSE;
+		END_IF
+	
+		IF bSendToken THEN
+			fbClient.Publish(
+				sTopic       := tempstoken,
+				pPayload     := ADR(sSendToken),
+				nPayloadSize := LEN(sSendToken),
+				eQoS         := 0,
+				bRetain      := FALSE,
+				bQueue       := FALSE
+			);
+			bSendToken := FALSE;
+		END_IF
+// 		// Roboter will Laden
+//  		IF NOT LADEN THEN
+//   			fbClient.Publish(
+//   				sTopic       := 'ChargingRequest',
+//   				pPayload     := ADR(sSendCharging),
+//   				nPayloadSize := LEN(sSendCharging),
+//   				eQoS         := 0,
+//   				bRetain      := FALSE,
+//   				bQueue       := FALSE
+//   			);
+// 			LADEN		 := TRUE;
+//  		END_IF
+// 		//Roboter soll laden beenden
+// 		IF boCancelCharging = TRUE AND E_RobotState = 8 THEN
+// 			fbClient.Publish(
+// 				sTopic       := 'ChargingRequest',
+// 				pPayload     := ADR(sSendStop),
+// 				nPayloadSize := LEN(sSendStop),
+// 				eQoS         := 0,
+// 				bRetain      := FALSE,
+// 				bQueue       := FALSE
+// 			);
+// 		END_IF
+	END_IF
+END_IF
+
+ysDataToReceive := sMqttRECEIVE;]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

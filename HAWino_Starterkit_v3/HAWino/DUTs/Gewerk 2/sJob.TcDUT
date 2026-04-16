@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="sJob" Id="{28046be3-4523-4892-ba9d-21bddd34e95d}">
+    <Declaration><![CDATA[TYPE sJob :
+STRUCT
+	inJob : INT;
+	inJobID : INT;
+	inDestination1: INT;
+	inDestination2 : INT;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

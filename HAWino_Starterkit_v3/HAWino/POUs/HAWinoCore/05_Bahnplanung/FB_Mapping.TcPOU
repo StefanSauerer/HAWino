@@ -1,0 +1,354 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <POU Name="FB_Mapping" Id="{e569b792-01f7-4d85-8a44-5e953bef309a}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Mapping
+VAR_INPUT
+    xstMqttIn               : sMqttIn;  // Full MQTT input – sJOB.inDestination1/2 are read here
+    xinDefaultParkingIndex  : INT;      // Constant parking index (e.g. IDX_PARKING_101)
+                                        // passed straight through to output unchanged
+END_VAR
+ 
+VAR_OUTPUT
+    // --- Indices for FB_RobotStateMachine ---
+    yinSourceIndex          : INT;      // xinSourceIndex  of FB_RobotStateMachine
+	yinSourceDirectionIndex : INT;      //1 if + and -1 if -
+	yinTargetDirectionIndex : INT;      //1 if + and -1 if -
+    yinTargetIndex          : INT;      // xinTargetIndex  of FB_RobotStateMachine
+    yinRfidSourceIndex      : INT;      // xinRfidSourceIndex
+    yinRfidTargetIndex      : INT;      // xinRfidTargetIndex
+    yinParkingIndex         : INT;      // xinParkingIndex  (= xinDefaultParkingIndex, passed through)
+    yinChargingIndex        : INT;      // xinChargingIndex (only valid when yboJobCharging = TRUE)
+    yinMapSource            : INT;      // xinMapSource     (map ID derived from station group)
+    yinMapTarget            : INT;      // xinMapTarget     (map ID derived from station group)
+ 
+    // --- Job type flags ---
+    yboJobTransport         : BOOL;     // Normal transport job  (D2 ≠ 404)
+    yboJobCharging          : BOOL;     // Charging job          (D2 = 404)
+    yboDecodeError          : BOOL;     // TRUE if an unknown station number was received
+END_VAR
+ 
+VAR
+    inDest1                 : INT;      // Local copy of inDestination1
+    inDest2                 : INT;      // Local copy of inDestination2
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//   Station numbers and their RFID assignments:
+//   ┌──────────┬────────────────────────┬───────────────────────────────────┐
+//   │ Station  │ Name                   │ Associated RFID index             │
+//   ├──────────┼────────────────────────┼───────────────────────────────────┤
+//   │  1,  2   │ Storage  (left side)   │ RFID 1 (source) / RFID 2 (target) │
+//   │  3,  4   │ Storage  (right side)  │ RFID 2 (source) / RFID 1 (target) │
+//   │ 11, 12   │ Production 1+2 left    │ RFID 3 (source) / RFID 4 (target) │
+//   │ 21, 22   │ Production 1+2 right   │ RFID 4 (source) / RFID 3 (target) │
+//   │ 31, 32   │ Production 3+4 left    │ RFID 5 (source) / RFID 6 (target) │
+//   │ 41, 42   │ Production 3+4 right   │ RFID 6 (source) / RFID 5 (target) │
+//   │  5,  6   │ Drop-off  (left side)  │ RFID 7 (source) / RFID 8 (target) │
+//   │  7,  8   │ Drop-off  (right side) │ RFID 8 (source) / RFID 7 (target) │
+//   │201, 202  │ Charging               │ No RFID                            │
+//   │101..104  │ Parking (constant)     │ No RFID                            │
+//   └──────────┴────────────────────────┴───────────────────────────────────┘
+// ---------------------------------------------------------------------------
+// Reset outputs each scan
+// ---------------------------------------------------------------------------
+yinSourceIndex      := 0;
+yinTargetIndex      := 0;
+yinRfidSourceIndex  := IDX_RFID_1;
+yinRfidTargetIndex  := IDX_RFID_1;
+yinParkingIndex     := xinDefaultParkingIndex;
+yinChargingIndex    := IDX_CHARGING_201;
+yinMapSource        := 0;
+yinMapTarget        := 0;
+yboJobTransport     := FALSE;
+yboJobCharging      := FALSE;
+yboDecodeError      := FALSE;
+ 
+// ---------------------------------------------------------------------------
+// Read destinations from MQTT job struct
+// ---------------------------------------------------------------------------
+inDest1 := xstMqttIn.sJOB.inDestination1;
+inDest2 := xstMqttIn.sJOB.inDestination2;
+ 
+// ---------------------------------------------------------------------------
+// Determine job type
+// ---------------------------------------------------------------------------
+IF inDest2 = 404 THEN
+    yboJobCharging  := TRUE;
+    yboJobTransport := FALSE;
+ELSE
+    yboJobCharging  := FALSE;
+    yboJobTransport := TRUE;
+END_IF
+ 
+// ---------------------------------------------------------------------------
+// DECODE SOURCE (Destination 1)
+//
+// Each station number maps to:
+//   - a coordinate array index  (yinSourceIndex)
+//   - the RFID index on the SOURCE side of that station (yinRfidSourceIndex)
+//   - a map ID for the vector algorithm             (yinMapSource)
+// ---------------------------------------------------------------------------
+CASE inDest1 OF
+ 
+    // --- Storage – left approach (stations 1, 2) ---
+    1:
+        yinSourceIndex     := IDX_STORAGE_1;
+        yinRfidSourceIndex := IDX_RFID_1;
+        yinMapSource       := 1;
+		yinSourceDirectionIndex := -1;
+ 		
+    2:
+        yinSourceIndex     := IDX_STORAGE_2;
+        yinRfidSourceIndex := IDX_RFID_1;
+        yinMapSource       := 1;
+ 		yinSourceDirectionIndex := -1;
+    // --- Storage – right approach (stations 3, 4) ---
+    3:
+        yinSourceIndex     := IDX_STORAGE_3;
+        yinRfidSourceIndex := IDX_RFID_2;
+        yinMapSource       := 1;
+ 		yinSourceDirectionIndex := 1;
+ 
+    4:
+        yinSourceIndex     := IDX_STORAGE_4;
+        yinRfidSourceIndex := IDX_RFID_2;
+        yinMapSource       := 1;
+  		yinSourceDirectionIndex := 1;
+ 
+    // --- Production 1+2 – left approach (stations 11, 12) ---
+    11:
+        yinSourceIndex     := IDX_PROD_11;
+        yinRfidSourceIndex := IDX_RFID_3;
+        yinMapSource       := 2;
+ 		yinSourceDirectionIndex := -1;
+ 
+    12:
+        yinSourceIndex     := IDX_PROD_12;
+        yinRfidSourceIndex := IDX_RFID_3;
+        yinMapSource       := 2;
+ 		yinSourceDirectionIndex := -1;
+ 
+    // --- Production 1+2 – right approach (stations 21, 22) ---
+    21:
+        yinSourceIndex     := IDX_PROD_21;
+        yinRfidSourceIndex := IDX_RFID_4;
+        yinMapSource       := 2;
+  		yinSourceDirectionIndex := 1;
+ 
+    22:
+        yinSourceIndex     := IDX_PROD_22;
+        yinRfidSourceIndex := IDX_RFID_4;
+        yinMapSource       := 2;
+  		yinSourceDirectionIndex := 1;
+ 
+    // --- Production 3+4 – left approach (stations 31, 32) ---
+    31:
+        yinSourceIndex     := IDX_PROD_31;
+        yinRfidSourceIndex := IDX_RFID_5;
+        yinMapSource       := 3;
+ 		yinSourceDirectionIndex := -1;
+ 
+    32:
+        yinSourceIndex     := IDX_PROD_32;
+        yinRfidSourceIndex := IDX_RFID_5;
+        yinMapSource       := 3;
+ 		yinSourceDirectionIndex := -1;
+ 
+    // --- Production 3+4 – right approach (stations 41, 42) ---
+    41:
+        yinSourceIndex     := IDX_PROD_41;
+        yinRfidSourceIndex := IDX_RFID_6;
+        yinMapSource       := 3;
+  		yinSourceDirectionIndex := 1;
+ 
+    42:
+        yinSourceIndex     := IDX_PROD_42;
+        yinRfidSourceIndex := IDX_RFID_6;
+        yinMapSource       := 3;
+  		yinSourceDirectionIndex := 1;
+ 
+    // --- Drop-off – left approach (stations 5, 6) ---
+    5:
+        yinSourceIndex     := IDX_DROPOFF_5;
+        yinRfidSourceIndex := IDX_RFID_7;
+        yinMapSource       := 4;
+ 		yinSourceDirectionIndex := -1;
+ 
+    6:
+        yinSourceIndex     := IDX_DROPOFF_6;
+        yinRfidSourceIndex := IDX_RFID_7;
+        yinMapSource       := 4;
+ 		yinSourceDirectionIndex := -1;
+ 
+    // --- Drop-off – right approach (stations 7, 8) ---
+    7:
+        yinSourceIndex     := IDX_DROPOFF_7;
+        yinRfidSourceIndex := IDX_RFID_8;
+        yinMapSource       := 4;
+  		yinSourceDirectionIndex := 1;
+ 
+    8:
+        yinSourceIndex     := IDX_DROPOFF_8;
+        yinRfidSourceIndex := IDX_RFID_8;
+        yinMapSource       := 4;
+  		yinSourceDirectionIndex := 1;
+ 
+    // --- Charging stations (Destination1 = charging means the robot should charge) ---
+    201:
+        yinSourceIndex   := IDX_CHARGING_201;
+        yinChargingIndex := IDX_CHARGING_201;
+        yinMapSource     := 7;
+ 
+    202:
+        yinSourceIndex   := IDX_CHARGING_202;
+        yinChargingIndex := IDX_CHARGING_202;
+        yinMapSource     := 7;
+ 
+ELSE
+    // Unknown station number
+    yboDecodeError := TRUE;
+ 
+END_CASE
+ 
+// ---------------------------------------------------------------------------
+// DECODE TARGET (Destination 2)
+//
+// Each station number maps to:
+//   - a coordinate array index  (yinTargetIndex)
+//   - the RFID index on the TARGET side of that station (yinRfidTargetIndex)
+//   - a map ID for the vector algorithm             (yinMapTarget)
+//
+// Special case: Destination2 = 404 → charging job, no target station needed.
+// The RFID on the TARGET side is the opposite side of the same block:
+//   left stations  (1,2 / 11,12 / 31,32 / 5,6)  → approached from the right → RFID 2,4,6,8
+//   right stations (3,4 / 21,22 / 41,42 / 7,8)  → approached from the left  → RFID 1,3,5,7
+// ---------------------------------------------------------------------------
+CASE inDest2 OF
+ 
+    // --- Storage – right approach as TARGET (stations 1, 2) ---
+    1:
+        yinTargetIndex     := IDX_STORAGE_1;
+        yinRfidTargetIndex := IDX_RFID_1;
+        yinMapTarget       := 1;
+  		yinTargetDirectionIndex := -1;
+ 
+    2:
+        yinTargetIndex     := IDX_STORAGE_2;
+        yinRfidTargetIndex := IDX_RFID_1;
+        yinMapTarget       := 1;
+   		yinTargetDirectionIndex := -1;
+ 
+    // --- Storage – left approach as TARGET (stations 3, 4) ---
+    3:
+        yinTargetIndex     := IDX_STORAGE_3;
+        yinRfidTargetIndex := IDX_RFID_2;
+        yinMapTarget       := 1;
+   		yinTargetDirectionIndex := 1;
+ 
+    4:
+        yinTargetIndex     := IDX_STORAGE_4;
+        yinRfidTargetIndex := IDX_RFID_2;
+        yinMapTarget       := 1;
+   		yinTargetDirectionIndex := 1;
+ 
+    // --- Production 1+2 – right approach as TARGET (stations 11, 12) ---
+    11:
+        yinTargetIndex     := IDX_PROD_11;
+        yinRfidTargetIndex := IDX_RFID_3;
+        yinMapTarget       := 2;
+   		yinTargetDirectionIndex := -1;
+ 
+    12:
+        yinTargetIndex     := IDX_PROD_12;
+        yinRfidTargetIndex := IDX_RFID_3;
+        yinMapTarget       := 2;
+   		yinTargetDirectionIndex := -1;
+ 
+    // --- Production 1+2 – left approach as TARGET (stations 21, 22) ---
+    21:
+        yinTargetIndex     := IDX_PROD_21;
+        yinRfidTargetIndex := IDX_RFID_4;
+        yinMapTarget       := 2;
+   		yinTargetDirectionIndex := 1;
+ 
+    22:
+        yinTargetIndex     := IDX_PROD_22;
+        yinRfidTargetIndex := IDX_RFID_4;
+        yinMapTarget       := 2;
+   		yinTargetDirectionIndex := 1;
+ 
+    // --- Production 3+4 – right approach as TARGET (stations 31, 32) ---
+    31:
+        yinTargetIndex     := IDX_PROD_31;
+        yinRfidTargetIndex := IDX_RFID_5;
+        yinMapTarget       := 3;
+   		yinTargetDirectionIndex := -1;
+ 
+    32:
+        yinTargetIndex     := IDX_PROD_32;
+        yinRfidTargetIndex := IDX_RFID_5;
+        yinMapTarget       := 3;
+   		yinTargetDirectionIndex := -1;
+ 
+    // --- Production 3+4 – left approach as TARGET (stations 41, 42) ---
+    41:
+        yinTargetIndex     := IDX_PROD_41;
+        yinRfidTargetIndex := IDX_RFID_6;
+        yinMapTarget       := 3;
+		yinTargetDirectionIndex := 1;
+ 
+    42:
+        yinTargetIndex     := IDX_PROD_42;
+        yinRfidTargetIndex := IDX_RFID_6;
+        yinMapTarget       := 3;
+		yinTargetDirectionIndex := 1;
+ 
+    // --- Drop-off – right approach as TARGET (stations 5, 6) ---
+    5:
+        yinTargetIndex     := IDX_DROPOFF_5;
+        yinRfidTargetIndex := IDX_RFID_7;
+        yinMapTarget       := 4;
+   		yinTargetDirectionIndex := -1;
+ 
+    6:
+        yinTargetIndex     := IDX_DROPOFF_6;
+        yinRfidTargetIndex := IDX_RFID_7;
+        yinMapTarget       := 4;
+   		yinTargetDirectionIndex := -1;
+ 
+    // --- Drop-off – left approach as TARGET (stations 7, 8) ---
+    7:
+        yinTargetIndex     := IDX_DROPOFF_8;
+        yinRfidTargetIndex := IDX_RFID_8;
+        yinMapTarget       := 4;
+   		yinTargetDirectionIndex := 1;
+ 
+    8:
+        yinTargetIndex     := IDX_DROPOFF_8;
+        yinRfidTargetIndex := IDX_RFID_8;
+        yinMapTarget       := 4;
+   		yinTargetDirectionIndex := 1;
+		
+    // --- Special: charging job (Destination2 = 404) ---
+    404:
+        // Target indices not relevant for charging – leave at default.
+        // yboJobCharging is already TRUE from the job-type block above.
+        yinTargetIndex     := yinChargingIndex;
+        yinRfidTargetIndex := IDX_RFID_1;   // unused for charging
+        yinMapTarget       := 6;
+ 
+ELSE
+    // Unknown target station number (only flag error if not a charging job)
+    IF NOT yboJobCharging THEN
+        yboDecodeError := TRUE;
+    END_IF
+ 
+END_CASE
+ 
+// ---------------------------------------------------------------------------
+// Parking index is always passed through unchanged
+// ---------------------------------------------------------------------------
+yinParkingIndex := xinDefaultParkingIndex;
+ ]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

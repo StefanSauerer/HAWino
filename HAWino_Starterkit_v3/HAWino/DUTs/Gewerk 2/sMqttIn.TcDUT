@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="sMqttIn" Id="{6f2d20af-fcea-4dfd-b27f-99d0e103bd70}">
+    <Declaration><![CDATA[TYPE sMqttIn :
+STRUCT
+	sJOB: sJOB;
+	sCmd: sCmd;
+	END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

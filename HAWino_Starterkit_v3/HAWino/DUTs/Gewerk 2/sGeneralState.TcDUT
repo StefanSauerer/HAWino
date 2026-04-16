@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <DUT Name="sGeneralState" Id="{ae4af2a2-ceab-46ee-a1c3-98a6ecb21365}">
+    <Declaration><![CDATA[TYPE sGeneralState :
+STRUCT
+	boReady: BOOL;
+	boCharging: BOOL;
+	strPosition: STRING;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

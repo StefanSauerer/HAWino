@@ -7,6 +7,10 @@ VAR
     arfbMaps       : ARRAY[1..13] OF FB_AngleMap;
     fbNav          : FB_Navigation;
 	fbStates	   : FB_StatesTest;
+	//fbStates : FB_RobotStateMachine;
+	fb_mapping : FB_Mapping;
+	fb_MQTT : FB_MQTT;
+
 	
     (* Ladesteuerung *)
     inLoadIdx      : INT := 1;
@@ -24,6 +28,7 @@ VAR
 
     reAngleTarget  : REAL;
     reDistToGoal   : REAL;
+	reDistFromGoal : REAL;
 	reSpeed 	   : REAL;
     boAtGoal       : BOOL;
     boStop         : BOOL;
@@ -35,11 +40,28 @@ VAR
 	actualError: LREAL;
 	boWarning: BOOL;
 	reMinDist: REAL;
+	sMqttIn : sMqttIn;
+	sMqttOut : sMqttOut;
+	eStateMachine : E_RobotState;
+	sactualKoordinates : sKoordinate;
 END_VAR
 	
 	VAR_TEMP
     tinI : INT; // Temporary variable
 	tinJ : INT := 0;
+	tarstHAWId: ARRAY[0..29] OF sKoordinate;
+	tinSourceIndex          : INT;                          // Array index of source station  (0..21)
+    tinTargetIndex          : INT;                          // Array index of target station  (0..21)
+    tinRfidSourceIndex      : INT;                          // Array index of RFID point at source (22..29)
+    tinRfidTargetIndex      : INT;                          // Array index of RFID point at target (22..29)
+    tinParkingIndex         : INT;                          // Array index of parking position (16..19)
+    tinChargingIndex        : INT;                          // Array index of charging station (20..21)
+	tinMapSource            : INT;                          // Map ID for source station
+    tinMapTarget            : INT;                          // Map ID for target station
+    tinMapParking           : INT;                          // Map ID for parking position
+	tinTargetDirectionIndex : INT;							//
+	tinSourceDirectionIndex : INT;
+					
 	END_VAR
 	
 ]]></Declaration>
@@ -59,7 +81,7 @@ END_VAR
 
     (* Wenn fertig: nächste Karte *)
     IF arfbMaps[inLoadIdx].yboDone THEN
-        IF inLoadIdx < 13 THEN
+        IF inLoadIdx < 10 THEN
             inLoadIdx := inLoadIdx + 1;
         ELSE
             boAllLoaded := TRUE;
@@ -96,6 +118,14 @@ IF areRobotX[tinJ] = 0 AND areRobotY[tinJ] = 0 THEN
 	END_IF
 END_FOR
 
+sactualKoordinates.rePosX := actualPosX / 10;
+sactualKoordinates.rePosY := actualPosY / 10;
+sactualKoordinates.reWinkel := actualPosTheta;
+sMqttOut.sError.boErrorControl := TRUE;
+
+fb_MQTT(xsDataToSend := sMqttOut,
+	xsKoordinate :=  sactualKoordinates,
+	ysDataToReceive => sMqttIn);
 
 fbStates (xboVectorTargetReached := boAtGoal,
  xinSatus := GVL_Datatransfer23.inStatus,
@@ -103,9 +133,57 @@ fbStates (xboVectorTargetReached := boAtGoal,
  ysTargetPosition => GVL_Datatransfer23.gvZielPosition,
  yinTargetMap => inActiveGoal);
 	
+	
+	sMqttOut.sJobState.boWorkpieceLoaded := Gripper.partGripped; //TODO Confirm WITH EBEL
+	
+fb_mapping(
+    xstMqttIn              := sMqttIn,
+    xinDefaultParkingIndex := IDX_PARKING_101,
+	yinSourceDirectionIndex => tinSourceDirectionIndex,
+	yinTargetDirectionIndex => tinTargetDirectionIndex,
+    yinSourceIndex => tinSourceIndex,
+    yinTargetIndex => tinTargetIndex,
+    yinRfidSourceIndex => tinRfidSourceIndex,
+    yinRfidTargetIndex => tinRfidTargetIndex,
+    yinParkingIndex => tinParkingIndex,
+    yinChargingIndex => tinChargingIndex,
+    yinMapSource => tinMapSource,
+    yinMapTarget => tinMapTarget);
+	
+	
+	
+CASE RobotIndex OF 
+	1:tarstHAWId := arstHAWino1;
+	2:tarstHAWId := arstHAWino2;
+	3:tarstHAWId := arstHAWino3;
+	4:tarstHAWId := arstHAWino4;
+END_CASE
+	(*
+fbStates (xstMqttIn := sMqttIn, xeRobotStatus := GVL_Datatransfer23.inStatus, 
+xboMapsLoaded := boAllLoaded, 
+xboVectorTargetReached := boAtGoal, 
+xarstCoordinates := tarstHAWId,
+xinSourceIndex := tinSourceIndex,
+xinSourceDirectionIndex := tinSourceDirectionIndex,
+xinTargetDirectionIndex := tinTargetDirectionIndex,
+xinTargetIndex := tinTargetIndex,         
+xinRfidSourceIndex := tinRfidSourceIndex,
+xinRfidTargetIndex := tinRfidTargetIndex,
+xinParkingIndex := tinParkingIndex,
+xinChargingIndex := tinChargingIndex,
+xinMapSource := tinMapSource,
+xinMapTarget := tinMapTarget,
+xinMapParking := tinMapParking,
+xreDistToGoal := reDistToGoal,
+xreDistFromGoal := reDistFromGoal, //TODO AUSrechnen in FB NAV
+xboWSSensor := Gripper.partGripped, //TODO EBEL FRAGEN
+yeControl => GVL_Datatransfer23.inControl,
+ystTargetPosition => GVL_Datatransfer23.gvZielPosition,
+yinTargetMap => inActiveGoal,
+ystMqttOut => sMqttOut,
+yeCurrentState => eStateMachine);
 
-
-
+*)
 reSpeed := 300;
 (* ── Navigation ────────────────────────────────────── *)
 fbNav(
@@ -134,7 +212,9 @@ fbNav(
 	END_IF
 	
 	GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit := reSpeed;
-	GVL_Datatransfer23.gvFahrvektor.reWinkel :=  reAngleTarget;]]></ST>
+	GVL_Datatransfer23.gvFahrvektor.reWinkel :=  reAngleTarget;
+
+	]]></ST>
     </Implementation>
   </POU>
 </TcPlcObject>

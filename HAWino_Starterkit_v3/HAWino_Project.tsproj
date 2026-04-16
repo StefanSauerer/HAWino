@@ -2,15 +2,6 @@
 <TcSmProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.beckhoff.com/schemas/2012/07/TcSmProject" TcSmVersion="1.0" TcVersion="3.1.4026.19">
 	<DataTypes>
 		<DataType>
-			<Name GUID="{BEDD1B47-23A4-70BA-89F7-A5EC05FD9AD8}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..9] OF LREAL</Name>
-			<BitSize>576</BitSize>
-			<BaseType GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</BaseType>
-			<ArrayInfo>
-				<LBound>1</LBound>
-				<Elements>9</Elements>
-			</ArrayInfo>
-		</DataType>
-		<DataType>
 			<Name GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}" AutoDeleteType="true">Position</Name>
 			<Comment><![CDATA[Definition des allgemeinen Position Datentyps]]></Comment>
 			<BitSize>256</BitSize>
@@ -127,6 +118,15 @@
 				<BitSize>8</BitSize>
 				<BitOffs>392</BitOffs>
 			</SubItem>
+		</DataType>
+		<DataType>
+			<Name GUID="{BEDD1B47-23A4-70BA-89F7-A5EC05FD9AD8}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..9] OF LREAL</Name>
+			<BitSize>576</BitSize>
+			<BaseType GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</BaseType>
+			<ArrayInfo>
+				<LBound>1</LBound>
+				<Elements>9</Elements>
+			</ArrayInfo>
 		</DataType>
 		<DataType>
 			<Name GUID="{D23FD725-86F0-067F-A117-ADC7250A16F6}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..4] OF Position</Name>
@@ -967,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{35912B0B-E7D7-AE24-5EDC-C436719E3781}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{1088FD8C-3ED8-93FC-46B5-95DC19E067FE}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1074,14 +1074,14 @@
 							<Type>BOOL</Type>
 						</Var>
 						<Var>
-							<Name>PowerManager.batteryVoltageRaw</Name>
-							<Comment><![CDATA[unverabreitete gemessene Spannung]]></Comment>
-							<Type>INT</Type>
-						</Var>
-						<Var>
 							<Name>PowerManager.shutdownButton</Name>
 							<Comment><![CDATA[Button zum Ausschalten]]></Comment>
 							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>PowerManager.batteryVoltageRaw</Name>
+							<Comment><![CDATA[unverabreitete gemessene Spannung]]></Comment>
+							<Type>INT</Type>
 						</Var>
 						<Var>
 							<Name>PowerManager.supplyCurrentRaw</Name>
@@ -1117,6 +1117,10 @@
 							<Type>UINT</Type>
 						</Var>
 						<Var>
+							<Name>IrDistanceSensors.distance_mm</Name>
+							<Type GUID="{BEDD1B47-23A4-70BA-89F7-A5EC05FD9AD8}">ARRAY [1..9] OF LREAL</Type>
+						</Var>
+						<Var>
 							<Name>Camera.cameraData.MS</Name>
 							<Type>LREAL</Type>
 						</Var>
@@ -1126,6 +1130,11 @@
 						<Var>
 							<Name>IrDistanceSensors.distanceRaw</Name>
 							<Type GUID="{AA94C361-B6DB-9EE1-ECAB-B44C5FC1F3CF}">ARRAY [1..9] OF INT</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.supplyCurrent_A</Name>
+							<Comment><![CDATA[ Akku Strom und Spannung]]></Comment>
+							<Type>REAL</Type>
 						</Var>
 						<Var>
 							<Name>MQTT.batteryVoltage_V</Name>
@@ -1144,11 +1153,6 @@
 							<Name>MQTT.stMqtt_HAWino_IN</Name>
 							<Comment><![CDATA[ Attention! Don't link TIME Variables, otherwise we get an error!]]></Comment>
 							<Type GUID="{66B40A97-02CE-C520-86C7-E6EA3AB0062B}">ST_PwrMgmt_HAWino_In</Type>
-						</Var>
-						<Var>
-							<Name>MQTT.supplyCurrent_A</Name>
-							<Comment><![CDATA[ Akku Strom und Spannung]]></Comment>
-							<Type>REAL</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="2" ContextId="1" AreaNo="17">
@@ -1211,10 +1215,6 @@
 							<Type>INT</Type>
 						</Var>
 						<Var>
-							<Name>IrDistanceSensors.distance_mm</Name>
-							<Type GUID="{BEDD1B47-23A4-70BA-89F7-A5EC05FD9AD8}">ARRAY [1..9] OF LREAL</Type>
-						</Var>
-						<Var>
 							<Name>Camera.cameraData.robotPosition</Name>
 							<Type GUID="{26928B13-6C0A-8B65-AF30-A387B13077E9}">ARRAY [1..8] OF Position</Type>
 						</Var>
@@ -1267,6 +1267,10 @@
 						</Var>
 						<Var>
 							<Name>Gripper.slider</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>Main_MotorTask.lightBarrierGripper</Name>
 							<Type>BOOL</Type>
 						</Var>
 					</Vars>
@@ -4356,6 +4360,7 @@ Bit1: Value smaller than Limit2]]></Comment>
 				<Link VarA="BahnplanungTask Inputs^Bumper.BumperStrip" VarB="Bumper (S1)^Input"/>
 				<Link VarA="MotorTask Inputs^Gripper.slider" VarB="Channel 5^Input"/>
 				<Link VarA="MotorTask Inputs^Main_MotorTask.bumper" VarB="Bumper (S1)^Input"/>
+				<Link VarA="MotorTask Inputs^Main_MotorTask.lightBarrierGripper" VarB="Channel 6^Input"/>
 				<Link VarA="SOCTask Inputs^Main_MotorTask.sliderGripper" VarB="Channel 5^Input"/>
 				<Link VarA="SOCTask Inputs^PowerManager.shutdownButton" VarB="ShutdownRequested (S11)^Input"/>
 			</OwnerB>

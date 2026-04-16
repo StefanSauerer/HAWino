@@ -17,8 +17,8 @@ VAR
 	currentfromMotor1 AT %I* : UINT;	//Strom von der Motorklemme über den InfoData Kanal 2
 	currentfromMotor2 AT %I* : UINT;
 	currentfromMotor3 AT %I* : UINT;
-	sliderGripper AT %I* : BOOL;
-
+	sliderGripper 		AT %I* : BOOL;
+	lightBarrierGripper AT %I* : BOOL;
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Variablen werden zur Synchronisation über das PA-Q aus dem Task gesetzt.
@@ -136,11 +136,11 @@ IF bumper THEN
 END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
-// GVL_Datatransfer23.inControl := RobotControl.stop;
+GVL_Datatransfer23.inControl := RobotControl.stop;
 // GVL_Datatransfer23.gvZielPosition.reX 		:= 1400;
 // GVL_Datatransfer23.gvZielPosition.reY		:= 800;
 // GVL_Datatransfer23.gvZielPosition.reWinkel	:= 180;
-
+lightBarrierGripper := lightBarrierGripper;
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Schrittkette
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -179,18 +179,18 @@ CASE GVL_Datatransfer23.inControl OF
 		targetSpeed_Robot.reWinkel 	:= targetSpeed_World.reWinkel;		
 		
 		// Abstandssensoren auswerten
-		distanzeToRobot := MIN(IrDistanceSensors.distance_mm[1],IrDistanceSensors.distance_mm[2],IrDistanceSensors.distance_mm[3],IrDistanceSensors.distance_mm[4],IrDistanceSensors.distance_mm[5],
-								IrDistanceSensors.distance_mm[6],IrDistanceSensors.distance_mm[7],IrDistanceSensors.distance_mm[8],IrDistanceSensors.distance_mm[9]);
-		
-		// Stehen bleiben, falls Distanz ist kleiner als 100mm
-		IF distanzeToRobot < 100 THEN
-			targetSpeed_Robot.reX 		:= 0;
-			targetSpeed_Robot.reY 		:= 0;
-			targetSpeed_Robot.reWinkel 	:= 0;
-			GVL_Datatransfer23.inStatus	:= RobotStatus.betriebsbereit;
-		ELSE
-			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
-		END_IF
+// 		distanzeToRobot := MIN(IrDistanceSensors.distance_mm[1],IrDistanceSensors.distance_mm[2],IrDistanceSensors.distance_mm[3],IrDistanceSensors.distance_mm[4],IrDistanceSensors.distance_mm[5],
+// 								IrDistanceSensors.distance_mm[6],IrDistanceSensors.distance_mm[7],IrDistanceSensors.distance_mm[8],IrDistanceSensors.distance_mm[9]);
+// 		
+// 		// Stehen bleiben, falls Distanz ist kleiner als 100mm
+// 		IF distanzeToRobot < 100 THEN
+// 			targetSpeed_Robot.reX 		:= 0;
+// 			targetSpeed_Robot.reY 		:= 0;
+// 			targetSpeed_Robot.reWinkel 	:= 0;
+// 			GVL_Datatransfer23.inStatus	:= RobotStatus.betriebsbereit;
+// 		ELSE
+// 			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
+// 		END_IF
 		
 		
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -967,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{DED51962-4F3A-608C-5528-794ABFBF4DF9}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{10B871BA-7C11-BD52-EC89-E37871780E2A}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1093,6 +1093,10 @@
 							<Name>MQTT.errorTextRobot</Name>
 							<Comment><![CDATA[ Fehlermeldungen]]></Comment>
 							<Type>STRING(80)</Type>
+						</Var>
+						<Var>
+							<Name>MAIN_Bahnplanung.lightBarrierGripper</Name>
+							<Type>BOOL</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="2" ContextId="2" AreaNo="33">
@@ -1259,10 +1263,6 @@
 						<Var>
 							<Name>Main_MotorTask.currentfromMotor3</Name>
 							<Type>UINT</Type>
-						</Var>
-						<Var>
-							<Name>Main_MotorTask.lightBarrierGripper</Name>
-							<Type>BOOL</Type>
 						</Var>
 						<Var>
 							<Name>Main_MotorTask.bumper</Name>
@@ -1487,6 +1487,13 @@
 								<Link VarA="Main_BahnplanungTask.codeToSend" TypeA="INT" InOutA="1" GuidA="{18071995-0000-0000-0000-000000000006}" VarB="PlcTask Inputs^MQTT.codeToSend" RestoreInfo="ANotFound"/>
 								<Link VarA="Main_BahnplanungTask.extraCode" TypeA="mqttExtraCode" InOutA="1" GuidA="{1C690493-9BB8-9FAA-04D7-D0781D5E86FD}" VarB="PlcTask Inputs^MQTT.extraCode" RestoreInfo="ANotFound"/>
 								<Link VarA="Main_BahnplanungTask.messageToSend" TypeA="STRING(255)" InOutA="1" GuidA="{18071995-0000-0000-0000-0001000000FF}" VarB="PlcTask Inputs^MQTT.messageToSend" RestoreInfo="ANotFound"/>
+							</OwnerB>
+						</OwnerA>
+					</UnrestoredVarLinks>
+					<UnrestoredVarLinks ImportTime="2026-04-16T13:50:43">
+						<OwnerA Name="InputDst" Prefix="TIPC^HAWino^HAWino Instance" Type="1">
+							<OwnerB Name="TIID^Device 1 (EtherCAT)^Term 1 (EK1200)^Digitale Eingänge A4 (EL1008)">
+								<Link VarA="Main_MotorTask.lightBarrierGripper" TypeA="BOOL" InOutA="0" GuidA="{18071995-0000-0000-0000-000000000030}" VarB="Channel 6^Input" Size="1" RestoreInfo="ANotFound"/>
 							</OwnerB>
 						</OwnerA>
 					</UnrestoredVarLinks>
@@ -4360,7 +4367,7 @@ Bit1: Value smaller than Limit2]]></Comment>
 				<Link VarA="BahnplanungTask Inputs^Bumper.BumperStrip" VarB="Bumper (S1)^Input"/>
 				<Link VarA="MotorTask Inputs^Gripper.slider" VarB="Channel 5^Input"/>
 				<Link VarA="MotorTask Inputs^Main_MotorTask.bumper" VarB="Bumper (S1)^Input"/>
-				<Link VarA="MotorTask Inputs^Main_MotorTask.lightBarrierGripper" VarB="Channel 6^Input"/>
+				<Link VarA="SOCTask Inputs^MAIN_Bahnplanung.lightBarrierGripper" VarB="Channel 6^Input"/>
 				<Link VarA="SOCTask Inputs^Main_MotorTask.sliderGripper" VarB="Channel 5^Input"/>
 				<Link VarA="SOCTask Inputs^PowerManager.shutdownButton" VarB="ShutdownRequested (S11)^Input"/>
 			</OwnerB>

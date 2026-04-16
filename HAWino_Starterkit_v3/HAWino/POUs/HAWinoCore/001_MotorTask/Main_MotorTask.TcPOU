@@ -18,7 +18,6 @@ VAR
 	currentfromMotor2 AT %I* : UINT;
 	currentfromMotor3 AT %I* : UINT;
 	sliderGripper 		AT %I* : BOOL;
-	lightBarrierGripper AT %I* : BOOL;
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Variablen werden zur Synchronisation über das PA-Q aus dem Task gesetzt.
@@ -70,6 +69,10 @@ VAR
 	enableMotorControl		: BOOL  := TRUE;
 	
 	RobotIndex : INT := -1;
+	
+	WinkelOK: BOOL := FALSE;
+	XPosOK: BOOL := FALSE;
+	YPosOK: BOOL := FALSE;
 	
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Instanzierung der FBs
@@ -140,7 +143,7 @@ END_IF
 // GVL_Datatransfer23.gvZielPosition.reX 		:= 1400;
 // GVL_Datatransfer23.gvZielPosition.reY		:= 800;
 // GVL_Datatransfer23.gvZielPosition.reWinkel	:= 180;
-lightBarrierGripper := lightBarrierGripper;
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Schrittkette
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -201,6 +204,12 @@ CASE GVL_Datatransfer23.inControl OF
 		targetPos.reY 		:= GVL_Datatransfer23.gvZielPosition.reY;
 		targetPos.reWinkel	:= GVL_Datatransfer23.gvZielPosition.reWinkel* PI / 180.0;;
 		// Prüfen ob Zielpositon erreicht
+		
+		IF (ABS(actualPos.reWinkel)- ABS(targetPos.reWinkel)	> 0.2) THEN WinkelOK := TRUE; END_IF
+		IF (ABS(actualPos.reX 		- targetPos.reX) 			> 0.5) THEN XPosOK := TRUE; END_IF
+		IF (ABS(actualPos.reY 		- targetPos.reY) 			> 0.5) THEN YPosOK := TRUE; END_IF
+		
+		
 		IF 	(ABS(actualPos.reWinkel)- ABS(targetPos.reWinkel)	> 0.2 OR 
 			ABS(actualPos.reX 		- targetPos.reX) 			> 0.5 OR  
 			ABS(actualPos.reY 		- targetPos.reY) 			> 0.5)AND

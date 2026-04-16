@@ -44,6 +44,7 @@ VAR
 	sMqttOut : sMqttOut;
 	eStateMachine : E_RobotState;
 	sactualKoordinates : sKoordinate;
+	lightBarrierGripper AT %I* : BOOL;
 END_VAR
 	
 	VAR_TEMP

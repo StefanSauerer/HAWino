@@ -86,7 +86,7 @@ VAR
 	targetSpeed_Robot	: sPosition;	// Geschwindigkeit in Roboterkoordinaten
 	targetPos			: sPosition;	// Geschwindigkeitsvorgabe
 	actualPos			: sPosition;	// Tatsächliche Position
-	perfectPos			: sPosition;	// Theoretisch perfekte Position	
+	perfCamPos			: sPosition :=  (reWinkel := 0, reX := 0, reY := 0);	// vorherige Kamera Position	
 	
 	actualError			: LREAL;		// Kamerafehler
 	wheelSpeed 			: WheelVelocity;
@@ -303,38 +303,56 @@ IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
 		GVL_Datatransfer23.inStatus := RobotStatus.fehler;	
 	END_IF	
 ELSE
-	// Falls Kameraposition gut nehmen
-	actualPos.reX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
-	actualPos.reY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
-	actualPos.reWinkel 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
-	actualError			:= Camera.cameraData.robotPosition[RobotIndex].e;
-	CameraTimestamp 	:= (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
-	CurrentTime			:= CameraTimestamp;
-	
-	// Mittelwert der Motordaten berechnen (Darf man, da in vectorfahrt keine Drehung)
-	averageWheelSpeed.wheel1 := 0;
-	averageWheelSpeed.wheel2 := 0;
-	averageWheelSpeed.wheel3 := 0;
-	
-	FOR i := 0 TO bufferLength DO
-		averageWheelSpeed.wheel1 :=  averageWheelSpeed.wheel1 + bufferWheelSpeed[i].wheel1;
-		averageWheelSpeed.wheel2 :=  averageWheelSpeed.wheel2 + bufferWheelSpeed[i].wheel2;
-		averageWheelSpeed.wheel3 :=  averageWheelSpeed.wheel3 + bufferWheelSpeed[i].wheel3;
-	END_FOR
-	averageWheelSpeed.wheel1 := averageWheelSpeed.wheel1 / (bufferLength + 1);
-	averageWheelSpeed.wheel2 := averageWheelSpeed.wheel2 / (bufferLength + 1);
-	averageWheelSpeed.wheel3 := averageWheelSpeed.wheel3 / (bufferLength + 1);
-	
-	// Diesen Wert dann nochmal um 100 ms vorwärtsrechnen mit den Motordaten
-	propagate_state(
+	// Prüfen ob neue Kameraposition
+	IF(	(perfCamPos.reX 	 = Camera.cameraData.robotPosition[RobotIndex].x)	OR
+		(perfCamPos.reY 	 = Camera.cameraData.robotPosition[RobotIndex].y) 	OR
+		(perfCamPos.reWinkel = Camera.cameraData.robotPosition[RobotIndex].theta)) THEN
+		// Wenn keine neue Kameraposition gesendet wurde actualPosition um eine Zückluszeit weiter berechnen
+		propagate_state(
 			X_Start 	:= actualPos,
-			wheelSpeed 	:= averageWheelSpeed, 
+			wheelSpeed 	:= wheelSpeed, 
 			P_Start 	:= P_currentState,
-			deltaT 		:= cameraDelay,
+			deltaT 		:= cycletime,
 			X_Predict 	=> actualPos,
 			P_Predict 	=> P_currentState
 		);
-	
+		
+	ELSE
+		// Falls Kameraposition gut nehmen
+		actualPos.reX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
+		actualPos.reY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
+		actualPos.reWinkel 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
+		actualError			:= Camera.cameraData.robotPosition[RobotIndex].e;
+		CameraTimestamp 	:= (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
+		CurrentTime			:= CameraTimestamp;
+		
+		// Abspeichern der actualposition als alte Kameraposition
+		perfCamPos := actualPos;
+		
+		// Mittelwert der Motordaten berechnen (Darf man, da in vectorfahrt keine Drehung)
+		averageWheelSpeed.wheel1 := 0;
+		averageWheelSpeed.wheel2 := 0;
+		averageWheelSpeed.wheel3 := 0;
+		
+		FOR i := 0 TO bufferLength DO
+			averageWheelSpeed.wheel1 :=  averageWheelSpeed.wheel1 + bufferWheelSpeed[i].wheel1;
+			averageWheelSpeed.wheel2 :=  averageWheelSpeed.wheel2 + bufferWheelSpeed[i].wheel2;
+			averageWheelSpeed.wheel3 :=  averageWheelSpeed.wheel3 + bufferWheelSpeed[i].wheel3;
+		END_FOR
+		averageWheelSpeed.wheel1 := averageWheelSpeed.wheel1 / (bufferLength + 1);
+		averageWheelSpeed.wheel2 := averageWheelSpeed.wheel2 / (bufferLength + 1);
+		averageWheelSpeed.wheel3 := averageWheelSpeed.wheel3 / (bufferLength + 1);
+		
+		// Diesen Wert dann nochmal um 100 ms vorwärtsrechnen mit den Motordaten
+		propagate_state(
+				X_Start 	:= actualPos,
+				wheelSpeed 	:= averageWheelSpeed, 
+				P_Start 	:= P_currentState,
+				deltaT 		:= cameraDelay,
+				X_Predict 	=> actualPos,
+				P_Predict 	=> P_currentState
+			);
+	END_IF
 END_IF]]></ST>
       </Implementation>
     </Action>

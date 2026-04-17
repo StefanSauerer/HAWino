@@ -7,6 +7,7 @@ VAR_INPUT
 	actualPos		: sPosition;
 	KPX				: LREAL 	:= 0.6;
 	KPY				: LREAL 	:= 0.8;
+	KIX				: LREAL 	:= 0.025;
 END_VAR
 VAR_OUTPUT
 	vXCartesianToMotors		: LREAL :=0;
@@ -124,7 +125,12 @@ deltaError.reY := error.reY - (targetPos.reY - actualPos.reY);
 error.reX := targetPos.reX - actualPos.reX;
 error.reY := targetPos.reY - actualPos.reY;
 
+IF KIX = 0.0 THEN
+integralError.reX := 0.0;
+ELSE
 integralError.reX := integralError.reX + (error.reX * diffConst);
+END_IF
+
 //integralError.reY := integralError.reY + (error.reY * diffConst);
 //integralError.reWinkel := integralError.reWinkel + (error.reWinkel * diffConst);
 

@@ -70,6 +70,10 @@ VAR
 	
 	RobotIndex : INT := -1;
 	
+	DeltaWinkel : LREAL := 0.0;
+	DeltaX : LREAL := 0.0;
+	DeltaY : LREAL := 0.0;
+	
 	WinkelOK: BOOL := FALSE;
 	XPosOK: BOOL := FALSE;
 	YPosOK: BOOL := FALSE;
@@ -89,11 +93,17 @@ VAR
 	perfectPos			: sPosition;	// Theoretisch perfekte Position
 	
 	//Pseudofuzzy Parameter
-	idle : LREAL := 0.0;
-	KPX1 : LREAL :=	0.1;//KPX wird runtergedreht, solange Y noch nicht erfüllt
-	KPX2 : LREAL :=	0.6;//Ursprüngliches KPX
-	KPY1 : LREAL :=	1; //KPY wird hochgedreht, solange Y noch nicht erfüllt
-	KPY2 : LREAL :=	0.8;///Ursprüngliches KPY
+	NILL : LREAL := 0.0;
+	KPX_MIN : LREAL :=	0.1;	//KPX wird runtergedreht, solange Y noch nicht erfüllt
+	KPX_MAX : LREAL :=	0.6;	//Ursprüngliches KPX
+	KPY_MIN : LREAL :=	1; 		//KPY wird hochgedreht, solange Y noch nicht erfüllt
+	KPY_MAX : LREAL :=	0.8	;	//Ursprüngliches KPY
+	KIX_MIN : LREAL :=	0.0;	//KIX disabled
+	KIX_MAX : LREAL := 0.025;	//Ursprüngliches KIX		Ich habe folgenden Code: KPX := KPX_MIN + (1/DeltaX)*KPX_MAX; KIX := KPX_MIN + DeltaX* KIX_MAX; Ich möchte, dass KPX für große Entfernungen DeltaX (zu rechnen ist mit ca. 100) gegen KPX_MAX geht, und für Entfernungen gegen 0 gegen KPX_MIN geht. KIX soll sich umgekehrt verhalten, also für große DeltaX gegen KIX_MIN gehen und für kleine Entfernungen gegen KIX_MAX gehen. Wie setzte ich das um?
+	
+	KPX : LREAL;
+	KPY : LREAL;
+	KIX : LREAL;
 	
 	actualError			: LREAL;		// Kamerafehler
 	wheelSpeed 			: WheelVelocity;
@@ -212,36 +222,51 @@ CASE GVL_Datatransfer23.inControl OF
 		targetPos.reWinkel	:= GVL_Datatransfer23.gvZielPosition.reWinkel* PI / 180.0;;
 		// Prüfen ob Zielpositon erreicht
 		
-		IF (ABS(actualPos.reWinkel)- ABS(targetPos.reWinkel)	< 0.2) THEN WinkelOK := TRUE;
+		DeltaWinkel := ABS(actualPos.reWinkel)- ABS(targetPos.reWinkel);
+		DeltaX 		:= ABS(actualPos.reX 		- targetPos.reX);
+		DeltaY 		:= ABS(actualPos.reY 		- targetPos.reY);
+		
+		IF (DeltaWinkel	< 0.2) THEN WinkelOK := TRUE;
 		ELSE WinkelOK := FALSE;
  		END_IF
-		IF (ABS(actualPos.reX 		- targetPos.reX) 			< 12) THEN XPosOK := TRUE;
+		IF (DeltaX  	< 12) THEN XPosOK := TRUE;
 		ELSE XPosOK := FALSE;
  		END_IF
-		IF (ABS(actualPos.reY 		- targetPos.reY) 			< 2) THEN YPosOK := TRUE;
+		IF (DeltaY 		< 2) THEN YPosOK := TRUE;
 		ELSE YPosOK := FALSE;
  		END_IF
+		
+		KPX := KPX_MIN + (1/DeltaX)*KPX_MAX;
+		KIX := KPX_MIN + DeltaX* KIX_MAX;
 		
 		//Zuerst Winkel ausrichten, keine XY Bewegung
 		IF 	(WinkelOK = FALSE) THEN
 			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
-								vXCartesianToMotors 	=> idle,
-								vYCartesianToMotors 	=> idle,
+								vXCartesianToMotors 	=> NILL,
+								vYCartesianToMotors 	=> NILL,
 								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
 			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
 		//Solange Y-Position nicht im richtigen Bereich, wird Y-Bewegung bevorzugt
-		ELSIF YPosOK = FALSE 	THEN			
+		ELSIF (DeltaY > DeltaX) 	THEN			
 			// Wert des Positionsreglers berechnen
-			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos, KPX := KPX1, KPY := KPY1,
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos, KPX := NILL, KPY := KPY, KIX := NILL,
 								vXCartesianToMotors 	=> targetSpeed_Robot.reX,
 								vYCartesianToMotors 	=> targetSpeed_Robot.reY,
 								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel
 								);								
 			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
+		ELSIF (YPosok = FALSE) 	THEN			
+			// Wert des Positionsreglers berechnen
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos, KPX := 0.25*KPX, KPY := KPY, KIX := 0.25*KIX,
+								vXCartesianToMotors 	=> targetSpeed_Robot.reX,
+								vYCartesianToMotors 	=> targetSpeed_Robot.reY,
+								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel
+								);								
+			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;	
 		//Normales Regelverhalten (sollte fast nur in X-Richtung fahren), bis slider detected
 		ELSIF(//XPosok = FALSE AND 
 				Gripper.slider = TRUE) THEN
-			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos, KPX := KPX2, KPY := KPY2,
+		FB_Positionsregler(targetPos := targetPos, actualPos := actualPos, KPX := KPX, KPY := KPY, KIX := KIX,
 								vXCartesianToMotors 	=> targetSpeed_Robot.reX,
 								vYCartesianToMotors 	=> targetSpeed_Robot.reY,
 								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);								
@@ -249,9 +274,9 @@ CASE GVL_Datatransfer23.inControl OF
 		//Keine Bewegung wenn Ziel erreicht und slider dr, Ziel erreicht Meldung
 		ELSE
 			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
-								vXCartesianToMotors 	=> idle,
-								vYCartesianToMotors 	=> idle,
-								vThetaCartesianToMotors => idle);				
+								vXCartesianToMotors 	=> NILL,
+								vYCartesianToMotors 	=> NILL,
+								vThetaCartesianToMotors => NILL);				
 			GVL_Datatransfer23.inStatus := RobotStatus.zielErreicht;
 		END_IF
 		

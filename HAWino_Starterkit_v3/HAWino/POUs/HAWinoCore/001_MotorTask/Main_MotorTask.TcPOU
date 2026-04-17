@@ -95,15 +95,17 @@ VAR
 	//Pseudofuzzy Parameter
 	NILL : LREAL := 0.0;
 	KPX_MIN : LREAL :=	0.1;	//KPX wird runtergedreht, solange Y noch nicht erfüllt
-	KPX_MAX : LREAL :=	0.6;	//Ursprüngliches KPX
+	KPX_MAX : LREAL :=	4.5;	//Ursprüngliches KPX
 	KPY_MIN : LREAL :=	1; 		//KPY wird hochgedreht, solange Y noch nicht erfüllt
-	KPY_MAX : LREAL :=	0.8	;	//Ursprüngliches KPY
+	KPY_MAX : LREAL :=	3.0	;	//Ursprüngliches KPY
 	KIX_MIN : LREAL :=	0.0;	//KIX disabled
-	KIX_MAX : LREAL := 0.025;	//Ursprüngliches KIX		Ich habe folgenden Code: KPX := KPX_MIN + (1/DeltaX)*KPX_MAX; KIX := KPX_MIN + DeltaX* KIX_MAX; Ich möchte, dass KPX für große Entfernungen DeltaX (zu rechnen ist mit ca. 100) gegen KPX_MAX geht, und für Entfernungen gegen 0 gegen KPX_MIN geht. KIX soll sich umgekehrt verhalten, also für große DeltaX gegen KIX_MIN gehen und für kleine Entfernungen gegen KIX_MAX gehen. Wie setzte ich das um?
+	KIX_MAX : LREAL := 0.5;	//Ursprüngliches KIX		Ich habe folgenden Code: KPX := KPX_MIN + (1/DeltaX)*KPX_MAX; KIX := KPX_MIN + DeltaX* KIX_MAX; Ich möchte, dass KPX für große Entfernungen DeltaX (zu rechnen ist mit ca. 100) gegen KPX_MAX geht, und für Entfernungen gegen 0 gegen KPX_MIN geht. KIX soll sich umgekehrt verhalten, also für große DeltaX gegen KIX_MIN gehen und für kleine Entfernungen gegen KIX_MAX gehen. Wie setzte ich das um?
 	
 	KPX : LREAL;
 	KPY : LREAL;
 	KIX : LREAL;
+	
+	f : LREAL;//Funktion für Übergang KIX und KPX
 	
 	actualError			: LREAL;		// Kamerafehler
 	wheelSpeed 			: WheelVelocity;
@@ -140,7 +142,7 @@ IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 	RobotIndex := -1;
 ELSE
 	ACT_Kammeramessung();
-	enableMotorControl := FALSE;	
+	//enableMotorControl := FALSE;	
 END_IF;
 
 // Beste Positionsschätzung an Gruppe 2 übergeben
@@ -236,8 +238,24 @@ CASE GVL_Datatransfer23.inControl OF
 		ELSE YPosOK := FALSE;
  		END_IF
 		
-		KPX := KPX_MIN + (1/DeltaX)*KPX_MAX;
-		KIX := KPX_MIN + DeltaX* KIX_MAX;
+		f := DeltaX / 100.0;
+		IF f > 1 THEN f := 1;END_IF;
+		IF f < 0 THEN f := 0;END_IF;		
+		
+		
+		IF DeltaX < 35 THEN
+			KPX := 0;
+		ELSE
+			KPX := KPX_MIN + f * (KPX_MAX - KPX_MIN);			
+		END_IF;		
+		
+		IF DeltaX > 100 THEN
+			KIX := 0;
+		ELSE
+			KIX := KIX_MAX - f * (KIX_MAX - KIX_MIN);		
+		END_IF;		
+				
+		KPY := KPY_MAX;
 		
 		//Zuerst Winkel ausrichten, keine XY Bewegung
 		IF 	(WinkelOK = FALSE) THEN
@@ -246,8 +264,8 @@ CASE GVL_Datatransfer23.inControl OF
 								vYCartesianToMotors 	=> NILL,
 								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
 			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
-		//Solange Y-Position nicht im richtigen Bereich, wird Y-Bewegung bevorzugt
-		ELSIF (DeltaY > DeltaX) 	THEN			
+		//Wenn ganz nah an der Tasche, aber danaben, wird nur in Y gefahren
+		ELSIF (DeltaY > 5 AND DeltaX < 20) 	THEN			
 			// Wert des Positionsreglers berechnen
 			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos, KPX := NILL, KPY := KPY, KIX := NILL,
 								vXCartesianToMotors 	=> targetSpeed_Robot.reX,
@@ -255,9 +273,10 @@ CASE GVL_Datatransfer23.inControl OF
 								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel
 								);								
 			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
+			//Solange Y-Position nicht im richtigen Bereich, wird Y-Bewegung bevorzugt
 		ELSIF (YPosok = FALSE) 	THEN			
 			// Wert des Positionsreglers berechnen
-			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos, KPX := 0.25*KPX, KPY := KPY, KIX := 0.25*KIX,
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos, KPX := 0.2*KPX, KPY := KPY, KIX := 0.2*KIX,
 								vXCartesianToMotors 	=> targetSpeed_Robot.reX,
 								vYCartesianToMotors 	=> targetSpeed_Robot.reY,
 								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel

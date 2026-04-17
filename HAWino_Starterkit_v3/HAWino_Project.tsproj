@@ -943,7 +943,7 @@
 		<ImageData Id="1004">424dd6020000000000003600000028000000100000000e0000000100180000000000a0020000c40e0000c40e00000000000000000000ff00ffff00ffff00ffff00ffff00ffff00ff808080808080808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff007fff007fff007fff007fff007fff007fffc0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ff</ImageData>
 		<ImageData Id="1005">424de6000000000000007600000028000000100000000e000000010004000000000070000000000000000000000000000000000000000000000000008000008000000080800080000000800080008080000080808000c0c0c0000000ff0000ff000000ffff00ff000000ff00ff00ffff0000ffffff00ffffffffffffffffff788833338887ffff78883bb38887ffffffff3bb3ffffffffffff8778fffffffffffffffffffffffffffffffff999ffff78f78fffffffffff78f78ffff999ffff78f7888fffffffff78f78f78f999ffff78f78f78ffffffff78f7888ff999ffffffffffffffffff</ImageData>
 	</ImageDatas>
-	<Project ProjectGUID="{953E7D24-8971-4ED8-AECF-7CA52AD733DF}" TargetNetId="5.53.205.200.1.1" Target64Bit="true" ShowHideConfigurations="#x106">
+	<Project ProjectGUID="{953E7D24-8971-4ED8-AECF-7CA52AD733DF}" TargetNetId="5.53.205.214.1.1" Target64Bit="true" ShowHideConfigurations="#x106">
 		<System>
 			<Settings MaxCpus="2">
 				<Cpu BaseTime="666"/>
@@ -967,19 +967,19 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{E6E40335-DFEC-F1DC-F499-310B0472DFBC}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{3B69686C-5939-3C70-CA81-225DC0375ECB}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
 						<Name>SOCTask Outputs</Name>
 						<Var>
-							<Name>HAWino.Robot_Number</Name>
-							<Type>INT</Type>
-						</Var>
-						<Var>
 							<Name>PowerManager.shutdownTrigger</Name>
 							<Comment><![CDATA[Zeitablauf, bis Robi ausschaltet]]></Comment>
 							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>HAWino.Robot_Number</Name>
+							<Type>INT</Type>
 						</Var>
 						<Var>
 							<Name>PowerManager.batteryVoltage_V</Name>
@@ -1037,12 +1037,12 @@
 							<Type>INT</Type>
 						</Var>
 						<Var>
-							<Name>MQTT.bComCheckAnswer</Name>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
 							<Name>MQTT.robotPositions</Name>
 							<Type GUID="{D23FD725-86F0-067F-A117-ADC7250A16F6}">ARRAY [1..4] OF Position</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.bComCheckAnswer</Name>
+							<Type>BOOL</Type>
 						</Var>
 						<Var>
 							<Name>MQTT.stMqtt_HAWino_Out</Name>
@@ -1070,6 +1070,10 @@
 							<Type>LREAL</Type>
 						</Var>
 						<Var>
+							<Name>MAIN_Bahnplanung.lightBarrierGripper</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
 							<Name>PowerManager.shutdownButton</Name>
 							<Comment><![CDATA[Button zum Ausschalten]]></Comment>
 							<Type>BOOL</Type>
@@ -1094,10 +1098,6 @@
 							<Comment><![CDATA[ Fehlermeldungen]]></Comment>
 							<Type>STRING(80)</Type>
 						</Var>
-						<Var>
-							<Name>MAIN_Bahnplanung.lightBarrierGripper</Name>
-							<Type>BOOL</Type>
-						</Var>
 					</Vars>
 					<Vars VarGrpType="2" ContextId="2" AreaNo="33">
 						<Name>PlcTask Outputs</Name>
@@ -1107,14 +1107,14 @@
 							<Type>BOOL</Type>
 						</Var>
 						<Var>
-							<Name>HAWino.cameraPosition</Name>
-							<Comment><![CDATA[ Aktuelle roboterspezifische Kameraposition]]></Comment>
-							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
-						</Var>
-						<Var>
 							<Name>HAWino.cameraReceivedPakets</Name>
 							<Comment><![CDATA[ Counter für erhaltene Kamerapakete]]></Comment>
 							<Type>UINT</Type>
+						</Var>
+						<Var>
+							<Name>HAWino.cameraPosition</Name>
+							<Comment><![CDATA[ Aktuelle roboterspezifische Kameraposition]]></Comment>
+							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
 						</Var>
 						<Var>
 							<Name>Camera.cameraData.MS</Name>

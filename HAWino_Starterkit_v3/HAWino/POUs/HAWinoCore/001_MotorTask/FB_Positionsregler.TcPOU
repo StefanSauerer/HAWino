@@ -34,7 +34,7 @@ VAR
 	//KPX		: LREAL 	:= 0.8;
 	//KPY		: LREAL		:= 0.8;
 	KPTheta	: LREAL 	:= 1.5;
-	KIX 	: LREAL 	:= 0.025;
+	//KIX 	: LREAL 	:= 0.025;
 	KITheta : LREAL 	:= 0.1;
 	
 	speedThreshold	: LREAL := 0.01; //Annäherung nur aktiv bei Abweichung > threshold

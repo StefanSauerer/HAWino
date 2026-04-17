@@ -86,7 +86,14 @@ VAR
 	targetSpeed_Robot	: sPosition;	// Geschwindigkeit in Roboterkoordinaten
 	targetPos			: sPosition;	// Geschwindigkeitsvorgabe
 	actualPos			: sPosition;	// Tatsächliche Position
-	perfectPos			: sPosition;	// Theoretisch perfekte Position	
+	perfectPos			: sPosition;	// Theoretisch perfekte Position
+	
+	//Pseudofuzzy Parameter
+	idle : LREAL := 0.0;
+	KPX1 : LREAL :=	0.1;//KPX wird runtergedreht, solange Y noch nicht erfüllt
+	KPX2 : LREAL :=	0.6;//Ursprüngliches KPX
+	KPY1 : LREAL :=	1; //KPY wird hochgedreht, solange Y noch nicht erfüllt
+	KPY2 : LREAL :=	0.8;///Ursprüngliches KPY
 	
 	actualError			: LREAL;		// Kamerafehler
 	wheelSpeed 			: WheelVelocity;
@@ -123,6 +130,7 @@ IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 	RobotIndex := -1;
 ELSE
 	ACT_Kammeramessung();
+	enableMotorControl := FALSE;	
 END_IF;
 
 // Beste Positionsschätzung an Gruppe 2 übergeben
@@ -143,7 +151,6 @@ END_IF
 // GVL_Datatransfer23.gvZielPosition.reX 		:= 1400;
 // GVL_Datatransfer23.gvZielPosition.reY		:= 800;
 // GVL_Datatransfer23.gvZielPosition.reWinkel	:= 180;
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Schrittkette
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -205,24 +212,46 @@ CASE GVL_Datatransfer23.inControl OF
 		targetPos.reWinkel	:= GVL_Datatransfer23.gvZielPosition.reWinkel* PI / 180.0;;
 		// Prüfen ob Zielpositon erreicht
 		
-		IF (ABS(actualPos.reWinkel)- ABS(targetPos.reWinkel)	> 0.2) THEN WinkelOK := TRUE; END_IF
-		IF (ABS(actualPos.reX 		- targetPos.reX) 			> 0.5) THEN XPosOK := TRUE; END_IF
-		IF (ABS(actualPos.reY 		- targetPos.reY) 			> 0.5) THEN YPosOK := TRUE; END_IF
+		IF (ABS(actualPos.reWinkel)- ABS(targetPos.reWinkel)	< 0.2) THEN WinkelOK := TRUE;
+		ELSE WinkelOK := FALSE;
+ 		END_IF
+		IF (ABS(actualPos.reX 		- targetPos.reX) 			< 12) THEN XPosOK := TRUE;
+		ELSE XPosOK := FALSE;
+ 		END_IF
+		IF (ABS(actualPos.reY 		- targetPos.reY) 			< 2) THEN YPosOK := TRUE;
+		ELSE YPosOK := FALSE;
+ 		END_IF
 		
-		
-		IF 	(ABS(actualPos.reWinkel)- ABS(targetPos.reWinkel)	> 0.2 OR 
-			ABS(actualPos.reX 		- targetPos.reX) 			> 0.5 OR  
-			ABS(actualPos.reY 		- targetPos.reY) 			> 0.5)AND
-			Gripper.slider = TRUE								THEN	
-			
-			// Wert des Positionsreglers berechnen
+		//Zuerst Winkel ausrichten, keine XY Bewegung
+		IF 	(WinkelOK = FALSE) THEN
 			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
+								vXCartesianToMotors 	=> idle,
+								vYCartesianToMotors 	=> idle,
+								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
+			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
+		//Solange Y-Position nicht im richtigen Bereich, wird Y-Bewegung bevorzugt
+		ELSIF YPosOK = FALSE 	THEN			
+			// Wert des Positionsreglers berechnen
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos, KPX := KPX1, KPY := KPY1,
 								vXCartesianToMotors 	=> targetSpeed_Robot.reX,
 								vYCartesianToMotors 	=> targetSpeed_Robot.reY,
-								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
-								
+								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel
+								);								
 			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
+		//Normales Regelverhalten (sollte fast nur in X-Richtung fahren), bis slider detected
+		ELSIF(//XPosok = FALSE AND 
+				Gripper.slider = TRUE) THEN
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos, KPX := KPX2, KPY := KPY2,
+								vXCartesianToMotors 	=> targetSpeed_Robot.reX,
+								vYCartesianToMotors 	=> targetSpeed_Robot.reY,
+								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);								
+			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
+		//Keine Bewegung wenn Ziel erreicht und slider dr, Ziel erreicht Meldung
 		ELSE
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
+								vXCartesianToMotors 	=> idle,
+								vYCartesianToMotors 	=> idle,
+								vThetaCartesianToMotors => idle);				
 			GVL_Datatransfer23.inStatus := RobotStatus.zielErreicht;
 		END_IF
 		

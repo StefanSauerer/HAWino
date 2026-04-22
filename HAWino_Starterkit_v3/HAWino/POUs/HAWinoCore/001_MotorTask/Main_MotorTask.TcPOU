@@ -139,10 +139,12 @@ IF bumper THEN
 END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
-// GVL_Datatransfer23.inControl := RobotControl.position;
-// GVL_Datatransfer23.gvZielPosition.reX 		:= 1400;
-// GVL_Datatransfer23.gvZielPosition.reY		:= 800;
-// GVL_Datatransfer23.gvZielPosition.reWinkel	:= 180;
+GVL_Datatransfer23.inControl := RobotControl.position;
+// GVL_Datatransfer23.gvZielPosition.reX 		:= 4000;
+// GVL_Datatransfer23.gvZielPosition.reY		:= 100;
+GVL_Datatransfer23.gvZielPosition.reX 		:= 6000;
+GVL_Datatransfer23.gvZielPosition.reY		:= 500;
+GVL_Datatransfer23.gvZielPosition.reWinkel	:= 120;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Schrittkette
@@ -422,6 +424,9 @@ END_VAR]]></Declaration>
 (*  Diskretisierung: Vorwärts-Euler                          *)
 (* ========================================================= *)
 
+// wheelSpeed.wheel1 := -wheelSpeed.wheel1;
+// wheelSpeed.wheel2 := -wheelSpeed.wheel2;
+// wheelSpeed.wheel3 := -wheelSpeed.wheel3;
 
 
 (* --- Wheel -> Body --- *)
@@ -438,7 +443,7 @@ bodyVelY := -(2.0/3.0) * (
 		   );
 
 yawRate := (wheelSpeed.wheel1 + wheelSpeed.wheel2 + wheelSpeed.wheel3) 
-		   / (3.0 * GVL_RobotConstant.ROBOT_RADIUS);
+		   / (3.0 * GVL_RobotConstant.ROBOT_RADIUS * 1000);// Umrechnung in mm
 
 (* --- Body -> World --- *)
 worldVelX := bodyVelX * COS(X_Start.reWinkel)
@@ -451,7 +456,7 @@ worldVelY := bodyVelX * SIN(X_Start.reWinkel)
 (* --- Integration --- *)
 X_Predict.reX 		:= X_Start.reX + deltaT * worldVelX;
 X_Predict.reY 		:= X_Start.reY + deltaT * worldVelY;
-X_Predict.reWinkel 	:= X_Start.reWinkel + deltaT * yawRate/1000;
+X_Predict.reWinkel 	:= X_Start.reWinkel + deltaT * yawRate;
 
 
 (* --- Winkel normalisieren --- *)

@@ -140,11 +140,9 @@ END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
 GVL_Datatransfer23.inControl := RobotControl.position;
-// GVL_Datatransfer23.gvZielPosition.reX 		:= 4000;
-// GVL_Datatransfer23.gvZielPosition.reY		:= 100;
 GVL_Datatransfer23.gvZielPosition.reX 		:= 6000;
 GVL_Datatransfer23.gvZielPosition.reY		:= 500;
-GVL_Datatransfer23.gvZielPosition.reWinkel	:= 120;
+GVL_Datatransfer23.gvZielPosition.reWinkel	:= -20;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Schrittkette
@@ -424,22 +422,19 @@ END_VAR]]></Declaration>
 (*  Diskretisierung: Vorwärts-Euler                          *)
 (* ========================================================= *)
 
-// wheelSpeed.wheel1 := -wheelSpeed.wheel1;
-// wheelSpeed.wheel2 := -wheelSpeed.wheel2;
-// wheelSpeed.wheel3 := -wheelSpeed.wheel3;
-
+X_Start.reWinkel := -X_Start.reWinkel;
 
 (* --- Wheel -> Body --- *)
 bodyVelX := -(2.0/3.0) * (
-			   -SIN(PI/3.0)    * wheelSpeed.wheel1
-			   -SIN(PI)        * wheelSpeed.wheel2
-			   -SIN(5.0*PI/3.0)* wheelSpeed.wheel3
+			   -SIN(60  * PI/180) * wheelSpeed.wheel1
+			   -SIN(180 * PI/180) * wheelSpeed.wheel2
+			   -SIN(300 * PI/180) * wheelSpeed.wheel3
 		   );
 
 bodyVelY := -(2.0/3.0) * (
-				COS(PI/3.0)    * wheelSpeed.wheel1
-			  + COS(PI)        * wheelSpeed.wheel2
-			  + COS(5.0*PI/3.0)* wheelSpeed.wheel3
+				COS(60  * PI/180) * wheelSpeed.wheel1
+			  + COS(180 * PI/180) * wheelSpeed.wheel2
+			  + COS(300 * PI/180) * wheelSpeed.wheel3
 		   );
 
 yawRate := (wheelSpeed.wheel1 + wheelSpeed.wheel2 + wheelSpeed.wheel3) 
@@ -467,7 +462,7 @@ ELSIF X_Predict.reWinkel < -PI THEN
 END_IF;
 
 
-
+X_Predict.reWinkel := - X_Predict.reWinkel;
 
 
 P_Predict := P_Start;

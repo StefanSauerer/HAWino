@@ -80,18 +80,21 @@ END_VAR
 ACT_Zustandsautomat();
 
 //Invertieren der Sollgeschwindigkeiten
-vX:=-targetVelX;
-vY:=-targetVelY;
-vTheta:=-tragetVelTheta;
+vX 		:= -targetVelX;
+vY 		:= -targetVelY;
+vTheta	:= -tragetVelTheta;
+// vx := -100;
+// vY := 00;
+// vTheta:= 1;
 
 //Umrechnung der Kartesischen Geschwindigkeit auf die einzelnen Motoren
 // targetVelocityMotor1 := ((-vX * COS(30.0*PI/180))	+ (vY * COS(60.0*PI/180))	+ (vTheta * 135.0));
 // targetVelocityMotor2 := (0.0							+ (-vY)						+ (vTheta * 135.0));
 // targetVelocityMotor3 := ((vX * COS(30.0*PI/180))		+ (vY * COS(60.0*PI/180))	+ (vTheta * 135.0));
 
-targetVelocityMotor1 := -SIN(PI/3.0) * vX + COS(PI/3.0) * vY + GVL_RobotConstant.ROBOT_RADIUS * 1000 * vTheta; // Robot Radius in mm umrechnen
-targetVelocityMotor2 := -SIN(PI)     * vX + COS(PI)     * vY + GVL_RobotConstant.ROBOT_RADIUS * 1000 * vTheta;
-targetVelocityMotor3 := -SIN(5*PI/3) * vX + COS(5*PI/3) * vY + GVL_RobotConstant.ROBOT_RADIUS * 1000 * vTheta;
+targetVelocityMotor1 := -SIN(60  * PI/180) * vX + COS(60  * PI/180) * vY + GVL_RobotConstant.ROBOT_RADIUS * 1000 * vTheta; // Robot Radius in mm umrechnen
+targetVelocityMotor2 := -SIN(180 * PI/180) * vX + COS(180 * PI/180) * vY + GVL_RobotConstant.ROBOT_RADIUS * 1000 * vTheta;
+targetVelocityMotor3 := -SIN(300 * PI/180) * vX + COS(300 * PI/180) * vY + GVL_RobotConstant.ROBOT_RADIUS * 1000 * vTheta;
 
 //Begrenzung der Sollwerte und anpassung aller Sollvorgaben an den Motor mit der Maximalen geschwindigkeit
 ACT_Sollwertbegrenzung();

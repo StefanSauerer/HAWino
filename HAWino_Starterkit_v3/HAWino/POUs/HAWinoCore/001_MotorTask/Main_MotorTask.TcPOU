@@ -94,12 +94,12 @@ VAR
 	
 	//Pseudofuzzy Parameter
 	NILL : LREAL := 0.0;
-	KPX_MIN : LREAL :=	0.1;	//KPX wird runtergedreht, solange Y noch nicht erfüllt
+	KPX_MIN : LREAL :=	0.0;	//KPX wird runtergedreht, solange Y noch nicht erfüllt
 	KPX_MAX : LREAL :=	4.5;	//Ursprüngliches KPX
 	KPY_MIN : LREAL :=	1; 		//KPY wird hochgedreht, solange Y noch nicht erfüllt
-	KPY_MAX : LREAL :=	3.0	;	//Ursprüngliches KPY
+	KPY_MAX : LREAL :=	2.0	;	//Ursprüngliches KPY
 	KIX_MIN : LREAL :=	0.0;	//KIX disabled
-	KIX_MAX : LREAL := 0.5;	//Ursprüngliches KIX		Ich habe folgenden Code: KPX := KPX_MIN + (1/DeltaX)*KPX_MAX; KIX := KPX_MIN + DeltaX* KIX_MAX; Ich möchte, dass KPX für große Entfernungen DeltaX (zu rechnen ist mit ca. 100) gegen KPX_MAX geht, und für Entfernungen gegen 0 gegen KPX_MIN geht. KIX soll sich umgekehrt verhalten, also für große DeltaX gegen KIX_MIN gehen und für kleine Entfernungen gegen KIX_MAX gehen. Wie setzte ich das um?
+	KIX_MAX : LREAL := 0.2;	//Ursprüngliches KIX		Ich habe folgenden Code: KPX := KPX_MIN + (1/DeltaX)*KPX_MAX; KIX := KPX_MIN + DeltaX* KIX_MAX; Ich möchte, dass KPX für große Entfernungen DeltaX (zu rechnen ist mit ca. 100) gegen KPX_MAX geht, und für Entfernungen gegen 0 gegen KPX_MIN geht. KIX soll sich umgekehrt verhalten, also für große DeltaX gegen KIX_MIN gehen und für kleine Entfernungen gegen KIX_MAX gehen. Wie setzte ich das um?
 	
 	KPX : LREAL;
 	KPY : LREAL;
@@ -127,6 +127,7 @@ VAR
 	diffPos		: sPosition;
 	
 	distanzeToRobot : LREAL;	// Abstandssensoren in mm
+	g: LREAL;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -238,10 +239,27 @@ CASE GVL_Datatransfer23.inControl OF
 		ELSE YPosOK := FALSE;
  		END_IF
 		
-		f := DeltaX / 100.0;
-		IF f > 1 THEN f := 1;END_IF;
-		IF f < 0 THEN f := 0;END_IF;		
 		
+		f := (DeltaX - 50) / 150.0;
+		
+		IF f > 1 THEN f := 1; END_IF;
+		IF f < 0 THEN f := 0; END_IF;
+		
+		// Exponentielle "Kondensator-Entladung"
+		g := EXP(-10 * f);   // 3.0 = Steilheit (anpassbar)
+		
+		// KPX: Entladekurve von MAX -> MIN
+		KPX := KPX_MIN + (KPX_MAX - KPX_MIN) * (1.0 - g);
+		
+		// KIX: komplementäres Verhalten (1 - Kurve)
+		KIX := KIX_MIN + (KIX_MAX - KIX_MIN) * (g);
+		
+		KPY := KPY_MAX;
+
+
+		(*f := (DeltaX - 10) / 100.0;		
+		IF f > 1 THEN f := 1;END_IF;
+		IF f < 0 THEN f := 0;END_IF;			
 		
 		IF DeltaX < 35 THEN
 			KPX := 0;
@@ -255,7 +273,7 @@ CASE GVL_Datatransfer23.inControl OF
 			KIX := KIX_MAX - f * (KIX_MAX - KIX_MIN);		
 		END_IF;		
 				
-		KPY := KPY_MAX;
+		KPY := KPY_MAX;*)
 		
 		//Zuerst Winkel ausrichten, keine XY Bewegung
 		IF 	(WinkelOK = FALSE) THEN

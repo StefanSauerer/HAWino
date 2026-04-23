@@ -139,10 +139,10 @@ IF bumper THEN
 END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
-GVL_Datatransfer23.inControl := RobotControl.position;
-GVL_Datatransfer23.gvZielPosition.reX 		:= 6000;
-GVL_Datatransfer23.gvZielPosition.reY		:= 500;
-GVL_Datatransfer23.gvZielPosition.reWinkel	:= -20;
+// GVL_Datatransfer23.inControl := RobotControl.position;
+// GVL_Datatransfer23.gvZielPosition.reX 		:= 6000;
+// GVL_Datatransfer23.gvZielPosition.reY		:= 500;
+// GVL_Datatransfer23.gvZielPosition.reWinkel	:= 50;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Schrittkette
@@ -437,7 +437,7 @@ bodyVelY := -(2.0/3.0) * (
 			  + COS(300 * PI/180) * wheelSpeed.wheel3
 		   );
 
-yawRate := (wheelSpeed.wheel1 + wheelSpeed.wheel2 + wheelSpeed.wheel3) 
+yawRate := -(wheelSpeed.wheel1 + wheelSpeed.wheel2 + wheelSpeed.wheel3) 
 		   / (3.0 * GVL_RobotConstant.ROBOT_RADIUS * 1000);// Umrechnung in mm
 
 (* --- Body -> World --- *)

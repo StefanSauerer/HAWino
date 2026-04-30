@@ -4,12 +4,12 @@
     <Declaration><![CDATA[PROGRAM MAIN_Bahnplanung
 VAR
     (* 13 Kartenbausteine — jeder hält sein eigenes Array *)
-    arfbMaps       : ARRAY[1..13] OF FB_AngleMap;
+    arfbMaps       : ARRAY[1..14] OF FB_AngleMap;
     fbNav          : FB_Navigation;
-	fbStates	   : FB_StatesTest;
-	//fbStates : FB_RobotStateMachine;
+	//fbStates	   : FB_StatesTest;
+	fbStates : FB_RobotStateMachine;
 	fb_mapping : FB_Mapping;
-	fb_MQTT : FB_MQTT;
+	fb_MQTT : FB_MQTTNeu;//FB_MQTT;
 
 	
     (* Ladesteuerung *)
@@ -33,6 +33,7 @@ VAR
     boAtGoal       : BOOL;
     boStop         : BOOL;
     boNavError     : BOOL;
+	boIdle			: BOOL;
 	RobotIndex: INT;
 	actualPosX: LREAL;
 	actualPosY: LREAL;
@@ -45,6 +46,12 @@ VAR
 	eStateMachine : E_RobotState;
 	sactualKoordinates : sKoordinate;
 	lightBarrierGripper AT %I* : BOOL;
+	inMqttTokenTargetId : INT;
+	_boAwayFromObstacle : BOOL;
+	_boPasssiveWait : BOOL;
+	_boMovingAway : BOOL;
+	_boCharging : BOOL;
+	_inChargingStation : INT;
 END_VAR
 	
 	VAR_TEMP
@@ -62,6 +69,8 @@ END_VAR
     tinMapParking           : INT;                          // Map ID for parking position
 	tinTargetDirectionIndex : INT;							//
 	tinSourceDirectionIndex : INT;
+	tinChargingStatus		: INT;
+	
 					
 	END_VAR
 	
@@ -82,7 +91,7 @@ END_VAR
 
     (* Wenn fertig: nächste Karte *)
     IF arfbMaps[inLoadIdx].yboDone THEN
-        IF inLoadIdx < 10 THEN
+        IF inLoadIdx < 14 THEN
             inLoadIdx := inLoadIdx + 1;
         ELSE
             boAllLoaded := TRUE;
@@ -122,20 +131,25 @@ END_FOR
 sactualKoordinates.rePosX := actualPosX / 10;
 sactualKoordinates.rePosY := actualPosY / 10;
 sactualKoordinates.reWinkel := actualPosTheta;
-sMqttOut.sError.boErrorControl := TRUE;
-(*
+
+
+
 fb_MQTT(xsDataToSend := sMqttOut,
 	xsKoordinate :=  sactualKoordinates,
-	ysDataToReceive => sMqttIn);
-*)
-fbStates (xboVectorTargetReached := boAtGoal,
+	xboCharging := _boCharging,
+	xinChargingPoint := _inChargingStation,
+	ysDataToReceive => sMqttIn,
+	xinMqttTokenTargetId := inMqttTokenTargetId,
+	yinchargingstatus => tinChargingStatus);
+
+(*fbStates (xboVectorTargetReached := boAtGoal,
  xinSatus := GVL_Datatransfer23.inStatus,
  yinControl => GVL_Datatransfer23.inControl,
  ysTargetPosition => GVL_Datatransfer23.gvZielPosition,
  yinTargetMap => inActiveGoal);
+*)	
 	
-	
-	sMqttOut.sJobState.boWorkpieceLoaded := Gripper.partGripped; //TODO Confirm WITH EBEL
+	sMqttOut.sJobState.boWorkpieceLoaded := NOT lightBarrierGripper; //TODO Confirm WITH EBEL
 	
 fb_mapping(
     xstMqttIn              := sMqttIn,
@@ -159,7 +173,7 @@ CASE RobotIndex OF
 	3:tarstHAWId := arstHAWino3;
 	4:tarstHAWId := arstHAWino4;
 END_CASE
-	(*
+	
 fbStates (xstMqttIn := sMqttIn, xeRobotStatus := GVL_Datatransfer23.inStatus, 
 xboMapsLoaded := boAllLoaded, 
 xboVectorTargetReached := boAtGoal, 
@@ -174,17 +188,24 @@ xinParkingIndex := tinParkingIndex,
 xinChargingIndex := tinChargingIndex,
 xinMapSource := tinMapSource,
 xinMapTarget := tinMapTarget,
-xinMapParking := tinMapParking,
+xinMapParking := tinParkingIndex,//tinMapParking,
 xreDistToGoal := reDistToGoal,
-xreDistFromGoal := reDistFromGoal, //TODO AUSrechnen in FB NAV
-xboWSSensor := Gripper.partGripped, //TODO EBEL FRAGEN
+xreDistFromGoal := reDistFromGoal, 
+xboWSSensor := NOT lightBarrierGripper,
+xboAwayFromObstacle := _boAwayFromObstacle,
+xinStatusOfChargin := tinChargingStatus, 
 yeControl => GVL_Datatransfer23.inControl,
 ystTargetPosition => GVL_Datatransfer23.gvZielPosition,
 yinTargetMap => inActiveGoal,
 ystMqttOut => sMqttOut,
-yeCurrentState => eStateMachine);
+yeCurrentState => eStateMachine,
+yeMqttTokenTargetId => inMqttTokenTargetId,
+yboDriveAway => _boMovingAway,
+yboPassiveWait => _boPasssiveWait,
+yboCharging => _boCharging,
+yinCharginStationID => _inChargingStation);
 
-*)
+
 reSpeed := 300;
 (* ── Navigation ────────────────────────────────────── *)
 fbNav(
@@ -194,22 +215,33 @@ fbNav(
     xreRobotX      := areRobotX,
     xreRobotY      := areRobotY,
     xboRobotActive := aboRobotActive,
+	xboDriveAway   := _boMovingAway,
+	xboPassiveWait := _boPasssiveWait,
     xyarMaps       := arfbMaps,
     yreAngleTarget => reAngleTarget,
     yreDistToGoal  => reDistToGoal,
+	yreDistToOldGoal => reDistFromGoal,
     yboAtGoal      => boAtGoal,
     yboStop        => boStop,
 	yboWarning     => boWarning,
+	yboIdle 		=> boIdle,
     yreMinDist     => reMinDist,
-    yboError       => boNavError);
+    yboError       => boNavError,
+	yboAwayFromStation => _boAwayFromObstacle);
 	
 	reAngleTarget := - reAngleTarget;
-	IF reDistToGoal < 50 THEN
-		reSpeed := reSpeed * reDistToGoal /50;
+	IF reDistToGoal < 30 THEN //TODO FINETUNE
+		reSpeed := MAX(reSpeed * reDistToGoal /30,  100);
 	END_IF
 	
 	IF boAtGoal THEN 
 		reSpeed := 0;
+	END_IF
+	IF _boMovingAway THEN
+		reSpeed := 150;
+	END_IF
+	IF boIdle THEN
+		GVL_Datatransfer23.inControl := RobotControl.idle;
 	END_IF
 	
 	GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit := reSpeed;

@@ -34,7 +34,7 @@ END_VAR]]></Declaration>
 	Gripper.closeGripperCommand := FALSE;
 		yinTargetMap := 1;
 		IF xboVectorTargetReached THEN 
-			sStates := sStatesForTest.Wait1;//CoordinatesInFrontOfTarget1;
+			sStates := sStatesForTest.CoordinatesInFrontOfTarget1;
 		END_IF;
 		
 	sStatesForTest.CoordinatesInFrontOfTarget1 :
@@ -47,8 +47,8 @@ END_VAR]]></Declaration>
 		
 	sStatesForTest.Wait1 : 
 	
-			ysTargetPosition.reY := creTarget1Y;
-		ysTargetPosition.reWinkel := creTarget1Phi;
+	
+
 		ysTargetPosition.reX := creTarget1X;
 		IF 	xinSatus = 1 AND tonDelayWait.Q THEN 
 			sStates := sStatesForTest.Target1;
@@ -77,7 +77,7 @@ END_VAR]]></Declaration>
 	
 		yinTargetMap := 2;
 		IF xboVectorTargetReached THEN 
-			sStates := sStatesForTest.Wait3;//CoordinatesInFrontOfTarget2;
+			sStates := sStatesForTest.CoordinatesInFrontOfTarget2;
 		END_IF;
 		
 	sStatesForTest.CoordinatesInFrontOfTarget2 :
@@ -89,8 +89,6 @@ END_VAR]]></Declaration>
 		END_IF;
 		
 		sStatesForTest.Wait3 : 
-		ysTargetPosition.reY := creTarget2Y;
-		ysTargetPosition.reWinkel := creTarget2Phi;
 		ysTargetPosition.reX := creTarget2X;
 		IF 	xinSatus = 1 AND tonDelayWait.Q THEN 
 			sStates := sStatesForTest.Target2;

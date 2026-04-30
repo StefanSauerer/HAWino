@@ -30,6 +30,7 @@ END_VAR
 VAR
     inDest1                 : INT;      // Local copy of inDestination1
     inDest2                 : INT;      // Local copy of inDestination2
+	RobotIndex: INT;
 END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[//   Station numbers and their RFID assignments:
@@ -105,103 +106,103 @@ CASE inDest1 OF
     3:
         yinSourceIndex     := IDX_STORAGE_3;
         yinRfidSourceIndex := IDX_RFID_2;
-        yinMapSource       := 1;
+        yinMapSource       := 2;
  		yinSourceDirectionIndex := 1;
  
     4:
         yinSourceIndex     := IDX_STORAGE_4;
         yinRfidSourceIndex := IDX_RFID_2;
-        yinMapSource       := 1;
+        yinMapSource       := 2;
   		yinSourceDirectionIndex := 1;
  
     // --- Production 1+2 – left approach (stations 11, 12) ---
     11:
         yinSourceIndex     := IDX_PROD_11;
         yinRfidSourceIndex := IDX_RFID_3;
-        yinMapSource       := 2;
+        yinMapSource       := 3;
  		yinSourceDirectionIndex := -1;
  
     12:
         yinSourceIndex     := IDX_PROD_12;
         yinRfidSourceIndex := IDX_RFID_3;
-        yinMapSource       := 2;
+        yinMapSource       := 3;
  		yinSourceDirectionIndex := -1;
  
     // --- Production 1+2 – right approach (stations 21, 22) ---
     21:
         yinSourceIndex     := IDX_PROD_21;
         yinRfidSourceIndex := IDX_RFID_4;
-        yinMapSource       := 2;
+        yinMapSource       := 4;
   		yinSourceDirectionIndex := 1;
  
     22:
         yinSourceIndex     := IDX_PROD_22;
         yinRfidSourceIndex := IDX_RFID_4;
-        yinMapSource       := 2;
+        yinMapSource       := 4;
   		yinSourceDirectionIndex := 1;
  
     // --- Production 3+4 – left approach (stations 31, 32) ---
     31:
         yinSourceIndex     := IDX_PROD_31;
         yinRfidSourceIndex := IDX_RFID_5;
-        yinMapSource       := 3;
+        yinMapSource       := 5;
  		yinSourceDirectionIndex := -1;
  
     32:
         yinSourceIndex     := IDX_PROD_32;
         yinRfidSourceIndex := IDX_RFID_5;
-        yinMapSource       := 3;
+        yinMapSource       := 5;
  		yinSourceDirectionIndex := -1;
  
     // --- Production 3+4 – right approach (stations 41, 42) ---
     41:
         yinSourceIndex     := IDX_PROD_41;
         yinRfidSourceIndex := IDX_RFID_6;
-        yinMapSource       := 3;
+        yinMapSource       := 6;
   		yinSourceDirectionIndex := 1;
  
     42:
         yinSourceIndex     := IDX_PROD_42;
         yinRfidSourceIndex := IDX_RFID_6;
-        yinMapSource       := 3;
+        yinMapSource       := 6;
   		yinSourceDirectionIndex := 1;
  
     // --- Drop-off – left approach (stations 5, 6) ---
     5:
         yinSourceIndex     := IDX_DROPOFF_5;
         yinRfidSourceIndex := IDX_RFID_7;
-        yinMapSource       := 4;
+        yinMapSource       := 7;
  		yinSourceDirectionIndex := -1;
  
     6:
         yinSourceIndex     := IDX_DROPOFF_6;
         yinRfidSourceIndex := IDX_RFID_7;
-        yinMapSource       := 4;
+        yinMapSource       := 7;
  		yinSourceDirectionIndex := -1;
  
     // --- Drop-off – right approach (stations 7, 8) ---
     7:
         yinSourceIndex     := IDX_DROPOFF_7;
         yinRfidSourceIndex := IDX_RFID_8;
-        yinMapSource       := 4;
+        yinMapSource       := 8;
   		yinSourceDirectionIndex := 1;
  
     8:
         yinSourceIndex     := IDX_DROPOFF_8;
         yinRfidSourceIndex := IDX_RFID_8;
-        yinMapSource       := 4;
+        yinMapSource       := 8;
   		yinSourceDirectionIndex := 1;
  
     // --- Charging stations (Destination1 = charging means the robot should charge) ---
     201:
         yinSourceIndex   := IDX_CHARGING_201;
         yinChargingIndex := IDX_CHARGING_201;
-        yinMapSource     := 7;
+        yinMapSource     := 9;
  
     202:
         yinSourceIndex   := IDX_CHARGING_202;
         yinChargingIndex := IDX_CHARGING_202;
-        yinMapSource     := 7;
+        yinMapSource     := 9;
  
 ELSE
     // Unknown station number
@@ -241,91 +242,91 @@ CASE inDest2 OF
     3:
         yinTargetIndex     := IDX_STORAGE_3;
         yinRfidTargetIndex := IDX_RFID_2;
-        yinMapTarget       := 1;
+        yinMapTarget       := 2;
    		yinTargetDirectionIndex := 1;
  
     4:
         yinTargetIndex     := IDX_STORAGE_4;
         yinRfidTargetIndex := IDX_RFID_2;
-        yinMapTarget       := 1;
+        yinMapTarget       := 2;
    		yinTargetDirectionIndex := 1;
  
     // --- Production 1+2 – right approach as TARGET (stations 11, 12) ---
     11:
         yinTargetIndex     := IDX_PROD_11;
         yinRfidTargetIndex := IDX_RFID_3;
-        yinMapTarget       := 2;
+        yinMapTarget       := 3;
    		yinTargetDirectionIndex := -1;
  
     12:
         yinTargetIndex     := IDX_PROD_12;
         yinRfidTargetIndex := IDX_RFID_3;
-        yinMapTarget       := 2;
+        yinMapTarget       := 3;
    		yinTargetDirectionIndex := -1;
  
     // --- Production 1+2 – left approach as TARGET (stations 21, 22) ---
     21:
         yinTargetIndex     := IDX_PROD_21;
         yinRfidTargetIndex := IDX_RFID_4;
-        yinMapTarget       := 2;
+        yinMapTarget       := 4;
    		yinTargetDirectionIndex := 1;
  
     22:
         yinTargetIndex     := IDX_PROD_22;
         yinRfidTargetIndex := IDX_RFID_4;
-        yinMapTarget       := 2;
+        yinMapTarget       := 4;
    		yinTargetDirectionIndex := 1;
  
     // --- Production 3+4 – right approach as TARGET (stations 31, 32) ---
     31:
         yinTargetIndex     := IDX_PROD_31;
         yinRfidTargetIndex := IDX_RFID_5;
-        yinMapTarget       := 3;
+        yinMapTarget       := 5;
    		yinTargetDirectionIndex := -1;
  
     32:
         yinTargetIndex     := IDX_PROD_32;
         yinRfidTargetIndex := IDX_RFID_5;
-        yinMapTarget       := 3;
+        yinMapTarget       := 5;
    		yinTargetDirectionIndex := -1;
  
     // --- Production 3+4 – left approach as TARGET (stations 41, 42) ---
     41:
         yinTargetIndex     := IDX_PROD_41;
         yinRfidTargetIndex := IDX_RFID_6;
-        yinMapTarget       := 3;
+        yinMapTarget       := 6;
 		yinTargetDirectionIndex := 1;
  
     42:
         yinTargetIndex     := IDX_PROD_42;
         yinRfidTargetIndex := IDX_RFID_6;
-        yinMapTarget       := 3;
+        yinMapTarget       := 6;
 		yinTargetDirectionIndex := 1;
  
     // --- Drop-off – right approach as TARGET (stations 5, 6) ---
     5:
         yinTargetIndex     := IDX_DROPOFF_5;
         yinRfidTargetIndex := IDX_RFID_7;
-        yinMapTarget       := 4;
+        yinMapTarget       := 7;
    		yinTargetDirectionIndex := -1;
  
     6:
         yinTargetIndex     := IDX_DROPOFF_6;
         yinRfidTargetIndex := IDX_RFID_7;
-        yinMapTarget       := 4;
+        yinMapTarget       := 7;
    		yinTargetDirectionIndex := -1;
  
     // --- Drop-off – left approach as TARGET (stations 7, 8) ---
     7:
         yinTargetIndex     := IDX_DROPOFF_8;
         yinRfidTargetIndex := IDX_RFID_8;
-        yinMapTarget       := 4;
+        yinMapTarget       := 8;
    		yinTargetDirectionIndex := 1;
  
     8:
         yinTargetIndex     := IDX_DROPOFF_8;
         yinRfidTargetIndex := IDX_RFID_8;
-        yinMapTarget       := 4;
+        yinMapTarget       := 8;
    		yinTargetDirectionIndex := 1;
 		
     // --- Special: charging job (Destination2 = 404) ---
@@ -334,7 +335,7 @@ CASE inDest2 OF
         // yboJobCharging is already TRUE from the job-type block above.
         yinTargetIndex     := yinChargingIndex;
         yinRfidTargetIndex := IDX_RFID_1;   // unused for charging
-        yinMapTarget       := 6;
+        yinMapTarget       := 9;
  
 ELSE
     // Unknown target station number (only flag error if not a charging job)
@@ -347,8 +348,13 @@ END_CASE
 // ---------------------------------------------------------------------------
 // Parking index is always passed through unchanged
 // ---------------------------------------------------------------------------
-yinParkingIndex := xinDefaultParkingIndex;
- ]]></ST>
+RobotIndex := Var_HAWIno.Robot_Number;
+ CASE RobotIndex OF 
+	1:yinParkingIndex := IDX_PARKING_101;
+	2:yinParkingIndex := IDX_PARKING_102;
+	3:yinParkingIndex := IDX_PARKING_103;
+	4:yinParkingIndex := IDX_PARKING_104;
+END_CASE]]></ST>
     </Implementation>
   </POU>
 </TcPlcObject>

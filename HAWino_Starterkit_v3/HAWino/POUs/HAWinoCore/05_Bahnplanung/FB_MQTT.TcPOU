@@ -64,14 +64,16 @@ VAR
 	TONPosition : TON;
 	boTONFlanke : BOOL;
 	tempInit : STRING;
-	
-	
+	temprToken : STRING;
+	sReceivedToken : STRING;
+	station_id : STRING;
 	
 END_VAR
 
 VAR_INPUT
 	xsDataToSend : sMqttOut;
 	xsKoordinate : sKoordinate;
+	xinMqttTokenTargetId : INT;
 END_VAR
 VAR_OUTPUT
 	ysDataToReceive : sMqttIn;
@@ -112,6 +114,13 @@ IF fbClient.bConnected AND NOT bSubscribed THEN
         eQoS   := 0
     );
 	
+	temprToken := CONCAT('HAWino/', INT_TO_STRING(Robot_Number));
+	temprToken := CONCAT(temprToken, '/token');
+	fbClient.Subscribe(
+        sTopic := temprToken,
+        eQoS   := 0
+    );
+	
 	tempserror := CONCAT('HAWino/', INT_TO_STRING(Robot_Number));
 	tempserror := CONCAT(tempserror, '/error');
 	
@@ -121,9 +130,10 @@ IF fbClient.bConnected AND NOT bSubscribed THEN
 	tempsstate := CONCAT('HAWino/', INT_TO_STRING(Robot_Number));
 	tempsstate := CONCAT(tempsstate, '/generalState');
 	
-	tempstoken := CONCAT('HAWino/', INT_TO_STRING(Robot_Number));
-	tempstoken := CONCAT(tempstoken, '/token');
-    bSubscribed := TRUE;
+// 	tempstoken := CONCAT('agents/station/test_station/token', INT_TO_STRING(Robot_Number));
+// 	tempstoken := CONCAT(tempstoken, '/token');
+	
+	bSubscribed := TRUE;
 END_IF
 
 // Nachrichten aus Queue lesen
@@ -142,6 +152,8 @@ IF fbMessageQueue.nQueuedMessages > 0 THEN
 		
  		ELSIF fbMessage.CompareTopic(sTopic := tempInit) THEN
          fbMessage.GetPayload(pPayload := ADR(sReceivedStart), nPayloadSize := SIZEOF(sReceivedStart), bSetNullTermination := TRUE);
+ 		ELSIF fbMessage.CompareTopic(sTopic := temprToken) THEN
+         fbMessage.GetPayload(pPayload := ADR(sReceivedToken), nPayloadSize := SIZEOF(sReceivedToken), bSetNullTermination := TRUE);
 		END_IF
 	
 // Start Parsen
@@ -162,43 +174,43 @@ IF fbMessageQueue.nQueuedMessages > 0 THEN
         // boStop auslesen
         jsonNode := fbJson.FindMember(jsonDoc, 'boStop');
         IF jsonNode <> 0 THEN
-            sMqttRECEIVE.sCmd.boStop := fbJson.GetString(jsonNode) = 'TRUE';
+            sMqttRECEIVE.sCmd.boStop := fbJson.GetBool(jsonNode);
         END_IF
         
         // boReset auslesen
         jsonNode := fbJson.FindMember(jsonDoc, 'boReset');
         IF jsonNode <> 0 THEN
-            sMqttRECEIVE.sCmd.boReset := fbJson.GetString(jsonNode) = 'TRUE';
+            sMqttRECEIVE.sCmd.boReset := fbJson.GetBool(jsonNode);
         END_IF
         
         // boJobReset auslesen
         jsonNode := fbJson.FindMember(jsonDoc, 'boJobReset');
         IF jsonNode <> 0 THEN
-            sMqttRECEIVE.sCmd.boJobReset := fbJson.GetString(jsonNode) = 'TRUE';
+            sMqttRECEIVE.sCmd.boJobReset := fbJson.GetBool(jsonNode);
         END_IF
 		
 		// boRfidComplete auslesen
         jsonNode := fbJson.FindMember(jsonDoc, 'boRfidComplete');
         IF jsonNode <> 0 THEN
-            sMqttRECEIVE.sCmd.boRFIDComplete := fbJson.GetString(jsonNode) = 'TRUE';
+            sMqttRECEIVE.sCmd.boRFIDComplete := fbJson.GetBool(jsonNode);
         END_IF
 		
 		// boStartJob auslesen
         jsonNode := fbJson.FindMember(jsonDoc, 'boStartJob');
         IF jsonNode <> 0 THEN
-            sMqttRECEIVE.sCmd.boStartJob := fbJson.GetString(jsonNode) = 'TRUE';
+            sMqttRECEIVE.sCmd.boStartJob := fbJson.GetBool(jsonNode);
         END_IF
 		
-		// boTokenGrant auslesen
-        jsonNode := fbJson.FindMember(jsonDoc, 'boTokenGrant');
-        IF jsonNode <> 0 THEN
-            sMqttRECEIVE.sCmd.boTokenGrant := fbJson.GetString(jsonNode) = 'TRUE';
-        END_IF
+// 		// boTokenGrant auslesen
+//         jsonNode := fbJson.FindMember(jsonDoc, 'boTokenGrant');
+//         IF jsonNode <> 0 THEN
+//             sMqttRECEIVE.sCmd.boTokenGrant := fbJson.GetString(jsonNode) = 'TRUE';
+//         END_IF
 		
 		// boCancelCharging auslesen
         jsonNode := fbJson.FindMember(jsonDoc, 'boCancelCharging');
         IF jsonNode <> 0 THEN
-            sMqttRECEIVE.sCmd.boCancelCharging := fbJson.GetString(jsonNode) = 'TRUE';
+            sMqttRECEIVE.sCmd.boCancelCharging := fbJson.GetBool(jsonNode);
         END_IF
     END_IF
 	
@@ -223,6 +235,18 @@ IF fbMessageQueue.nQueuedMessages > 0 THEN
         IF jsonNode <> 0 THEN
             sMqttRECEIVE.sJOB.inDestination2 := DINT_TO_INT(fbJson.GetInt(jsonNode));
         END_IF
+    END_IF
+	
+	// JSON parsen Token
+    jsonDoc := fbJson.ParseDocument(sReceivedToken);
+    IF jsonDoc <> 0 THEN
+        // Token Granted auslesen
+		jsonNode := fbJson.FindMember(jsonDoc, 'category');
+		IF jsonNode <> 0 THEN
+			IF fbJson.GetString(jsonNode) = 'TOKEN_GRANT' THEN
+				sMqttRECEIVE.sCmd.boTokenGrant := TRUE;
+			END_IF
+		END_IF
     END_IF
 END_IF
 
@@ -271,13 +295,13 @@ IF start THEN
 	sSendState := CONCAT(sSendState, sMqttSEND.sGeneralState.strPosition);
 	sSendState := CONCAT(sSendState, '"}');
 	
-	// Kompletten Token-JSON zusammenbauen mitm IF eine Fallunterscheidung
+	// Kompletten Token-JSON
 	IF sMqttSEND.sToken.boTokenRequest THEN
-		sSendToken := CONCAT('{"category":"TOKEN_Request","robot_id":"', INT_TO_STRING(Robot_Number));
+		sSendToken := CONCAT('{"category":"TOKEN_REQUEST","robot_id":"', INT_TO_STRING(Robot_Number));
 		sSendToken := CONCAT(sSendToken, '"}');
 	END_IF
 	IF sMqttSEND.sToken.boTokenRelease THEN
-		sSendToken := CONCAT('{"category":"TOKEN_Release","robot_id":"', INT_TO_STRING(Robot_Number));
+		sSendToken := CONCAT('{"category":"TOKEN_RELEASE","robot_id":"', INT_TO_STRING(Robot_Number));
 		sSendToken := CONCAT(sSendToken, '"}');
 	END_IF
 	
@@ -359,6 +383,16 @@ IF start THEN
 			bSendState := FALSE;
 		END_IF
 	
+	CASE xinMqttTokenTargetId OF
+		1: station_id := 'storage_1';
+		2: station_id := 'manufacturing_1';
+		3: station_id := 'manufacturing_3';
+		4: station_id := 'manufacturing_3';
+		5: station_id := 'dispatch';
+		
+	END_CASE
+	tempstoken := CONCAT('agents/station/', station_id); 
+	tempstoken := CONCAT(tempstoken,'/token');
 		IF bSendToken THEN
 			fbClient.Publish(
 				sTopic       := tempstoken,

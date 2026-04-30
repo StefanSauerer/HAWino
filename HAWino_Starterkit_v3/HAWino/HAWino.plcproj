@@ -200,6 +200,9 @@
     <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_MQTT.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_MQTTNeu.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_Navigation.TcPOU">
       <SubType>Code</SubType>
     </Compile>

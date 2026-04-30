@@ -9,49 +9,261 @@ VAR_INPUT
     xreRobotX      : ARRAY[0..2] OF REAL;
     xreRobotY      : ARRAY[0..2] OF REAL;
     xboRobotActive : ARRAY[0..2] OF BOOL;
+    (* NEU: Betriebsmodi *)
+    xboPassiveWait : BOOL;   (* TRUE = Roboter wartet passiv, weicht fahrenden Robbys aus *)
+    xboDriveAway   : BOOL;   (* TRUE = Roboter faehrt aktiv vom Hindernis weg via Ortho-Karte *)
 END_VAR
 VAR_OUTPUT
-    yreAngleTarget : REAL;
-    yreDistToGoal  : REAL;
-    yboAtGoal      : BOOL;
-    yboStop        : BOOL;
-    yboError       : BOOL;
-    yboWarning     : BOOL;
-    yreMinDist     : REAL;
+    yreAngleTarget  : REAL;
+    yreDistToGoal   : REAL;
+    yboAtGoal       : BOOL;
+    yboStop         : BOOL;
+    yboError        : BOOL;
+    yboWarning      : BOOL;
+    yreMinDist      : REAL;
+    yreDistToOldGoal: REAL;
+	yboIdle			: BOOL;
+    (* NEU: Ausgaenge *)
+    yboAwayFromStation : BOOL;  (* TRUE sobald Ortho-Einflussbereich verlassen (-7777) *)
+    yboMovingAway      : BOOL;  (* TRUE wenn im PassiveWait-Modus ein anderer Robby nah ist *)
 END_VAR
 VAR_IN_OUT
-    (* Referenz auf die 13 Kartenbausteine — von außen übergeben *)
-    xyarMaps : ARRAY[1..13] OF FB_AngleMap;
+    xyarMaps : ARRAY[1..14] OF FB_AngleMap;
 END_VAR
 VAR
-	_fbCollision   : FB_CollisionAvoidance;
-    _inPosX        : INT;
-    _inPosY        : INT;
-    _reRawAngle    : REAL;
-    _reStatGx      : REAL;
-    _reStatGy      : REAL;
-    _reDynGx       : REAL;
-    _reDynGy       : REAL;
-    _reTotalGx     : REAL;
-    _reTotalGy     : REAL;
-    _reDiffX       : REAL;
-    _reDiffY       : REAL;
-    _reDist        : REAL;
-    _reDistSq      : REAL;
-	_reLastAngle   : REAL := 0.0;
-	_reDelta       : REAL;
-    _reAngleRaw    : REAL;
-    _inIdx         : INT := 0;
-    _crePI         : REAL := 3.14159265358979;
-    _creRepulseK   : REAL := 1000.0;
-    _creRepulseRad : REAL := 500.0;
-    _creStopDist   : REAL := 5.0;
-    _creGoalRadius : REAL := 5.0;
-	_creMaxDeltaDeg: REAL := 2.0;   (* max. Winkeländerung pro Zyklus *)
+    _fbCollision    : FB_CollisionAvoidance;
+    _inPosX         : INT;
+    _inPosY         : INT;
+    _reRawAngle     : REAL;
+    _reStatGx       : REAL;
+    _reStatGy       : REAL;
+    _reDynGx        : REAL;
+    _reDynGy        : REAL;
+    _reTotalGx      : REAL;
+    _reTotalGy      : REAL;
+    _reDiffX        : REAL;
+    _reDiffY        : REAL;
+    _reDist         : REAL;
+    _reDistSq       : REAL;
+    _reLastAngle    : REAL := 0.0;
+    _reDelta        : REAL;
+    _reAngleRaw     : REAL;
+    _inIdx          : INT := 0;
+    _inOldGoalID    : INT := 0;
+    _inHelperOldGoal: INT := 0;
+ 
+    (* NEU: interne Variablen fuer Ortho-Karte und PassiveWait *)
+    _inOrthoRaw     : INT;   (* Rohwert aus Ortho-Karte (x10 Grad) *)
+    _reOrthoAngle   : REAL;  (* Umgerechneter Winkel in Grad *)
+    _reOrthoGx      : REAL;
+    _reOrthoGy      : REAL;
+    _rePassiveGx    : REAL;
+    _rePassiveGy    : REAL;
+    _reNearRobotDist: REAL;  (* kuerzester Abstand zu einem aktiven, fahrenden Robby *)
+    _i              : INT;
+    _reDx           : REAL;
+    _reDy           : REAL;
+ 
+    _crePI              : REAL := 3.14159265358979;
+    _creRepulseK        : REAL := 1000.0;
+    _creRepulseRad      : REAL := 500.0;
+    _creStopDist        : REAL := 5.0;
+    _creGoalRadius      : REAL := 5.0;
+    _creMaxDeltaDeg     : REAL := 2.0;
+    (* NEU: Schwellwert – ab welchem Abstand ein naher Robby als "zu nah" gilt (PassiveWait) *)
+    _crePassiveTrigDist : REAL := 80.0;   (* Pixel, anpassen nach Bedarf *)
+    (* Index der Ortho-Karte im xyarMaps-Array *)
+    _cinPassiveMap      : INT := 14;
 END_VAR]]></Declaration>
     <Implementation>
-      <ST><![CDATA[
-(* ── Eingaben prüfen ───────────────────────────────── *)
+      <ST><![CDATA[(* ══════════════════════════════════════════════════════════════
+   ZIEL-ID-TRACKING (unveraendert)
+   ══════════════════════════════════════════════════════════════ *)
+IF xinGoalID <> _inHelperOldGoal THEN
+    _inOldGoalID     := _inHelperOldGoal;
+    _inHelperOldGoal := xinGoalID;
+END_IF
+ 
+(* ── Ausgaenge zuruecksetzen ──────────────────────────────── *)
+yboAwayFromStation := FALSE;
+yboMovingAway      := FALSE;
+yboIdle 		   := FALSE;
+(* ══════════════════════════════════════════════════════════════
+   MODUS: xboDriveAway
+   Roboter faehrt aktiv weg – Ortho-Karte (Map 11) steuert.
+   Sobald der Ortho-Einflussbereich verlassen wird (-7777),
+   wird yboAwayFromStation = TRUE gesetzt.
+   ══════════════════════════════════════════════════════════════ *)
+IF xboDriveAway THEN
+ 
+    (* Eingaben pruefen: Ortho-Karte muss geladen sein *)
+    IF NOT xyarMaps[_cinPassiveMap].yboDone THEN
+        yboError := TRUE; RETURN;
+    END_IF
+    yboError := FALSE;
+ 
+    (* Koordinaten begrenzen *)
+    _inPosX := REAL_TO_INT(TRUNC(xrePosX));
+    _inPosY := REAL_TO_INT(TRUNC(xrePosY));
+    _inPosX := MAX(0, MIN(_inPosX, 799));
+    _inPosY := MAX(0, MIN(_inPosY, 399));
+ 
+    (* Rohwert aus Ortho-Karte lesen *)
+    _inOrthoRaw := xyarMaps[_cinPassiveMap].GetAngle(
+                       xinPosX := _inPosX,
+                       xinPosY := _inPosY);
+ 
+    (* Sonderwert -9999: Hindernis – Notstopp *)
+    IF _inOrthoRaw = -9999 THEN
+        yboStop := TRUE; RETURN;
+    END_IF
+ 
+    (* Sonderwert -7777: ausserhalb Einflussbereich -> Signal setzen, Roboter anhalten *)
+    IF _inOrthoRaw = -7777 THEN
+        yboAwayFromStation := TRUE;
+        yboIdle            := TRUE;   (* Fahrt stoppen, uebergeordnete SPS entscheidet weiter *)
+        yreAngleTarget     := _reLastAngle;
+        RETURN;
+    END_IF
+ 
+    (* Gueltiger Ortho-Winkel: Fahrtrichtung setzen *)
+    _reOrthoAngle  := INT_TO_REAL(_inOrthoRaw) / 10.0;   (* /10 wegen Faktor-10-Skalierung *)
+ 
+    (* Kollisionsvermeidung auch im DriveAway-Modus aktiv *)
+    _fbCollision(
+        xrePosX        := xrePosX,
+        xrePosY        := xrePosY,
+        xreRobotX      := xreRobotX,
+        xreRobotY      := xreRobotY,
+        xboRobotActive := xboRobotActive);
+    yboWarning := _fbCollision.yboWarning;
+    yreMinDist := _fbCollision.yreMinDist;
+ 
+    IF _fbCollision.yboStop THEN
+        yboStop        := TRUE;
+        yreAngleTarget := THIS^.LimitAngleRate(
+                            xreAngleRaw    := _reOrthoAngle,
+                            xreMaxDeltaDeg := _creMaxDeltaDeg);
+        RETURN;
+    END_IF
+    yboStop := FALSE;
+ 
+    (* Superposition: Ortho-Vektor + Kollisionsvermeidung *)
+    _reOrthoGx := COS(_reOrthoAngle * _crePI / 180.0);
+    _reOrthoGy := SIN(_reOrthoAngle * _crePI / 180.0);
+    _reTotalGx := _reOrthoGx + _fbCollision.yreDynGx;
+    _reTotalGy := _reOrthoGy + _fbCollision.yreDynGy;
+ 
+    IF TRUE THEN //SQRT(_reTotalGx * _reTotalGx + _reTotalGy * _reTotalGy) < 0.001 THEN
+        yreAngleTarget := THIS^.LimitAngleRate(
+                            xreAngleRaw    := _reOrthoAngle,
+                            xreMaxDeltaDeg := _creMaxDeltaDeg);
+    ELSE
+        yreAngleTarget := THIS^.LimitAngleRate(
+                            xreAngleRaw    := FC_ATAN2(
+                                                xreY := _reTotalGy,
+                                                xreX := _reTotalGx) * 180.0 / _crePI,
+                            xreMaxDeltaDeg := _creMaxDeltaDeg);
+    END_IF
+ 
+    RETURN;   (* DriveAway-Modus abgeschlossen, Rest ueberspringen *)
+END_IF
+ 
+(* ══════════════════════════════════════════════════════════════
+   MODUS: xboPassiveWait
+   Roboter steht still. Naehert sich ein fahrender Robby,
+   weicht er mit Hilfe der Ortho-Karte aus (yboMovingAway=TRUE).
+   ══════════════════════════════════════════════════════════════ *)
+IF xboPassiveWait THEN
+ 
+    IF NOT xyarMaps[_cinPassiveMap].yboDone THEN
+        yboError := TRUE; RETURN;
+    END_IF
+    yboError := FALSE;
+ 
+    (* Abstand zum naechsten AKTIVEN (= fahrenden) Roboter ermitteln *)
+    _reNearRobotDist := 1.0E+9;
+    FOR _i := 0 TO 2 DO
+        IF xboRobotActive[_i] THEN
+            _reDx := xrePosX - xreRobotX[_i];
+            _reDy := xrePosY - xreRobotY[_i];
+            _reDist := SQRT(_reDx * _reDx + _reDy * _reDy);
+            IF _reDist < _reNearRobotDist THEN
+                _reNearRobotDist := _reDist;
+            END_IF
+        END_IF
+    END_FOR
+    yreMinDist := _reNearRobotDist;
+ 
+    (* Kein fahrender Robby in der Naehe -> stehen bleiben *)
+    IF _reNearRobotDist > _crePassiveTrigDist THEN
+        yboIdle        := TRUE;
+        yreAngleTarget := _reLastAngle;   (* Winkel einfrieren *)
+        RETURN;
+    END_IF
+ 
+    (* Fahrender Robby zu nah -> Ortho-Karte zum Ausweichen nutzen *)
+    yboMovingAway := TRUE;
+ 
+    _inPosX := REAL_TO_INT(TRUNC(xrePosX));
+    _inPosY := REAL_TO_INT(TRUNC(xrePosY));
+    _inPosX := MAX(0, MIN(_inPosX, 799));
+    _inPosY := MAX(0, MIN(_inPosY, 399));
+ 
+    _inOrthoRaw := xyarMaps[_cinPassiveMap].GetAngle(
+                       xinPosX := _inPosX,
+                       xinPosY := _inPosY);
+ 
+    (* Hinderniszelle oder ausserhalb Einflussbereich: Notbremse *)
+    IF _inOrthoRaw = -9999 OR _inOrthoRaw = -7777 THEN
+        yboIdle        := TRUE;
+        yreAngleTarget := _reLastAngle;
+        RETURN;
+    END_IF
+ 
+    _reOrthoAngle := INT_TO_REAL(_inOrthoRaw) / 10.0;
+ 
+    (* Kollisionsvermeidung gegenueber anderen Robbys *)
+    _fbCollision(
+        xrePosX        := xrePosX,
+        xrePosY        := xrePosY,
+        xreRobotX      := xreRobotX,
+        xreRobotY      := xreRobotY,
+        xboRobotActive := xboRobotActive);
+    yboWarning := _fbCollision.yboWarning;
+ 
+    IF _fbCollision.yboStop THEN
+        yboStop        := TRUE;
+        yreAngleTarget := THIS^.LimitAngleRate(
+                            xreAngleRaw    := _reOrthoAngle,
+                            xreMaxDeltaDeg := _creMaxDeltaDeg);
+        RETURN;
+    END_IF
+    yboStop := FALSE;
+ 
+    _reOrthoGx := COS(_reOrthoAngle * _crePI / 180.0);
+    _reOrthoGy := SIN(_reOrthoAngle * _crePI / 180.0);
+    _reTotalGx := _reOrthoGx + _fbCollision.yreDynGx;
+    _reTotalGy := _reOrthoGy + _fbCollision.yreDynGy;
+ 
+    IF SQRT(_reTotalGx * _reTotalGx + _reTotalGy * _reTotalGy) < 0.001 THEN
+        yreAngleTarget := THIS^.LimitAngleRate(
+                            xreAngleRaw    := _reOrthoAngle,
+                            xreMaxDeltaDeg := _creMaxDeltaDeg);
+    ELSE
+        yreAngleTarget := THIS^.LimitAngleRate(
+                            xreAngleRaw    := FC_ATAN2(
+                                                xreY := _reTotalGy,
+                                                xreX := _reTotalGx) * 180.0 / _crePI,
+                            xreMaxDeltaDeg := _creMaxDeltaDeg);
+    END_IF
+ 
+    RETURN;   (* PassiveWait-Modus abgeschlossen *)
+END_IF
+ 
+(* ══════════════════════════════════════════════════════════════
+   NORMALBETRIEB: Zielnavigation (unveraendert)
+   ══════════════════════════════════════════════════════════════ *)
 IF xinGoalID < 1 OR xinGoalID > 13 THEN
     yboError := TRUE; RETURN;
 END_IF
@@ -60,52 +272,56 @@ IF NOT xyarMaps[xinGoalID].yboDone THEN
 END_IF
 yboError := FALSE;
 
-(* ── 1) Abstand zum Ziel ───────────────────────────── *)
+(* ── 1) Abstand zum Ziel ───────────────────────────────────── *)
 _reDiffX      := xrePosX - GVL_Maps.sreGoalX[xinGoalID];
 _reDiffY      := xrePosY - GVL_Maps.sreGoalY[xinGoalID];
 yreDistToGoal := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
-
-(* ── 2) Ziel erreicht? ─────────────────────────────── *)
+ 
+IF _inOldGoalID <> 0 THEN
+    _reDiffX         := xrePosX - GVL_Maps.sreGoalX[_inOldGoalID];
+    _reDiffY         := xrePosY - GVL_Maps.sreGoalY[_inOldGoalID];
+    yreDistToOldGoal := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
+END_IF
+ 
+(* ── 2) Ziel erreicht? ─────────────────────────────────────── *)
 IF yreDistToGoal <= _creGoalRadius THEN
     yboAtGoal      := TRUE;
     yreAngleTarget := 0.0;
     RETURN;
 END_IF
 yboAtGoal := FALSE;
-
-(* ── 3) Koordinaten begrenzen ──────────────────────── *)
+ 
+(* ── 3) Koordinaten begrenzen ──────────────────────────────── *)
 _inPosX := REAL_TO_INT(TRUNC(xrePosX));
 _inPosY := REAL_TO_INT(TRUNC(xrePosY));
 _inPosX := MAX(0, MIN(_inPosX, 799));
 _inPosY := MAX(0, MIN(_inPosY, 399));
-
-(* ── 4) Hindernischeck ─────────────────────────────── *)
+ 
+(* ── 4) Hindernischeck ─────────────────────────────────────── *)
 IF xyarMaps[xinGoalID].GetAngle(
        xinPosX := _inPosX,
        xinPosY := _inPosY) = -9999 THEN
     yboStop := TRUE; RETURN;
 END_IF
-
-(* ── 5) Winkel interpoliert aus Karte ──────────────── *)
+ 
+(* ── 5) Winkel aus Karte ────────────────────────────────────── *)
 _reRawAngle := xyarMaps[xinGoalID].GetAngleInterp(
                    xrePosX := xrePosX,
                    xrePosY := xrePosY);
-
 _reStatGx := COS(_reRawAngle * _crePI / 180.0);
 _reStatGy := SIN(_reRawAngle * _crePI / 180.0);
-
-(* ── 6) Kollisionsvermeidung ───────────────────────── *)
+ 
+(* ── 6) Kollisionsvermeidung ───────────────────────────────── *)
 _fbCollision(
     xrePosX        := xrePosX,
     xrePosY        := xrePosY,
     xreRobotX      := xreRobotX,
     xreRobotY      := xreRobotY,
     xboRobotActive := xboRobotActive);
-
 yboWarning := _fbCollision.yboWarning;
 yreMinDist := _fbCollision.yreMinDist;
-
-(* ── 7) Notstopp ───────────────────────────────────── *)
+ 
+(* ── 7) Notstopp ───────────────────────────────────────────── *)
 IF _fbCollision.yboStop THEN
     yboStop        := TRUE;
     yreAngleTarget := THIS^.LimitAngleRate(
@@ -114,12 +330,12 @@ IF _fbCollision.yboStop THEN
     RETURN;
 END_IF
 yboStop := FALSE;
-
-(* ── 8) Superposition ──────────────────────────────── *)
+ 
+(* ── 8) Superposition ──────────────────────────────────────── *)
 _reTotalGx := _reStatGx + _fbCollision.yreDynGx;
 _reTotalGy := _reStatGy + _fbCollision.yreDynGy;
-
-(* ── 9) Winkelberechnung + Rate Limiter ────────────── *)
+ 
+(* ── 9) Winkelberechnung + Rate Limiter ────────────────────── *)
 IF SQRT(_reTotalGx * _reTotalGx + _reTotalGy * _reTotalGy) < 0.001 THEN
     yreAngleTarget := THIS^.LimitAngleRate(
                         xreAngleRaw    := _reRawAngle,
@@ -144,11 +360,9 @@ VAR
     _reResult: REAL;
 END_VAR]]></Declaration>
       <Implementation>
-        <ST><![CDATA[
-IF _reLastAngle = 0 THEN
+        <ST><![CDATA[IF _reLastAngle = 0 THEN
 	_reLastAngle := xreAngleRaw;
 END_IF
-
 (* ── Winkeldifferenz berechnen ─────────────────────── *)
 _reDelta := xreAngleRaw - _reLastAngle;
 
@@ -159,6 +373,13 @@ END_WHILE
 WHILE _reDelta < -180.0 DO
     _reDelta := _reDelta + 360.0;
 END_WHILE
+
+IF (ABS(_reDelta) > 90) THEN
+	_reLastAngle := xreAngleRaw;
+	LimitAngleRate := xreAngleRaw;
+	RETURN;
+END_IF
+
 
 (* ── Änderung begrenzen ─────────────────────────────── *)
 IF _reDelta > xreMaxDeltaDeg THEN

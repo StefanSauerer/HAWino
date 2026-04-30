@@ -34,6 +34,8 @@ VAR_INPUT
 	xreDistToGoal 			:REAL;
 	xreDistFromGoal			:REAL;
 	xboWSSensor				:BOOL;							//light switch for Thing
+	xboAwayFromObstacle 	:BOOL;
+	xinStatusOfChargin		: INT;
 END_VAR
  
 VAR_OUTPUT
@@ -51,6 +53,12 @@ VAR_OUTPUT
  
     // ---------- Diagnostics ----------
     yeCurrentState          : E_RobotState;                 // Current state (HMI / diagnostics)
+	
+	yeMqttTokenTargetId			:INT; 							//Current Token Request Target
+	yboPassiveWait : BOOL;
+	yboDriveAway : BOOL;
+	yboCharging : BOOL;
+	yinCharginStationID	: INT;
 END_VAR
  
 VAR
@@ -70,13 +78,16 @@ VAR
     boTokenGrant            : BOOL;     // boTokenGrant rising edge
 	boJobIDOld				: INT;
 	boNewJob				: BOOL;		//Job ID changed
+	boCancelCharging		: BOOL;
 	
 	TONTokenRequestTime		: TON;
 	TONGripperTime			: TON;
+	TONChargingDelay		: TON;
 END_VAR
 
 VAR CONSTANT
 	creDistanzForToken : REAL := 70;
+	creDistanzForTokenRelease : REAL := 40;
 	crePreTargetDistance : REAL := 100;
 	ctiGripperTime 		: TIME := T#0.4S;
 END_VAR
@@ -85,6 +96,7 @@ END_VAR
       <ST><![CDATA[// ---------------------------------------------------------------------------
 // Rising-edge detection
 // ---------------------------------------------------------------------------
+{region 'Edge'}
 boPositionReached := (xeRobotStatus = RobotStatus.zielErreicht)
                      AND NOT (eStatusOld = RobotStatus.zielErreicht);
  
@@ -98,6 +110,12 @@ IF NOT( boJobIDOld = xstMqttIn.sJOB.inJobID) THEN
 	ELSE
 		boNewJob := FALSE;
 END_IF
+	
+IF xstMqttIn.sCmd.boCancelCharging THEN
+	boCancelCharging := TRUE;
+END_IF
+{endregion}
+{region 'Init'}
 // Store previous values
 eStatusOld        := xeRobotStatus;
 boVectorOld       := xboVectorTargetReached;
@@ -114,12 +132,13 @@ ystMqttOut.sToken.boTokenRequest         := FALSE;
 ystMqttOut.sToken.boTokenRelease         := FALSE;
 ystMqttOut.sJobState.boJobAccepted       := FALSE;
 ystMqttOut.sJobState.boWorkpiecePlaced   := FALSE;
- 
+ {endregion}
 // ---------------------------------------------------------------------------
 // STATE MACHINE – matches DrawIO diagram V2.1 exactly
 // ---------------------------------------------------------------------------
+{region 'StateMachine'}
 CASE eState OF
- 
+{region 'Start'}
     // ------------------------------------------------------------------
     // LOAD MAPS
     // Initial state. Moves to Standby as soon as maps are loaded.
@@ -151,10 +170,11 @@ CASE eState OF
 		 IF xstMqttIn.sCmd.boStartJob THEN  
             ystMqttOut.sGeneralState.boReady := FALSE;
 			ystMqttOut.sJobState.boJobAccepted := FALSE;
+			yinTargetMap := xinMapSource;
             eState := E_RobotState.SelectMapStart;
         END_IF
-
- 
+{endregion}
+ {region 'Source'}
     // ------------------------------------------------------------------
     // SELECT MAP – SOURCE SIDE
     // Start vector algorithm towards source halt point.
@@ -163,13 +183,16 @@ CASE eState OF
     //         vector not yet done               → WaitpointReachedSource
     // ------------------------------------------------------------------
     E_RobotState.SelectMapStart:
-        yinTargetMap := xinMapSource;
         yeControl    := RobotControl.vector;
  
  		IF ((xstMqttIn.sJOB.inDestination1 = 101) OR (xstMqttIn.sJOB.inDestination1 = 102) OR (xstMqttIn.sJOB.inDestination1 = 103) OR (xstMqttIn.sJOB.inDestination1 = 104)) THEN
 			eState := E_RobotState.SelectMapParkPosition;
+			 yinTargetMap               := xinMapParking;
 		END_IF;
-		
+		IF (xstMqttIn.sJOB.inDestination1 = 201) OR (xstMqttIn.sJOB.inDestination1 = 202) THEN 
+			eState := E_RobotState.AlgorithmPreviousSource;
+			 yinTargetMap               := xinMapSource;
+		END_IF
         
         IF xreDistToGoal < creDistanzForToken THEN
 			eState := E_RobotState.WaitPassiveSource;
@@ -187,18 +210,23 @@ CASE eState OF
 	//TODO: IMPlement Passive Wait here.
     // ------------------------------------------------------------------
     E_RobotState.WaitpointReachedSource:
-        yeControl := RobotControl.stop;
+        yeControl := RobotControl.vector;
+		yboPassiveWait := TRUE;
         IF boTokenGrant THEN
+			yboPassiveWait := FALSE;
             eState := E_RobotState.AlgorithmPreviousSource;
         END_IF
  
     // ------------------------------------------------------------------
     // WAIT PASSIVE – SOURCE SIDE
     // Halt point occupied. Request token and stop until granted.
+		
+	
     // ------------------------------------------------------------------
     E_RobotState.WaitPassiveSource:
         yeControl := RobotControl.vector;
         ystMqttOut.sToken.boTokenRequest := TRUE;
+		yeMqttTokenTargetId := xinMapSource;
 		
         IF boTokenGrant THEN
             eState := E_RobotState.AlgorithmPreviousSource;
@@ -214,28 +242,28 @@ CASE eState OF
         yeControl    := RobotControl.vector;
         yinTargetMap := xinMapSource;
         IF boVectorReached THEN
-            eState := E_RobotState.SwitchCoordinatesSource;
+            eState := E_RobotState.DrivePoint2Align;//SwitchCoordinatesSource;
         END_IF
  
     // ------------------------------------------------------------------
     // SWITCH COORDINATES – SOURCE SIDE
     // Load source station coordinate from array, switch to position mode.
     // ------------------------------------------------------------------
-    E_RobotState.SwitchCoordinatesSource:
-        yeControl                      := RobotControl.position;
-		
-		IF ((xstMqttIn.sJOB.inDestination1 = 201) OR (xstMqttIn.sJOB.inDestination1 = 202)) THEN
-			ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX);
-        	ystTargetPosition.reY          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosY)  - crePreTargetDistance;
-		ELSE
-        	ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX) + (crePreTargetDistance * xinSourceDirectionIndex);
-        	ystTargetPosition.reY          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosY);
-		END_IF
-		
-        ystTargetPosition.reWinkel     := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].reWinkel);
-        IF boPositionReached THEN
-            eState := E_RobotState.DrivePoint1Align;
-        END_IF
+//     E_RobotState.SwitchCoordinatesSource:
+//         yeControl                      := RobotControl.position;
+// 		
+// 		IF ((xstMqttIn.sJOB.inDestination1 = 201) OR (xstMqttIn.sJOB.inDestination1 = 202)) THEN
+// 			ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX);
+//         	ystTargetPosition.reY          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosY)  - crePreTargetDistance;
+// 		ELSE
+//         	ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX) + (crePreTargetDistance * xinSourceDirectionIndex);
+//         	ystTargetPosition.reY          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosY);
+// 		END_IF
+// 		
+//         ystTargetPosition.reWinkel     := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].reWinkel);
+//         IF boPositionReached THEN
+//             eState := E_RobotState.DrivePoint1Align;
+//         END_IF
  
     // ------------------------------------------------------------------
     // DRIVE TO POINT 1 + ALIGN  (approach point in front of source)
@@ -253,10 +281,15 @@ CASE eState OF
     // ------------------------------------------------------------------
     E_RobotState.DrivePoint2Align:
         yeControl := RobotControl.position;
-		 ystTargetPosition.reX      := REAL_TO_LREAL(xarstCoordinates[xinChargingIndex].rePosX);
-         ystTargetPosition.reY      := REAL_TO_LREAL(xarstCoordinates[xinChargingIndex].rePosY);
-         ystTargetPosition.reWinkel := REAL_TO_LREAL(xarstCoordinates[xinChargingIndex].reWinkel);
-		 
+			IF ((xstMqttIn.sJOB.inDestination1 = 201) OR (xstMqttIn.sJOB.inDestination1 = 202)) THEN
+			//TODO Umschaltung Regler
+			ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX);
+        	ystTargetPosition.reY          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosY);
+		ELSE
+        	ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX);
+        	ystTargetPosition.reY          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosY);
+		END_IF
+		ystTargetPosition.reWinkel     := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].reWinkel);
         IF boPositionReached AND ((xstMqttIn.sJOB.inDestination1 = 201) OR (xstMqttIn.sJOB.inDestination1 = 202)) THEN
 				//charging – adapt as needed
                 eState := E_RobotState.AtChargingStation;
@@ -269,9 +302,15 @@ CASE eState OF
     // Position reached – now wait for charging to complete.
     // ------------------------------------------------------------------
     E_RobotState.AtChargingStation:
-        yeControl := RobotControl.stop;
-		//TODO: START CHARGING SEQUENZ
-        IF FALSE THEN //TODO Connect with Charging Active
+        yeControl := RobotControl.idle;
+		yboCharging := TRUE;
+		IF (xstMqttIn.sJOB.inDestination1 = 201) THEN
+			yinCharginStationID := 1;
+		ELSIF (xstMqttIn.sJOB.inDestination1 = 202) THEN
+			yinCharginStationID := 2;	
+		END_IF
+		
+        IF (xinStatusOfChargin = 1) THEN //TODO Connect with Charging Active
             eState := E_RobotState.WaitForChargingDone;
         END_IF
  
@@ -280,9 +319,11 @@ CASE eState OF
     // Hold until boCancelCharging is received from MQTT.
     // ------------------------------------------------------------------
     E_RobotState.WaitForChargingDone:
-        yeControl := RobotControl.stop;
+		yboCharging := FALSE;
+        yeControl := RobotControl.idle;
         ystMqttOut.sGeneralState.boCharging := TRUE;
-        IF xstMqttIn.sCmd.boCancelCharging THEN //TODO Wait for canceled Charging
+        IF TONChargingDelay.Q AND (xinStatusOfChargin = 1) THEN //TODO Wait for canceled Charging
+			boCancelCharging := FALSE;
             ystMqttOut.sGeneralState.boCharging := FALSE;
             eState := E_RobotState.DrivePoint1AfterCharge;
         END_IF
@@ -292,12 +333,17 @@ CASE eState OF
     // Returns to main flow via SelectMapParkPosition.
     // ------------------------------------------------------------------
     E_RobotState.DrivePoint1AfterCharge:
-        yeControl := RobotControl.position;
-		ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX);
+	     
+        yeControl := RobotControl.vector;
+		yboDriveAway := TRUE;
+		(*ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX);
         ystTargetPosition.reY          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosY)  - crePreTargetDistance;
-        ystTargetPosition.reWinkel     := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].reWinkel);
-        IF boPositionReached THEN
+        ystTargetPosition.reWinkel     := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].reWinkel);*)
+		
+        IF xboAwayFromObstacle THEN
+			yboDriveAway := FALSE;
             eState := E_RobotState.SelectMapParkPosition;
+			 yinTargetMap               := xinMapParking;
         END_IF
  
     // ------------------------------------------------------------------
@@ -306,7 +352,7 @@ CASE eState OF
     //         no workpiece      → DrivePoint1NoWorkpiece + error flag
     // ------------------------------------------------------------------
     E_RobotState.AtStation:
-        yeControl := RobotControl.stop;
+        yeControl := RobotControl.idle;
 		
         IF xboWSSensor THEN
                 eState := E_RobotState.CloseGripper;
@@ -320,7 +366,7 @@ CASE eState OF
     // Wait for workpiece-loaded confirmation before continuing.
     // ------------------------------------------------------------------
     E_RobotState.CloseGripper:
-        yeControl := RobotControl.stop;
+        yeControl := RobotControl.idle;
 		Gripper.closeGripperCommand := TRUE;
         IF TONGripperTime.Q THEN
             ystMqttOut.sJobState.boTransportWorkpiece := TRUE;
@@ -332,14 +378,16 @@ CASE eState OF
     // Workpiece missing path → directly to SelectMapParkPosition.
     // ------------------------------------------------------------------
     E_RobotState.DrivePoint1NoWorkpiece:
-        yeControl := RobotControl.position;
-		
-        ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX) + (crePreTargetDistance * xinSourceDirectionIndex);
+        yeControl := RobotControl.vector;
+		yboDriveAway := TRUE;
+        (*ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX) + (crePreTargetDistance * xinSourceDirectionIndex);
         ystTargetPosition.reY          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosY);
-        ystTargetPosition.reWinkel     := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].reWinkel);
-        IF boPositionReached THEN
+        ystTargetPosition.reWinkel     := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].reWinkel);*)
+        IF xboAwayFromObstacle THEN
+			yboDriveAway := FALSE;
 			ystMqttOut.sError.boErrorNoWorkpiece := FALSE;
             eState := E_RobotState.SelectMapParkPosition;
+			 yinTargetMap               := xinMapParking;
         END_IF
  
     // ------------------------------------------------------------------
@@ -347,26 +395,29 @@ CASE eState OF
     // Normal return path WITH workpiece → continue to point 3.
     // ------------------------------------------------------------------
     E_RobotState.DrivePoint1WithWorkpiece:
-        yeControl := RobotControl.position;
-		ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX) + (crePreTargetDistance * xinSourceDirectionIndex);
+		yeControl    := RobotControl.vector; //test for driving back insted of point
+		yboDriveAway := TRUE;
+        //yeControl := RobotControl.position;
+		(*ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX) + (crePreTargetDistance * xinSourceDirectionIndex);
         ystTargetPosition.reY          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosY);
-        ystTargetPosition.reWinkel     := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].reWinkel);
-        IF boPositionReached THEN
-            eState := E_RobotState.DrivePoint3Align;
+        ystTargetPosition.reWinkel     := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].reWinkel);*)
+        IF xboAwayFromObstacle THEN//boPositionReached THEN
+			yboDriveAway := FALSE;
+            eState := E_RobotState.DrivePoint4;//DrivePoint3Align;
         END_IF
  
     // ------------------------------------------------------------------
     // DRIVE TO POINT 3 + ALIGN
     // ------------------------------------------------------------------
-    E_RobotState.DrivePoint3Align:
-        yeControl := RobotControl.position;
-		ystTargetPosition.reX      := REAL_TO_LREAL(xarstCoordinates[xinRfidSourceIndex].rePosX)+ (crePreTargetDistance * xinSourceDirectionIndex);
-        ystTargetPosition.reY      := REAL_TO_LREAL(xarstCoordinates[xinRfidSourceIndex].rePosY);
-        ystTargetPosition.reWinkel := REAL_TO_LREAL(xarstCoordinates[xinRfidSourceIndex].reWinkel);
-        IF boPositionReached THEN//boPositionReached THEN
-            eState := E_RobotState.DrivePoint4;
-        END_IF
- 
+//     E_RobotState.DrivePoint3Align:
+//         yeControl := RobotControl.position;
+// 		ystTargetPosition.reX      := REAL_TO_LREAL(xarstCoordinates[xinRfidSourceIndex].rePosX)+ (crePreTargetDistance * xinSourceDirectionIndex);
+//         ystTargetPosition.reY      := REAL_TO_LREAL(xarstCoordinates[xinRfidSourceIndex].rePosY);
+//         ystTargetPosition.reWinkel := REAL_TO_LREAL(xarstCoordinates[xinRfidSourceIndex].reWinkel);
+//         IF boPositionReached THEN//boPositionReached THEN
+//             eState := E_RobotState.DrivePoint4;
+//         END_IF
+//  
     // ------------------------------------------------------------------
     // DRIVE TO POINT 4
     // Load RFID source coordinate before transitioning to RFID scan.
@@ -385,7 +436,7 @@ CASE eState OF
     // Signal "waiting for RFID out" to controller. Wait for boRFIDComplete.
     // ------------------------------------------------------------------
     E_RobotState.ScanRFIDSource:
-        yeControl := RobotControl.position;
+        yeControl := RobotControl.idle;
 		ystMqttOut.sJobState.boWaitForRfidOut := TRUE;
         
         IF boRFIDComplete THEN
@@ -397,29 +448,33 @@ CASE eState OF
     // DRIVE TO POINT 3 TOWARDS TARGET
     // ------------------------------------------------------------------
     E_RobotState.DrivePoint3ToTarget:
-        yeControl := RobotControl.position;
+        (*yeControl := RobotControl.position;
 		ystTargetPosition.reX      := REAL_TO_LREAL(xarstCoordinates[xinRfidSourceIndex].rePosX)+ (crePreTargetDistance * xinSourceDirectionIndex);
         ystTargetPosition.reY      := REAL_TO_LREAL(xarstCoordinates[xinRfidSourceIndex].rePosY);
-        ystTargetPosition.reWinkel := REAL_TO_LREAL(xarstCoordinates[xinRfidSourceIndex].reWinkel);		
-        IF boPositionReached THEN
+        ystTargetPosition.reWinkel := REAL_TO_LREAL(xarstCoordinates[xinRfidSourceIndex].reWinkel);*)
+		yeControl := RobotControl.vector;
+		yboDriveAway := TRUE;
+        IF xboAwayFromObstacle THEN
+			yboDriveAway := FALSE;
             eState := E_RobotState.SelectMapTarget;
+			yinTargetMap := xinMapTarget;
         END_IF
- 
+ {endregion}
     // ------------------------------------------------------------------
     // SELECT MAP – TARGET SIDE
     // Start vector algorithm towards target halt point.
     // Normal path → WaitpointReachedTarget
     // Side path (distance below threshold & no token) → WaitPassiveTarget
     // ------------------------------------------------------------------
+{region 'Target'}
     E_RobotState.SelectMapTarget:
         yinTargetMap := xinMapTarget;
         yeControl    := RobotControl.vector;
-		IF xreDistFromGoal > creDistanzForToken THEN
+		IF xreDistFromGoal > creDistanzForTokenRelease THEN
 			ystMqttOut.sToken.boTokenRelease := TRUE;
 		END_IF
 		 IF xreDistToGoal < creDistanzForToken THEN
 			eState := E_RobotState.WaitpointReachedTarget;
-			ystMqttOut.sToken.boTokenRequest := TRUE;
 		END_IF
 		
 	
@@ -429,7 +484,9 @@ CASE eState OF
     // ------------------------------------------------------------------
     E_RobotState.WaitpointReachedTarget:
         yeControl := RobotControl.vector;
-        IF boTokenGrant THEN
+		ystMqttOut.sToken.boTokenRequest := TRUE;
+		yeMqttTokenTargetId := xinMapTarget;
+        IF boTokenGrant THEN 
 			ystMqttOut.sToken.boTokenRequest := FALSE;
             eState := E_RobotState.AlgorithmPreviousTarget;
 		ELSIF TONTokenRequestTime.Q THEN
@@ -441,9 +498,10 @@ CASE eState OF
     // Halt point occupied. Request token, stop until granted.
     // ------------------------------------------------------------------
     E_RobotState.WaitPassiveTarget:
-	//TODO PASSIVE WAIT
-        yeControl := RobotControl.stop;
+        yeControl := RobotControl.vector;
+		yboPassiveWait := TRUE;
         IF boTokenGrant THEN
+			yboPassiveWait := FALSE;
 			ystMqttOut.sToken.boTokenRequest := FALSE;
             eState := E_RobotState.AlgorithmPreviousTarget;
         END_IF
@@ -455,7 +513,7 @@ CASE eState OF
         yeControl    := RobotControl.vector;
         yinTargetMap := xinMapTarget;
         IF boVectorReached THEN
-            eState := E_RobotState.SwitchCoordinatesTarget;
+            eState := E_RobotState.DrivePoint5AlignRFID;//SwitchCoordinatesTarget;
         END_IF
  
     // ------------------------------------------------------------------
@@ -498,7 +556,7 @@ CASE eState OF
     // Signal "waiting for RFID in" to controller. Wait for boRFIDComplete.
     // ------------------------------------------------------------------
     E_RobotState.ScanRFIDTarget:
-        yeControl := RobotControl.stop;
+        yeControl := RobotControl.idle;
         ystMqttOut.sJobState.boWaitForRfidIn := TRUE;
         IF boRfidComplete THEN
             ystMqttOut.sJobState.boWaitForRfidIn := FALSE;
@@ -509,25 +567,28 @@ CASE eState OF
     // DRIVE TO POINT 5 + ALIGN (return from RFID sensor)
     // ------------------------------------------------------------------
     E_RobotState.DrivePoint5:
-        yeControl := RobotControl.position;
+		yeControl := RobotControl.vector;
+		yboDriveAway := TRUE;
+        (*yeControl := RobotControl.position;
 		ystTargetPosition.reX      := REAL_TO_LREAL(xarstCoordinates[xinRfidTargetIndex].rePosX) + (crePreTargetDistance * xinTargetDirectionIndex);
         ystTargetPosition.reY      := REAL_TO_LREAL(xarstCoordinates[xinRfidTargetIndex].rePosY);
-        ystTargetPosition.reWinkel := REAL_TO_LREAL(xarstCoordinates[xinRfidTargetIndex].reWinkel);
-        IF boPositionReached THEN
-            eState := E_RobotState.DrivePoint8BeforeDrop;
+        ystTargetPosition.reWinkel := REAL_TO_LREAL(xarstCoordinates[xinRfidTargetIndex].reWinkel);*)
+        IF xboAwayFromObstacle THEN
+			yboDriveAway := FALSE;
+            eState := E_RobotState.DrivePoint9Drop;//DrivePoint8BeforeDrop;
         END_IF
  
     // ------------------------------------------------------------------
     // DRIVE TO POINT 8 – BEFORE DROP-OFF
     // ------------------------------------------------------------------
-    E_RobotState.DrivePoint8BeforeDrop:
-        yeControl := RobotControl.position;
-		ystTargetPosition.reX      := REAL_TO_LREAL(xarstCoordinates[xinTargetIndex].rePosX) + (crePreTargetDistance * xinTargetDirectionIndex);
-        ystTargetPosition.reY      := REAL_TO_LREAL(xarstCoordinates[xinTargetIndex].rePosY);
-        ystTargetPosition.reWinkel := REAL_TO_LREAL(xarstCoordinates[xinTargetIndex].reWinkel);
-        IF boPositionReached THEN
-            eState := E_RobotState.DrivePoint9Drop;
-        END_IF
+//     E_RobotState.DrivePoint8BeforeDrop:
+//         yeControl := RobotControl.position;
+// 		ystTargetPosition.reX      := REAL_TO_LREAL(xarstCoordinates[xinTargetIndex].rePosX) + (crePreTargetDistance * xinTargetDirectionIndex);
+//         ystTargetPosition.reY      := REAL_TO_LREAL(xarstCoordinates[xinTargetIndex].rePosY);
+//         ystTargetPosition.reWinkel := REAL_TO_LREAL(xarstCoordinates[xinTargetIndex].reWinkel);
+//         IF boPositionReached THEN
+//             eState := E_RobotState.DrivePoint9Drop;
+//         END_IF
  
     // ------------------------------------------------------------------
     // DRIVE TO POINT 9 – DROP-OFF POSITION
@@ -546,7 +607,7 @@ CASE eState OF
     // Wait for workpiece-released confirmation (boWorkpieceLoaded = FALSE).
     // ------------------------------------------------------------------
     E_RobotState.OpenGripper:
-        yeControl := RobotControl.stop;
+        yeControl := RobotControl.idle;
 		Gripper.closeGripperCommand := FALSE;
         IF TONGripperTime.Q THEN
             ystMqttOut.sJobState.boTransportWorkpiece := FALSE;
@@ -558,13 +619,17 @@ CASE eState OF
     // DRIVE TO POINT 8 – RETURN AFTER DROP-OFF
     // ------------------------------------------------------------------
     E_RobotState.DrivePoint8AfterDrop:
-        yeControl := RobotControl.position;
+		yeControl := RobotControl.vector;
+		yboDriveAway := TRUE;
+       (* yeControl := RobotControl.position;
 		ystTargetPosition.reX      := REAL_TO_LREAL(xarstCoordinates[xinTargetIndex].rePosX) + (crePreTargetDistance * xinTargetDirectionIndex);
         ystTargetPosition.reY      := REAL_TO_LREAL(xarstCoordinates[xinTargetIndex].rePosY);
         ystTargetPosition.reWinkel := REAL_TO_LREAL(xarstCoordinates[xinTargetIndex].reWinkel);
-		ystMqttOut.sJobState.boWorkpiecePlaced    := FALSE;
-        IF boPositionReached THEN
+		ystMqttOut.sJobState.boWorkpiecePlaced    := FALSE;*)
+        IF xboAwayFromObstacle THEN
+			yboDriveAway := FALSE;
             eState := E_RobotState.SelectMapParkPosition;
+			 yinTargetMap               := xinMapParking;
         END_IF
  
     // ------------------------------------------------------------------
@@ -574,10 +639,10 @@ CASE eState OF
     // Branch B: normal end                       → Standby
     // ------------------------------------------------------------------
     E_RobotState.SelectMapParkPosition:
-        yinTargetMap               := xinMapParking;
+         yinTargetMap               := xinMapParking;//Falsche Parking map wird übergeben
         yeControl                  := RobotControl.vector;
 		ystMqttOut.sGeneralState.boReady := TRUE;
-		IF xreDistFromGoal > creDistanzForToken THEN
+		IF xreDistFromGoal > creDistanzForTokenRelease THEN
 			ystMqttOut.sToken.boTokenRelease := TRUE;
 		END_IF
         IF boVectorReached THEN
@@ -587,18 +652,19 @@ CASE eState OF
 		END_IF;
 		
 END_CASE
- 
+ {endregion}
 
 TONTokenRequestTime(IN :=  (E_RobotState.WaitPassiveSource = eState) OR (E_RobotState.WaitpointReachedTarget = eState) ,PT := T#0.2S);
 TONGripperTime(IN := (eState = E_RobotState.CloseGripper) OR (E_RobotState.OpenGripper = eState), PT := ctiGripperTime);
+TONChargingDelay(IN := boCancelCharging, PT := T#2S);
 
 // ---------------------------------------------------------------------------
 // Mirror active state to diagnostic output
 // ---------------------------------------------------------------------------
 yeCurrentState := eState;
  
-
-
+{endregion}
+{region 'old'}
 // ---------------------------------------------------------------------------
 // Global control output overrides by state group
 // (same pattern as FB_StatesTest – set yeControl after CASE to guarantee
@@ -653,7 +719,8 @@ END_IF
 IF  (eState = E_RobotState.WaitPassiveSource)
  OR (eState = E_RobotState.WaitPassiveTarget) THEN
     yeControl := RobotControl.stop;
-END_IF*)]]></ST>
+END_IF*)
+{endregion}]]></ST>
     </Implementation>
   </POU>
 </TcPlcObject>

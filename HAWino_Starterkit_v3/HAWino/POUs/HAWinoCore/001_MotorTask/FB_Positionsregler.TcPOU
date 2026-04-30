@@ -5,6 +5,11 @@
 VAR_INPUT
 	targetPos		: sPosition;
 	actualPos		: sPosition;
+	KPX				: LREAL 	:= 0.0;
+	KPY				: LREAL 	:= 0.0;
+	KIX				: LREAL 	:= 0.0;
+	KIY				: LREAL 	:= 0.0;
+	
 END_VAR
 VAR_OUTPUT
 	vXCartesianToMotors		: LREAL :=0;
@@ -14,6 +19,8 @@ END_VAR
 VAR
 	error		: sPosition;	// Positionsfehler
 	deltaError	: sPosition;	// Fehlersteigung
+	integralError : sPosition;
+	diffConst: LREAL :=0.001;
 
 	// Geschwindigkeit in Weltkoordinaten 
 	W_X_targetSpeed		: LREAL; 
@@ -26,9 +33,11 @@ VAR
 	R_Theta_targetSpeed	: LREAL;
 	
 	// Reglerparameter
-	KPX		: LREAL 	:= 0.2;
-	KPY		: LREAL		:= 0.2;
-	KPTheta	: LREAL 	:= 0.3;
+	//KPX		: LREAL 	:= 0.8;
+	//KPY		: LREAL		:= 0.8;
+	KPTheta	: LREAL 	:= 1.5;
+	//KIX 	: LREAL 	:= 0.025;
+	KITheta : LREAL 	:= 0.1;
 	
 	speedThreshold	: LREAL := 0.01; //Annäherung nur aktiv bei Abweichung > threshold
 	AccelerationRate: LREAL := 5; 	//Höhere Werte = höhere Beschleunigung
@@ -71,6 +80,12 @@ IF NOT initDone THEN
     OutputValue[3] := 0.5;
     OutputValue[4] := 0.75;
     OutputValue[5] := 1.0;
+	
+	integralError.reX := 0;
+	integralError.reY := 0;
+	integralError.reWinkel := 0;
+
+	
     initDone := TRUE;
 END_IF
 
@@ -112,6 +127,15 @@ deltaError.reY := error.reY - (targetPos.reY - actualPos.reY);
 error.reX := targetPos.reX - actualPos.reX;
 error.reY := targetPos.reY - actualPos.reY;
 
+IF KIX = 0.0 THEN
+integralError.reX := 0.0;
+ELSE
+integralError.reX := integralError.reX + (error.reX * diffConst);
+END_IF
+
+//integralError.reY := integralError.reY + (error.reY * diffConst);
+//integralError.reWinkel := integralError.reWinkel + (error.reWinkel * diffConst);
+
 // --------------------------------------------------
 // Positionsregelung
 // --------------------------------------------------
@@ -119,9 +143,9 @@ error.reY := targetPos.reY - actualPos.reY;
 // ACT_GetFuzzyParam();
 
 // Berechnung der Stellgröße
-W_X_targetSpeed 	:= (error.reX 		* KPX);
+W_X_targetSpeed 	:= (error.reX 		* KPX) + (KIX * integralError.reX);
 W_Y_targetSpeed 	:= (error.reY 		* KPY);
-W_Theta_targetSpeed := (error.reWinkel 	* KPTheta);
+W_Theta_targetSpeed := (error.reWinkel 	* KPTheta) + (KITheta * integralError.reWinkel);
 
 // Umrechnung von Welt in Motorcoordinaten
 R_X_targetSpeed 	:= W_X_targetSpeed * COS(actualPos.reWinkel) - W_Y_targetSpeed * SIN(actualPos.reWinkel);

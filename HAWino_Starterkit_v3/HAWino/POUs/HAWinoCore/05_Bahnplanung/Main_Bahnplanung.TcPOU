@@ -123,11 +123,11 @@ sactualKoordinates.rePosX := actualPosX / 10;
 sactualKoordinates.rePosY := actualPosY / 10;
 sactualKoordinates.reWinkel := actualPosTheta;
 sMqttOut.sError.boErrorControl := TRUE;
-
+(*
 fb_MQTT(xsDataToSend := sMqttOut,
 	xsKoordinate :=  sactualKoordinates,
 	ysDataToReceive => sMqttIn);
-
+*)
 fbStates (xboVectorTargetReached := boAtGoal,
  xinSatus := GVL_Datatransfer23.inStatus,
  yinControl => GVL_Datatransfer23.inControl,

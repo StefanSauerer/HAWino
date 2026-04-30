@@ -70,9 +70,17 @@ VAR
 	
 	RobotIndex : INT := -1;
 	
+	DeltaWinkel : LREAL := 0.0;
+	DeltaX : LREAL := 0.0;
+	DeltaY : LREAL := 0.0;
+	
+	DeltaIn     : LREAL;
+	DeltaLat    : LREAL;
+	PosInOK     : BOOL;
+	PosLatOK    : BOOL;
+	
 	WinkelOK: BOOL := FALSE;
-	XPosOK: BOOL := FALSE;
-	YPosOK: BOOL := FALSE;
+	
 	
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Instanzierung der FBs
@@ -87,6 +95,39 @@ VAR
 	targetPos			: sPosition;	// Geschwindigkeitsvorgabe
 	actualPos			: sPosition;	// Tatsächliche Position
 	perfCamPos			: sPosition :=  (reWinkel := 0, reX := 0, reY := 0);	// vorherige Kamera Position	
+	
+	//Pseudofuzzy Parameter
+	// Ersetzt die alten KPX_MIN/MAX etc. - umbenannt + gespiegelt für Lateral
+	NILL        : LREAL := 0.0;
+	
+	KP_IN_MIN   : LREAL := 0.1;    // Einfahrrichtung KP minimum
+	KP_IN_MAX   : LREAL := 3.0;    // Einfahrrichtung KP maximum
+	KP_LAT_MIN  : LREAL := 1.0;    // Querrichtung KP minimum
+	KP_LAT_MAX  : LREAL := 2.0;    // Querrichtung KP maximum
+	KI_IN_MIN   : LREAL := 0.0;    // Einfahrrichtung KI disabled
+	KI_IN_MAX   : LREAL := 0.25;    // Einfahrrichtung KI maximum
+	
+	// Berechnete Reglerwerte (generisch)
+	KP_In       : LREAL;
+	KP_Lat      : LREAL;
+	KI_In       : LREAL;
+	
+	// Regler-Eingangswerte (gemappt auf X/Y des FB-Interfaces)
+	KPX         : LREAL;
+	KPY         : LREAL;
+	KIX         : LREAL;
+	KIY 		: LREAL;
+	
+
+	
+	
+	// Nil-Durchschaltung für gesperrte Achse
+	vNILL_X     : LREAL := 0.0;    // Wird NILL zugewiesen wenn X gesperrt
+	vNILL_Y     : LREAL := 0.0;    // Wird NILL zugewiesen wenn Y gesperrt
+	
+	ePocketOrientation : (ePocketX := 0, ePocketY := 1);
+	
+	f : LREAL;//Funktion für Übergang KIX und KPX
 	
 	actualError			: LREAL;		// Kamerafehler
 	wheelSpeed 			: WheelVelocity;
@@ -123,6 +164,7 @@ IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 	RobotIndex := -1;
 ELSE
 	ACT_Kammeramessung();
+	//enableMotorControl := FALSE;	
 END_IF;
 
 // Beste Positionsschätzung an Gruppe 2 übergeben
@@ -143,7 +185,6 @@ END_IF
 // GVL_Datatransfer23.gvZielPosition.reX 		:= 6000;
 // GVL_Datatransfer23.gvZielPosition.reY		:= 500;
 // GVL_Datatransfer23.gvZielPosition.reWinkel	:= 50;
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Schrittkette
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -205,29 +246,119 @@ CASE GVL_Datatransfer23.inControl OF
 		targetPos.reWinkel	:= GVL_Datatransfer23.gvZielPosition.reWinkel* PI / 180.0;;
 		// Prüfen ob Zielpositon erreicht
 		
-		IF (ABS(actualPos.reWinkel)- ABS(targetPos.reWinkel)	> 0.2) THEN WinkelOK := TRUE; END_IF
-		IF (ABS(actualPos.reX 		- targetPos.reX) 			> 0.5) THEN XPosOK := TRUE; END_IF
-		IF (ABS(actualPos.reY 		- targetPos.reY) 			> 0.5) THEN YPosOK := TRUE; END_IF
-		
-		
-		IF 	(ABS(actualPos.reWinkel)- ABS(targetPos.reWinkel)	> 0.2 OR 
-			ABS(actualPos.reX 		- targetPos.reX) 			> 0.5 OR  
-			ABS(actualPos.reY 		- targetPos.reY) 			> 0.5)AND
-			Gripper.slider = TRUE								THEN	
-			
-			// Wert des Positionsreglers berechnen
-			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
-								vXCartesianToMotors 	=> targetSpeed_Robot.reX,
-								vYCartesianToMotors 	=> targetSpeed_Robot.reY,
-								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
-								
-			GVL_Datatransfer23.inStatus	:= RobotStatus.laufend;
+		// --- Pocket Orientation automatisch ermitteln ---
+		IF ABS(ABS(targetPos.reWinkel) - (3.14159 / 2.0)) < 0.2 THEN
+			ePocketOrientation := ePocketY;
 		ELSE
-			GVL_Datatransfer23.inStatus := RobotStatus.zielErreicht;
+			ePocketOrientation := ePocketX;
 		END_IF
 		
+		// --- Deltas berechnen ---
+		DeltaWinkel := ABS(actualPos.reWinkel) - ABS(targetPos.reWinkel);
+		DeltaX      := ABS(actualPos.reX - targetPos.reX);
+		DeltaY      := ABS(actualPos.reY - targetPos.reY);
+		
+		// Einfahr- und Querrichtung mappen
+		IF ePocketOrientation = ePocketX THEN
+			DeltaIn  := DeltaX;
+			DeltaLat := DeltaY;
+		ELSE
+			DeltaIn  := DeltaY;
+			DeltaLat := DeltaX;
+		END_IF
+		
+		// --- Status-Flags ---
+		IF ABS(DeltaWinkel) < 0.2   THEN WinkelOK := TRUE;  ELSE WinkelOK := FALSE;  END_IF
+		IF DeltaIn          < 12    THEN PosInOK  := TRUE;  ELSE PosInOK  := FALSE;  END_IF
+		IF DeltaLat         < 2     THEN PosLatOK := TRUE;  ELSE PosLatOK := FALSE;  END_IF		
+		
+		// --- Adaptive Verstärkung (Einfahrrichtung) ---
+		f := DeltaIn / 100.0;
+		IF f > 1 THEN f := 1; END_IF
+		IF f < 0 THEN f := 0; END_IF
+		
+		IF DeltaIn < 35 THEN
+			KP_In := 0;
+		ELSE
+			KP_In := KP_IN_MIN + f * (KP_IN_MAX - KP_IN_MIN);
+		END_IF
+		
+		IF DeltaIn > 100 THEN
+			KI_In := 0;
+		ELSE
+			KI_In := KI_IN_MAX - f * (KI_IN_MAX - KI_IN_MIN);
+		END_IF
+		
+		KP_Lat := KP_LAT_MAX;
+		
+		// --- KPX/KPY/KIX/KIY auf FB-Interface mappen ---
+		IF ePocketOrientation = ePocketX THEN
+			KPX := KP_In;
+			KPY := KP_Lat;
+			KIX := KI_In;
+			KIY := NILL;     // Lateral-Integral nicht benötigt
+		ELSE
+			KPX := KP_Lat;   // FB-X ist Querrichtung
+			KPY := KP_In;    // FB-Y ist Einfahrrichtung
+			KIX := NILL;     // Lateral-Integral nicht benötigt
+			KIY := KI_In;    // Integral liegt jetzt auf Y
+		END_IF
+		
+		// --- Regleraufrufe ---
+		
+		// 1. Winkel ausrichten
+		IF (WinkelOK = FALSE) THEN
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
+								vXCartesianToMotors     => NILL,
+								vYCartesianToMotors     => NILL,
+								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
+			GVL_Datatransfer23.inStatus := RobotStatus.laufend;
+		
+		// 2. Nah an Tasche aber lateral daneben: nur Querrichtung
+		ELSIF (DeltaLat > 5 AND DeltaIn < 20) THEN
+			IF ePocketOrientation = ePocketX THEN
+				FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
+									KPX := NILL, KPY := KPY, KIX := NILL, KIY := NILL,
+									vXCartesianToMotors     => NILL,
+									vYCartesianToMotors     => targetSpeed_Robot.reY,
+									vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
+			ELSE
+				FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
+									KPX := KPX, KPY := NILL, KIX := NILL, KIY := NILL,
+									vXCartesianToMotors     => targetSpeed_Robot.reX,
+									vYCartesianToMotors     => NILL,
+									vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
+			END_IF
+			GVL_Datatransfer23.inStatus := RobotStatus.laufend;
+		
+		// 3. Lateral nicht OK: Querrichtung bevorzugen, Einfahrt gedrosselt
+		ELSIF (PosLatOK = FALSE) THEN
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
+								KPX := 0.2 * KPX, KPY := KPY, KIX := 0.2 * KIX, KIY := KIY,
+								vXCartesianToMotors     => targetSpeed_Robot.reX,
+								vYCartesianToMotors     => targetSpeed_Robot.reY,
+								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
+			GVL_Datatransfer23.inStatus := RobotStatus.laufend;
+		
+		// 4. Normalbetrieb
+		ELSIF (Gripper.slider = TRUE) THEN
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
+								KPX := KPX, KPY := KPY, KIX := KIX, KIY := KIY,
+								vXCartesianToMotors     => targetSpeed_Robot.reX,
+								vYCartesianToMotors     => targetSpeed_Robot.reY,
+								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
+			GVL_Datatransfer23.inStatus := RobotStatus.laufend;
+		
+		// 5. Ziel erreicht
+		ELSE
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
+								vXCartesianToMotors     => NILL,
+								vYCartesianToMotors     => NILL,
+								vThetaCartesianToMotors => NILL);
+			GVL_Datatransfer23.inStatus := RobotStatus.zielErreicht;
+		END_IF
+	
 	END_CASE
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Drehzahlregler
 /////////////////////////////////////////////////////////////////////////////////////////////////////////

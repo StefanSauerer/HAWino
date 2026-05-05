@@ -86,24 +86,9 @@ VAR
 	targetSpeed_Robot	: sPosition;	// Geschwindigkeit in Roboterkoordinaten
 	targetPos			: sPosition;	// Geschwindigkeitsvorgabe
 	actualPos			: sPosition;	// Tatsächliche Position
-	perfCamPos			: sPosition :=  (reWinkel := 0, reX := 0, reY := 0);	// vorherige Kamera Position	
-	
-	actualError			: LREAL;		// Kamerafehler
+
 	wheelSpeed 			: WheelVelocity;
 	
-	
-	bufferWheelSpeed	: ARRAY[0..bufferLength] OF WheelVelocity;	// Speichern der letzten 300 Motorwerte (entspricht 100 ms -> Delay)
-	bufferIdx			: INT := 0;
-	averageWheelSpeed 	: WheelVelocity;
-	
-	CameraTimestamp	: LREAL;
-	CurrentTime		: LREAL;	
-	
-	P_currentState : ARRAY[1..9] OF LREAL;// Wär später für Kalmann
-	
-	cameraDelay		: REAL := 0.1;
-	
-	i	: INT;	// Iterrationsvariable
 	
 	diffPos		: sPosition;
 	
@@ -122,7 +107,11 @@ IF (RobotIndex < 1) OR (RobotIndex > 4) THEN
 	// Falls außerhalb Bereich: Default auf 1 setzen 
 	RobotIndex := -1;
 ELSE
-	ACT_Kammeramessung();
+	// ACT_Kammeramessung();
+	wheelSpeed.wheel1  := -velWheel1;
+	wheelSpeed.wheel2  := -velWheel2;
+	wheelSpeed.wheel3  := -velWheel3;
+	Beobachter(wheelSpeed := wheelSpeed, cameraData := Camera.cameraData, RobotIndex := RobotIndex, eastPos => actualPos);
 END_IF;
 
 // Beste Positionsschätzung an Gruppe 2 übergeben
@@ -139,10 +128,10 @@ IF bumper THEN
 END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
-// GVL_Datatransfer23.inControl := RobotControl.position;
-// GVL_Datatransfer23.gvZielPosition.reX 		:= 6000;
-// GVL_Datatransfer23.gvZielPosition.reY		:= 500;
-// GVL_Datatransfer23.gvZielPosition.reWinkel	:= 50;
+GVL_Datatransfer23.inControl := RobotControl.position;
+GVL_Datatransfer23.gvZielPosition.reX 		:= 6000;
+GVL_Datatransfer23.gvZielPosition.reY		:= 2500;
+GVL_Datatransfer23.gvZielPosition.reWinkel	:= 50;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Schrittkette
@@ -263,14 +252,39 @@ velWheel2 := -(UINT_TO_INT(n2fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/6
 velWheel3 := -(UINT_TO_INT(n3fromMotor) / maxKlemmeDrehzahlMessung*maxMotorRPM/60*ue*2*PI*rWheel);]]></ST>
       </Implementation>
     </Action>
-    <Action Name="ACT_Kammeramessung" Id="{eb8f66d2-72e3-4fa5-970d-cd88c08592e9}">
+    <Method Name="Beobachter" Id="{9009e981-b450-4d66-aef6-eef3267f676a}">
+      <Declaration><![CDATA[METHOD Beobachter
+VAR_INPUT
+	wheelSpeed : WheelVelocity;
+	cameraData : CameraConnectionUDP;
+	RobotIndex : INT;
+END_VAR
+VAR_OUTPUT
+	eastPos	: sPosition;
+END_VAR
+VAR CONSTANT
+	cycletime 	: LREAL := 0.00033333;  // Cycletime des Motortasks
+	cameraDelay	: REAL 	:= 0.1;
+END_VAR
+
+VAR_STAT
+	bufferWheelSpeed	: ARRAY[0..bufferLength] OF WheelVelocity;			// Speichern der letzten 300 Motorwerte (entspricht 100 ms -> Delay)
+	perfCamPos			: sPosition :=  (reWinkel := 0, reX := 0, reY := 0);// vorherige Kamera Position
+	CurrentTime			: LREAL;
+	CameraTimestamp		: LREAL;
+	actualError			: LREAL;				// Kamerafehler
+	actualPos 			: sPosition;
+END_VAR
+VAR
+	P_currentState 		: ARRAY[1..9] OF LREAL;	// Wär später für Kalmann	
+	i					: INT;					// Iterrationsvariable
+	bufferIdx			: INT := 0;
+	averageWheelSpeed 	: WheelVelocity;
+END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[/////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Radwerte in FIFO abspeichern
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-wheelSpeed.wheel1  := -velWheel1;
-wheelSpeed.wheel2  := -velWheel2;
-wheelSpeed.wheel3  := -velWheel3;
 
 IF(bufferIdx < bufferLength) THEN
 	bufferWheelSpeed[bufferIdx] := wheelSpeed;
@@ -284,7 +298,7 @@ END_IF
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Kammeraposition erst validieren
-IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
+IF cameraData.robotPosition[RobotIndex].e > 10 THEN
 // Falls schlechte Position lieber über Reifenumdrehungen 
 	// Ist die Letzte Kameramessung weniger als 30 Sekunden her
 	IF ABS(CurrentTime - CameraTimestamp) < 30 THEN 
@@ -299,14 +313,14 @@ IF Camera.cameraData.robotPosition[RobotIndex].e > 10 THEN
 		
 		CurrentTime := CurrentTime + cycletime;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
 	ELSE
-		enableMotorControl := FALSE;
+		// enableMotorControl := FALSE;
 		GVL_Datatransfer23.inStatus := RobotStatus.fehler;	
 	END_IF	
 ELSE
 	// Prüfen ob neue Kameraposition
-	IF(	(perfCamPos.reX 	 = Camera.cameraData.robotPosition[RobotIndex].x)	OR
-		(perfCamPos.reY 	 = Camera.cameraData.robotPosition[RobotIndex].y) 	OR
-		(perfCamPos.reWinkel = Camera.cameraData.robotPosition[RobotIndex].theta)) THEN
+	IF(	(perfCamPos.reX 	 = cameraData.robotPosition[RobotIndex].x)	AND
+		(perfCamPos.reY 	 = cameraData.robotPosition[RobotIndex].y) 	AND
+		(perfCamPos.reWinkel = cameraData.robotPosition[RobotIndex].theta)) THEN
 		// Wenn keine neue Kameraposition gesendet wurde actualPosition um eine Zückluszeit weiter berechnen
 		propagate_state(
 			X_Start 	:= actualPos,
@@ -319,11 +333,11 @@ ELSE
 		
 	ELSE
 		// Falls Kameraposition gut nehmen
-		actualPos.reX 		:= Camera.cameraData.robotPosition[RobotIndex].x;
-		actualPos.reY 		:= Camera.cameraData.robotPosition[RobotIndex].y;
-		actualPos.reWinkel 	:= Camera.cameraData.robotPosition[RobotIndex].theta;
-		actualError			:= Camera.cameraData.robotPosition[RobotIndex].e;
-		CameraTimestamp 	:= (Camera.cameraData.HH * 60 + Camera.cameraData.MM) * 60 + Camera.cameraData.SS;
+		actualPos.reX 		:= cameraData.robotPosition[RobotIndex].x;
+		actualPos.reY 		:= cameraData.robotPosition[RobotIndex].y;
+		actualPos.reWinkel 	:= cameraData.robotPosition[RobotIndex].theta;
+		actualError			:= cameraData.robotPosition[RobotIndex].e;
+		CameraTimestamp 	:= (cameraData.HH * 60 + cameraData.MM) * 60 + cameraData.SS;
 		CurrentTime			:= CameraTimestamp;
 		
 		// Abspeichern der actualposition als alte Kameraposition
@@ -334,7 +348,7 @@ ELSE
 		averageWheelSpeed.wheel2 := 0;
 		averageWheelSpeed.wheel3 := 0;
 		
-		FOR i := 0 TO bufferLength DO
+		FOR i := 0 TO bufferLength - 1 DO
 			averageWheelSpeed.wheel1 :=  averageWheelSpeed.wheel1 + bufferWheelSpeed[i].wheel1;
 			averageWheelSpeed.wheel2 :=  averageWheelSpeed.wheel2 + bufferWheelSpeed[i].wheel2;
 			averageWheelSpeed.wheel3 :=  averageWheelSpeed.wheel3 + bufferWheelSpeed[i].wheel3;
@@ -353,9 +367,10 @@ ELSE
 				P_Predict 	=> P_currentState
 			);
 	END_IF
-END_IF]]></ST>
+END_IF
+eastPos := actualPos;]]></ST>
       </Implementation>
-    </Action>
+    </Method>
     <Method Name="NormalizeAngle" Id="{83b90488-147b-4b1b-9c7b-cbb33d68b649}">
       <Declaration><![CDATA[METHOD NormalizeAngle
 VAR_INPUT

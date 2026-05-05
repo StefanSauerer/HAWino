@@ -94,7 +94,10 @@ VAR
 	targetSpeed_Robot	: sPosition;	// Geschwindigkeit in Roboterkoordinaten
 	targetPos			: sPosition;	// Geschwindigkeitsvorgabe
 	actualPos			: sPosition;	// Tatsächliche Position
-	perfCamPos			: sPosition :=  (reWinkel := 0, reX := 0, reY := 0);	// vorherige Kamera Position	
+	perfCamPos			: sPosition :=  (reWinkel := 0, reX := 0, reY := 0);	// vorherige Kamera Position
+
+	VelAngle : LREAL; //Winkel in dem der Roboter fährt	
+	IR_Distance : LREAL; // Minimaler Abstand des IR Sensors in Fahrtrichtung
 	
 	//Pseudofuzzy Parameter
 	// Ersetzt die alten KPX_MIN/MAX etc. - umbenannt + gespiegelt für Lateral
@@ -117,8 +120,6 @@ VAR
 	KPY         : LREAL;
 	KIX         : LREAL;
 	KIY 		: LREAL;
-	
-
 	
 	
 	// Nil-Durchschaltung für gesperrte Achse
@@ -181,7 +182,7 @@ IF bumper THEN
 END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
-// GVL_Datatransfer23.inControl := RobotControl.position;
+ //GVL_Datatransfer23.inControl := RobotControl.vector;
 // GVL_Datatransfer23.gvZielPosition.reX 		:= 6000;
 // GVL_Datatransfer23.gvZielPosition.reY		:= 500;
 // GVL_Datatransfer23.gvZielPosition.reWinkel	:= 50;
@@ -194,7 +195,7 @@ CASE GVL_Datatransfer23.inControl OF
 		targetSpeed_Robot.reY		:= 0;
 		targetSpeed_Robot.reWinkel	:= 0;
 		enableMotorControl := TRUE;
-		GVL_Datatransfer23.inStatus	:= RobotStatus.betriebsbereit;
+		GVL_Datatransfer23.inStatus	:= RobotStatus.betriebsbereit;		
 	RobotControl.stop:
 		targetSpeed_Robot.reX		:= 0;
 		targetSpeed_Robot.reY		:= 0;
@@ -220,11 +221,29 @@ CASE GVL_Datatransfer23.inControl OF
 		// Umrechnung der Geschwindigkeit von Welt in Roboterkoordinaten
 		targetSpeed_Robot.reX 		:= targetSpeed_World.reX * COS(actualPos.reWinkel) - targetSpeed_World.reY * SIN(actualPos.reWinkel);
 		targetSpeed_Robot.reY 		:= targetSpeed_World.reY * COS(actualPos.reWinkel) + targetSpeed_World.reX * SIN(actualPos.reWinkel);
-		targetSpeed_Robot.reWinkel 	:= targetSpeed_World.reWinkel;		
+		targetSpeed_Robot.reWinkel 	:= targetSpeed_World.reWinkel;	
+		
+		//targetSpeed_Robot.reX 		:= 0;
+		//targetSpeed_Robot.reY 		:= 100;
+		
+		// VelAngle in Grad, 0°=+X, 90°=+Y, 180°=-X, 270°=-Y (CCW)
+		VelAngle := ATAN2(targetSpeed_Robot.reY, targetSpeed_Robot.reX);
+
+		// Negativen Bereich auf 0–360° normieren
+		IF VelAngle < 0.0 THEN
+    		VelAngle := VelAngle + 360.0;
+		END_IF;
+		
+		IR_Distance := GetMinDistance(velAngle := VelAngle, tolerance := 45.0);
+		
+		IF IR_Distance < 250 THEN
+			targetSpeed_Robot.reX 	:= 0;
+			targetSpeed_Robot.reY 	:= 0;
+		END_IF
 		
 		// Abstandssensoren auswerten
-// 		distanzeToRobot := MIN(IrDistanceSensors.distance_mm[1],IrDistanceSensors.distance_mm[2],IrDistanceSensors.distance_mm[3],IrDistanceSensors.distance_mm[4],IrDistanceSensors.distance_mm[5],
-// 								IrDistanceSensors.distance_mm[6],IrDistanceSensors.distance_mm[7],IrDistanceSensors.distance_mm[8],IrDistanceSensors.distance_mm[9]);
+ 			//distanzeToRobot := MIN(IrDistanceSensors.distance_mm[1],IrDistanceSensors.distance_mm[2],IrDistanceSensors.distance_mm[3],IrDistanceSensors.distance_mm[4],IrDistanceSensors.distance_mm[5],
+ 				//				IrDistanceSensors.distance_mm[6],IrDistanceSensors.distance_mm[7],IrDistanceSensors.distance_mm[8],IrDistanceSensors.distance_mm[9]);
 // 		
 // 		// Stehen bleiben, falls Distanz ist kleiner als 100mm
 // 		IF distanzeToRobot < 100 THEN
@@ -366,7 +385,7 @@ FB_Drehzahlregler(targetVelX			:= targetSpeed_Robot.reX,
 					targetVelY 			:= targetSpeed_Robot.reY, 
 					tragetVelTheta		:= targetSpeed_Robot.reWinkel,
 					enable 				:= enableMotorControl,
-					bumper 				:= bumper,//Warum wird bumper übergeben?
+					bumper 				:= bumper,
 					MotorReset 			:= FALSE,
 					actualVelMotor1 	:= -velWheel1, 
 					actualVelMotor2 	:= -velWheel2, 
@@ -487,6 +506,75 @@ ELSE
 END_IF]]></ST>
       </Implementation>
     </Action>
+    <Method Name="ATAN2" Id="{d40dc8e0-f813-42c9-8c0e-8cd42b5707ec}">
+      <Declaration><![CDATA[METHOD ATAN2 : LREAL
+VAR_INPUT
+    y : LREAL;
+    x : LREAL;
+END_VAR
+
+VAR
+    raw_angle : LREAL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF x = 0.0 THEN
+    IF y > 0.0 THEN
+        ATAN2 := 90.0;
+    ELSIF y < 0.0 THEN
+        ATAN2 := 270.0;
+    ELSE
+        ATAN2 := 0.0;
+    END_IF;
+
+ELSE
+    raw_angle := ATAN(y / x) * (180.0 / PI);
+
+    IF x > 0.0 THEN
+        ATAN2 := raw_angle;
+    ELSE
+        ATAN2 := raw_angle + 180.0;
+    END_IF;
+
+    IF ATAN2 < 0.0 THEN
+        ATAN2 := ATAN2 + 360.0;
+    END_IF;
+END_IF;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GetMinDistance" Id="{94fd2004-0e4e-4d00-9d67-1d0424794927}">
+      <Declaration><![CDATA[METHOD GetMinDistance : LREAL
+VAR_INPUT
+    velAngle    : LREAL;
+    tolerance   : LREAL;
+END_VAR
+VAR
+    i              : INT;
+    sensorAngle    : LREAL;
+    diff           : LREAL;
+    minDistance    : LREAL := 1.0E+38;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+FOR i := 1 TO 9 DO
+    sensorAngle := (i - 1) * 40.0;
+
+    diff := sensorAngle - velAngle;
+
+    IF diff > 180.0 THEN
+        diff := diff - 360.0;
+    ELSIF diff < -180.0 THEN
+        diff := diff + 360.0;
+    END_IF;
+
+    IF ABS(diff) <= tolerance THEN
+        minDistance := MIN(minDistance, IrDistanceSensors.distance_mm[i]);
+    END_IF;
+END_FOR;
+
+GetMinDistance := minDistance;]]></ST>
+      </Implementation>
+    </Method>
     <Method Name="NormalizeAngle" Id="{83b90488-147b-4b1b-9c7b-cbb33d68b649}">
       <Declaration><![CDATA[METHOD NormalizeAngle
 VAR_INPUT

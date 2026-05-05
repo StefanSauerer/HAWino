@@ -133,7 +133,7 @@ sactualKoordinates.rePosY := actualPosY / 10;
 sactualKoordinates.reWinkel := actualPosTheta;
 
 
-
+(*
 fb_MQTT(xsDataToSend := sMqttOut,
 	xsKoordinate :=  sactualKoordinates,
 	xboCharging := _boCharging,
@@ -141,7 +141,7 @@ fb_MQTT(xsDataToSend := sMqttOut,
 	ysDataToReceive => sMqttIn,
 	xinMqttTokenTargetId := inMqttTokenTargetId,
 	yinchargingstatus => tinChargingStatus);
-
+*)
 (*fbStates (xboVectorTargetReached := boAtGoal,
  xinSatus := GVL_Datatransfer23.inStatus,
  yinControl => GVL_Datatransfer23.inControl,

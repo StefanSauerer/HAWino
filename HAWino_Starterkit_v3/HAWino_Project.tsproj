@@ -44,6 +44,24 @@
 			</ArrayInfo>
 		</DataType>
 		<DataType>
+			<Name GUID="{BEDD1B47-23A4-70BA-89F7-A5EC05FD9AD8}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..9] OF LREAL</Name>
+			<BitSize>576</BitSize>
+			<BaseType GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</BaseType>
+			<ArrayInfo>
+				<LBound>1</LBound>
+				<Elements>9</Elements>
+			</ArrayInfo>
+		</DataType>
+		<DataType>
+			<Name GUID="{AA94C361-B6DB-9EE1-ECAB-B44C5FC1F3CF}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..9] OF INT</Name>
+			<BitSize>144</BitSize>
+			<BaseType GUID="{18071995-0000-0000-0000-000000000006}">INT</BaseType>
+			<ArrayInfo>
+				<LBound>1</LBound>
+				<Elements>9</Elements>
+			</ArrayInfo>
+		</DataType>
+		<DataType>
 			<Name GUID="{66B40A97-02CE-C520-86C7-E6EA3AB0062B}" AutoDeleteType="true">ST_PwrMgmt_HAWino_In</Name>
 			<BitSize>448</BitSize>
 			<SubItem>
@@ -109,24 +127,6 @@
 				<BitSize>8</BitSize>
 				<BitOffs>392</BitOffs>
 			</SubItem>
-		</DataType>
-		<DataType>
-			<Name GUID="{AA94C361-B6DB-9EE1-ECAB-B44C5FC1F3CF}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..9] OF INT</Name>
-			<BitSize>144</BitSize>
-			<BaseType GUID="{18071995-0000-0000-0000-000000000006}">INT</BaseType>
-			<ArrayInfo>
-				<LBound>1</LBound>
-				<Elements>9</Elements>
-			</ArrayInfo>
-		</DataType>
-		<DataType>
-			<Name GUID="{BEDD1B47-23A4-70BA-89F7-A5EC05FD9AD8}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..9] OF LREAL</Name>
-			<BitSize>576</BitSize>
-			<BaseType GUID="{18071995-0000-0000-0000-00000000000E}">LREAL</BaseType>
-			<ArrayInfo>
-				<LBound>1</LBound>
-				<Elements>9</Elements>
-			</ArrayInfo>
 		</DataType>
 		<DataType>
 			<Name GUID="{D23FD725-86F0-067F-A117-ADC7250A16F6}" IecBaseType="true" AutoDeleteType="true">ARRAY [1..4] OF Position</Name>
@@ -967,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{91583457-C49A-B20D-B32B-4CB869921822}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{071179F3-9256-726B-4F0F-B3F7BEE9F11B}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -997,15 +997,15 @@
 							<Type GUID="{66B40A97-02CE-C520-86C7-E6EA3AB0062B}">ST_PwrMgmt_HAWino_In</Type>
 						</Var>
 						<Var>
-							<Name>MQTT.partLostReset</Name>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
 							<Name>MQTT.bumperReset</Name>
 							<Type>BOOL</Type>
 						</Var>
 						<Var>
 							<Name>MQTT.globalReset</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>MQTT.partLostReset</Name>
 							<Type>BOOL</Type>
 						</Var>
 						<Var>
@@ -1120,13 +1120,13 @@
 							<Name>Camera.cameraData.MS</Name>
 							<Type>LREAL</Type>
 						</Var>
-						<Var>
-							<Name>IrDistanceSensors.distance_mm</Name>
-							<Type GUID="{BEDD1B47-23A4-70BA-89F7-A5EC05FD9AD8}">ARRAY [1..9] OF LREAL</Type>
-						</Var>
 					</Vars>
 					<Vars VarGrpType="1" ContextId="2" AreaNo="32">
 						<Name>PlcTask Inputs</Name>
+						<Var>
+							<Name>IrDistanceSensors.distanceRaw</Name>
+							<Type GUID="{AA94C361-B6DB-9EE1-ECAB-B44C5FC1F3CF}">ARRAY [1..9] OF INT</Type>
+						</Var>
 						<Var>
 							<Name>MQTT.supplyCurrent_A</Name>
 							<Comment><![CDATA[ Akku Strom und Spannung]]></Comment>
@@ -1149,10 +1149,6 @@
 							<Name>MQTT.stMqtt_HAWino_IN</Name>
 							<Comment><![CDATA[ Attention! Don't link TIME Variables, otherwise we get an error!]]></Comment>
 							<Type GUID="{66B40A97-02CE-C520-86C7-E6EA3AB0062B}">ST_PwrMgmt_HAWino_In</Type>
-						</Var>
-						<Var>
-							<Name>IrDistanceSensors.distanceRaw</Name>
-							<Type GUID="{AA94C361-B6DB-9EE1-ECAB-B44C5FC1F3CF}">ARRAY [1..9] OF INT</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="2" ContextId="1" AreaNo="17">
@@ -1233,6 +1229,10 @@
 						<Var>
 							<Name>Camera.cameraData.SS</Name>
 							<Type>LREAL</Type>
+						</Var>
+						<Var>
+							<Name>IrDistanceSensors.distance_mm</Name>
+							<Type GUID="{BEDD1B47-23A4-70BA-89F7-A5EC05FD9AD8}">ARRAY [1..9] OF LREAL</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="1">

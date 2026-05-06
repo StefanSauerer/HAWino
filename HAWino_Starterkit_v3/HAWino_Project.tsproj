@@ -967,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{CB9BDA4B-9765-1598-FDD8-DF00051F4931}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{1CA257B1-B5C0-6662-9479-D26E89BD6137}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -997,15 +997,15 @@
 							<Type GUID="{66B40A97-02CE-C520-86C7-E6EA3AB0062B}">ST_PwrMgmt_HAWino_In</Type>
 						</Var>
 						<Var>
+							<Name>MQTT.partLostReset</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
 							<Name>MQTT.bumperReset</Name>
 							<Type>BOOL</Type>
 						</Var>
 						<Var>
 							<Name>MQTT.globalReset</Name>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
-							<Name>MQTT.partLostReset</Name>
 							<Type>BOOL</Type>
 						</Var>
 						<Var>
@@ -1074,11 +1074,6 @@
 							<Type>BOOL</Type>
 						</Var>
 						<Var>
-							<Name>PowerManager.supplyCurrentRaw</Name>
-							<Comment><![CDATA[unverabreitete gemessener Strom]]></Comment>
-							<Type>INT</Type>
-						</Var>
-						<Var>
 							<Name>PowerManager.shutdownButton</Name>
 							<Comment><![CDATA[Button zum Ausschalten]]></Comment>
 							<Type>BOOL</Type>
@@ -1086,6 +1081,11 @@
 						<Var>
 							<Name>PowerManager.batteryVoltageRaw</Name>
 							<Comment><![CDATA[unverabreitete gemessene Spannung]]></Comment>
+							<Type>INT</Type>
+						</Var>
+						<Var>
+							<Name>PowerManager.supplyCurrentRaw</Name>
+							<Comment><![CDATA[unverabreitete gemessener Strom]]></Comment>
 							<Type>INT</Type>
 						</Var>
 						<Var>
@@ -1107,14 +1107,14 @@
 							<Type>BOOL</Type>
 						</Var>
 						<Var>
-							<Name>HAWino.cameraReceivedPakets</Name>
-							<Comment><![CDATA[ Counter für erhaltene Kamerapakete]]></Comment>
-							<Type>UINT</Type>
-						</Var>
-						<Var>
 							<Name>HAWino.cameraPosition</Name>
 							<Comment><![CDATA[ Aktuelle roboterspezifische Kameraposition]]></Comment>
 							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
+						</Var>
+						<Var>
+							<Name>HAWino.cameraReceivedPakets</Name>
+							<Comment><![CDATA[ Counter für erhaltene Kamerapakete]]></Comment>
+							<Type>UINT</Type>
 						</Var>
 						<Var>
 							<Name>IrDistanceSensors.distance_mm</Name>

@@ -125,7 +125,7 @@ END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
 GVL_Datatransfer23.inControl := RobotControl.position;
-GVL_Datatransfer23.gvZielPosition.reX 		:= 5000;
+GVL_Datatransfer23.gvZielPosition.reX 		:= 1000;
 GVL_Datatransfer23.gvZielPosition.reY		:= 500;
 GVL_Datatransfer23.gvZielPosition.reWinkel	:= 50;
 
@@ -276,7 +276,7 @@ VAR_STAT
 	bufferWheelSpeed	: ARRAY[0..BUFFWE_LENGTH] OF WheelVelocity;			// Speichern der letzten 300 Motorwerte (entspricht 100 ms -> Delay)
 	perfCamPos			: sPosition :=  (reWinkel := 0, reX := 0, reY := 0);// vorherige Kamera Position
 	camPos				: sPosition;
-	modelPos			: sPosition:=  (reWinkel := 50, reX := 6000, reY := 500);// Des später noch anders initialisieren
+	modelPos			: sPosition:=  (reWinkel := 0, reX := 0, reY := 0);// Des später noch anders initialisieren
 	CurrentTime			: LREAL;
 	CameraTimestamp		: LREAL;
 	actualError			: LREAL;				// Kamerafehler
@@ -288,6 +288,7 @@ VAR
 	bufferIdx			: INT := 0;
 	averageWheelSpeed 	: WheelVelocity;
 	x_estimated: INT;
+	angleError			: LREAL;
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[/////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -315,7 +316,7 @@ propagate_state(
 			X_Predict 	=> modelPos,
 			P_Predict 	=> P_currentState
 		);
-CurrentTime := CurrentTime + cycletime;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
+CurrentTime := CurrentTime + CYCLETIME;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Kameradaten verarbeiten
@@ -359,9 +360,9 @@ ELSE
 			averageWheelSpeed.wheel2 :=  averageWheelSpeed.wheel2 + bufferWheelSpeed[i].wheel2;
 			averageWheelSpeed.wheel3 :=  averageWheelSpeed.wheel3 + bufferWheelSpeed[i].wheel3;
 		END_FOR
-		averageWheelSpeed.wheel1 := averageWheelSpeed.wheel1 / (BUFFWE_LENGTH + 1);
-		averageWheelSpeed.wheel2 := averageWheelSpeed.wheel2 / (BUFFWE_LENGTH + 1);
-		averageWheelSpeed.wheel3 := averageWheelSpeed.wheel3 / (BUFFWE_LENGTH + 1);
+		averageWheelSpeed.wheel1 := averageWheelSpeed.wheel1 / (BUFFWE_LENGTH);
+		averageWheelSpeed.wheel2 := averageWheelSpeed.wheel2 / (BUFFWE_LENGTH);
+		averageWheelSpeed.wheel3 := averageWheelSpeed.wheel3 / (BUFFWE_LENGTH);
 		
 		// Diesen Wert dann nochmal um 100 ms vorwärtsrechnen mit den Motordaten
 		propagate_state(
@@ -381,8 +382,8 @@ END_IF
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 eastPos.reX 	 	:= modelPos.reX 		+ L_X 		*(camPos.reX 		- modelPos.reX);
 eastPos.reY 	 	:= modelPos.reY 		+ L_Y 		*(camPos.reY 		- modelPos.reY);
-eastPos.reWinkel 	:= modelPos.reWinkel 	+ L_THETA 	*(camPos.reWinkel 	- modelPos.reWinkel);
-]]></ST>
+angleError 			:= NormalizeAngle(camPos.reWinkel - modelPos.reWinkel);
+eastPos.reWinkel 	:= modelPos.reWinkel + L_THETA * angleError;]]></ST>
       </Implementation>
     </Method>
     <Method Name="NormalizeAngle" Id="{83b90488-147b-4b1b-9c7b-cbb33d68b649}">
@@ -396,11 +397,11 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[WHILE angle > PI DO
-    angle := angle - 2.0 * PI;
+    angle := angle - (2.0 * PI);
 END_WHILE
 
 WHILE angle < -PI DO
-    angle := angle + 2.0 * PI;
+    angle := angle + (2.0 * PI);
 END_WHILE
 
 NormalizeAngle := angle;]]></ST>
@@ -484,29 +485,24 @@ X_Predict.reWinkel 	:= X_Start.reWinkel + deltaT * yawRate;
 
 
 (* --- Winkel normalisieren --- *)
-IF X_Predict.reWinkel > PI THEN
-	X_Predict.reWinkel := X_Predict.reWinkel - (2 * PI);
-ELSIF X_Predict.reWinkel < -PI THEN
-	X_Predict.reWinkel := X_Predict.reWinkel + (2 * PI);
-END_IF;
-
+NormalizeAngle(angle := X_Predict.reWinkel, NormalizeAngle => X_Predict.reWinkel);
 
 X_Predict.reWinkel := - X_Predict.reWinkel;
 
-
-P_Predict := P_Start;
 (*
+P_Predict := P_Start;
+
 (* ========================================================= *)
 (* 4) Jacobi-Matrix F = ∂f/∂x                                *)
 (*    Nur Ableitung nach yaw ist ≠ 0                         *)
 (* ========================================================= *)
 
 (* kontinuierliche Jacobi-Elemente *)
-jac13 := -bodyVelX * SIN(X_Predict.theta)
-         -bodyVelY * COS(X_Predict.theta);
+jac13 := -bodyVelX * SIN(X_Predict.reWinkel)
+         -bodyVelY * COS(X_Predict.reWinkel);
 
-jac23 :=  bodyVelX * COS(X_Predict.theta)
-         -bodyVelY * SIN(X_Predict.theta);
+jac23 :=  bodyVelX * COS(X_Predict.reWinkel)
+         -bodyVelY * SIN(X_Predict.reWinkel);
 
 
 

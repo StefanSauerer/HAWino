@@ -125,8 +125,8 @@ END_IF
 
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
 GVL_Datatransfer23.inControl := RobotControl.position;
-GVL_Datatransfer23.gvZielPosition.reX 		:= 6000;
-GVL_Datatransfer23.gvZielPosition.reY		:= 500;
+GVL_Datatransfer23.gvZielPosition.reX 		:= 7000;
+GVL_Datatransfer23.gvZielPosition.reY		:= 2500;
 GVL_Datatransfer23.gvZielPosition.reWinkel	:= 50;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -260,9 +260,9 @@ VAR_OUTPUT
 END_VAR
 VAR CONSTANT
 	// === BEOBACHTER-PARAMETER (Tuning) ===
-	L_X						: REAL := 1;			// Luenberger Gain für X (0.0-1.0)
-	L_Y						: REAL := 1;			// Luenberger Gain für Y (0.0-1.0)
-	L_THETA					: REAL := 1;			// Luenberger Gain für Theta (0.0-1.0)
+	L_X						: REAL := 0.01;			// Luenberger Gain für X (0.0-1.0)
+	L_Y						: REAL := 0.01;			// Luenberger Gain für Y (0.0-1.0)
+	L_THETA					: REAL := 0.01;			// Luenberger Gain für Theta (0.0-1.0)
 
 	CYCLETIME 				: LREAL := 0.00033333;  // Cycletime des Motortasks
 	CAMERA_DELAY			: REAL 	:= 0.1;
@@ -274,13 +274,14 @@ END_VAR
 
 VAR_STAT
 	bufferWheelSpeed	: ARRAY[0..BUFFWE_LENGTH] OF WheelVelocity;			// Speichern der letzten 300 Motorwerte (entspricht 100 ms -> Delay)
-	perfCamPos			: sPosition :=  (reWinkel := 0, reX := 0, reY := 0);// vorherige Kamera Position
+	prefCamPos			: sPosition;			// vorherige Kamera Position
 	camPos				: sPosition;
-	modelPos			: sPosition:=  (reWinkel := 0, reX := 0, reY := 0);// Des später noch anders initialisieren
+	modelPos			: sPosition;
 	CurrentTime			: LREAL;
 	CameraTimestamp		: LREAL;
 	actualError			: LREAL;				// Kamerafehler
 	bufferIdx			: INT := 0;
+	init				: BOOL;
 END_VAR
 VAR
 	P_currentState 		: ARRAY[1..9] OF LREAL;	// Wär später für Kalmann	
@@ -293,89 +294,108 @@ VAR
 	startIdx			: INT;
 END_VAR]]></Declaration>
       <Implementation>
-        <ST><![CDATA[/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Radwerte in FIFO abspeichern
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-bufferWheelSpeed[bufferIdx] := wheelSpeed;
-bufferIdx := (bufferIdx + 1) MOD BUFFWE_LENGTH;
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Modell Propagieren
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-propagate_state(
-			X_Start 	:= modelPos,
-			wheelSpeed 	:= wheelSpeed, 
-			P_Start 	:= P_currentState,
-			deltaT 		:= CYCLETIME,
-			X_Predict 	=> modelPos,
-			P_Predict 	=> P_currentState
-		);
-CurrentTime := CurrentTime + CYCLETIME;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Kameradaten verarbeiten
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Kammeraposition erst validieren
-IF cameraData.robotPosition[RobotIndex].e > CAMERA_ERROR_THRESHOLD OR
-	// Prüfen ob neue Kameraposition
-   ((perfCamPos.reX 	 = cameraData.robotPosition[RobotIndex].x)	AND
-   	(perfCamPos.reY 	 = cameraData.robotPosition[RobotIndex].y) 	AND
-   	(perfCamPos.reWinkel = cameraData.robotPosition[RobotIndex].theta)) THEN
+        <ST><![CDATA[// Am anfang einmal die Kammeraposition direkt übertragen
+IF init = TRUE THEN
+	// Wenn ein guter Kamerawert gefunden wurde direkt einmal übertragen
+	IF cameraData.robotPosition[RobotIndex].e < CAMERA_ERROR_THRESHOLD THEN
+		camPos.reX 			:= cameraData.robotPosition[RobotIndex].x;
+		camPos.reY 			:= cameraData.robotPosition[RobotIndex].y;
+		camPos.reWinkel 	:= cameraData.robotPosition[RobotIndex].theta;
+		actualError			:= cameraData.robotPosition[RobotIndex].e;
 		
-	   	// Falls keine neue Kameraposition erscheint, auch die Kamera vorwärtspropagieren
-		propagate_state(
-				X_Start 	:= camPos,
+		
+		prefCamPos 	:= camPos;
+		modelPos	:= camPos;
+		eastPos		:= camPos;
+		
+		init := FALSE;
+	END_IF
+ELSE
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Radwerte in FIFO abspeichern
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	bufferWheelSpeed[bufferIdx] := wheelSpeed;
+	bufferIdx := (bufferIdx + 1) MOD BUFFWE_LENGTH;
+	
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Modell Propagieren
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	propagate_state(
+				X_Start 	:= modelPos,
 				wheelSpeed 	:= wheelSpeed, 
+				P_Start 	:= P_currentState,
+				deltaT 		:= CYCLETIME,
+				X_Predict 	=> modelPos,
+				P_Predict 	=> P_currentState
+			);
+	CurrentTime := CurrentTime + CYCLETIME;	// Zeit weiter laufen lassen, wenn keine Kameradaten kommen
+	
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Kameradaten verarbeiten
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	
+	// Kammeraposition erst validieren
+	IF cameraData.robotPosition[RobotIndex].e > CAMERA_ERROR_THRESHOLD OR
+		// Prüfen ob neue Kameraposition
+	   ((prefCamPos.reX 	 = cameraData.robotPosition[RobotIndex].x)	AND
+		(prefCamPos.reY 	 = cameraData.robotPosition[RobotIndex].y) 	AND
+		(prefCamPos.reWinkel = cameraData.robotPosition[RobotIndex].theta)) THEN
+			
+			// Falls keine neue Kameraposition erscheint, auch die Kamera vorwärtspropagieren
+			propagate_state(
+					X_Start 	:= camPos,
+					wheelSpeed 	:= wheelSpeed, 
+					P_Start 	:= P_currentState,
+					deltaT 		:= CYCLETIME,
+					X_Predict 	=> camPos,
+					P_Predict 	=> P_currentState
+				);
+	ELSE
+		// Falls Kameraposition gut nehmen
+		camPos.reX 			:= cameraData.robotPosition[RobotIndex].x;
+		camPos.reY 			:= cameraData.robotPosition[RobotIndex].y;
+		camPos.reWinkel 	:= cameraData.robotPosition[RobotIndex].theta;
+		actualError			:= cameraData.robotPosition[RobotIndex].e;
+		CameraTimestamp 	:= (cameraData.HH * 60 + cameraData.MM) * 60 + cameraData.SS;
+		CurrentTime			:= CameraTimestamp;
+		
+		// Abspeichern der actualposition als alte Kameraposition
+		prefCamPos := camPos;
+		
+		// Alle Werte zurückrechnen
+		steps := LREAL_TO_INT(CAMERA_DELAY / CYCLETIME);
+		startIdx := bufferIdx - steps;
+		IF startIdx < 0 THEN
+			startIdx := startIdx + BUFFWE_LENGTH;
+		END_IF
+			
+		FOR i := 0 TO steps - 1 DO
+			idx := startIdx + i;
+			IF idx >= BUFFWE_LENGTH THEN
+				idx := idx - BUFFWE_LENGTH;
+			END_IF
+		
+			propagate_state(
+				X_Start 	:= camPos,
+				wheelSpeed 	:= bufferWheelSpeed[idx], 
 				P_Start 	:= P_currentState,
 				deltaT 		:= CYCLETIME,
 				X_Predict 	=> camPos,
 				P_Predict 	=> P_currentState
 			);
-ELSE
-	// Falls Kameraposition gut nehmen
-	camPos.reX 			:= cameraData.robotPosition[RobotIndex].x;
-	camPos.reY 			:= cameraData.robotPosition[RobotIndex].y;
-	camPos.reWinkel 	:= cameraData.robotPosition[RobotIndex].theta;
-	actualError			:= cameraData.robotPosition[RobotIndex].e;
-	CameraTimestamp 	:= (cameraData.HH * 60 + cameraData.MM) * 60 + cameraData.SS;
-	CurrentTime			:= CameraTimestamp;
+		END_FOR	
+	END_IF	
 	
-	// Abspeichern der actualposition als alte Kameraposition
-	perfCamPos := camPos;
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// LUENBERGER-KORREKTUR: x_hat = x_model + L * (y - x_model)
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	eastPos.reX 	 	:= modelPos.reX 		+ L_X 		*(camPos.reX 		- modelPos.reX);
+	eastPos.reY 	 	:= modelPos.reY 		+ L_Y 		*(camPos.reY 		- modelPos.reY);
+	angleError 			:= NormalizeAngle(camPos.reWinkel - modelPos.reWinkel);
+	eastPos.reWinkel 	:= modelPos.reWinkel + L_THETA * angleError;
 	
-	// Alle Werte zurückrechnen
-	steps := LREAL_TO_INT(CAMERA_DELAY / CYCLETIME);
-	startIdx := bufferIdx - steps;
-	IF startIdx < 0 THEN
-		startIdx := startIdx + BUFFWE_LENGTH;
-	END_IF
-		
-	FOR i := 0 TO steps - 1 DO
-		idx := startIdx + i;
-		IF idx >= BUFFWE_LENGTH THEN
-			idx := idx - BUFFWE_LENGTH;
-		END_IF
-	
-		propagate_state(
-			X_Start 	:= camPos,
-			wheelSpeed 	:= bufferWheelSpeed[idx], 
-			P_Start 	:= P_currentState,
-			deltaT 		:= CYCLETIME,
-			X_Predict 	=> camPos,
-			P_Predict 	=> P_currentState
-		);
-	END_FOR	
-END_IF
-
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// LUENBERGER-KORREKTUR: x_hat = x_model + L * (y - x_model)
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-eastPos.reX 	 	:= modelPos.reX 		+ L_X 		*(camPos.reX 		- modelPos.reX);
-eastPos.reY 	 	:= modelPos.reY 		+ L_Y 		*(camPos.reY 		- modelPos.reY);
-angleError 			:= NormalizeAngle(camPos.reWinkel - modelPos.reWinkel);
-eastPos.reWinkel 	:= modelPos.reWinkel + L_THETA * angleError;]]></ST>
+	modelPos := eastPos;
+END_IF]]></ST>
       </Implementation>
     </Method>
     <Method Name="NormalizeAngle" Id="{83b90488-147b-4b1b-9c7b-cbb33d68b649}">
@@ -431,7 +451,7 @@ VAR
     a13 : LREAL;
     a23 : LREAL;
 
-    (* Prozessrauschen *)// Was is des eigentlich?!?!?!?!?!?
+    (* Prozessrauschen *)// Muss noch gemessen werden => Abweichen der Räder
     qx : LREAL := 0.001;
     qy : LREAL := 0.001;
     qyaw : LREAL := 0.001;
@@ -481,7 +501,7 @@ NormalizeAngle(angle := X_Predict.reWinkel, NormalizeAngle => X_Predict.reWinkel
 
 X_Predict.reWinkel := - X_Predict.reWinkel;
 
-(*
+
 P_Predict := P_Start;
 
 (* ========================================================= *)
@@ -544,7 +564,7 @@ P_Predict[5] := P_Predict[5] + qy   * deltaT;
 // P_Predict[6] := P_Predict[6];
 
 P_Predict[9] := P_Predict[9] + qyaw * deltaT;
-*)]]></ST>
+]]></ST>
       </Implementation>
     </Method>
   </POU>

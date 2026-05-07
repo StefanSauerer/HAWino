@@ -1,0 +1,182 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <POU Name="FB_CollisionAvoidanceV3" Id="{8487c5ce-852d-442a-8541-936caed5e3e6}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_CollisionAvoidanceV3
+VAR_INPUT
+    xrePosX        : REAL;
+    xrePosY        : REAL;
+    xreOwnAngle    : REAL;
+    xreOwnSpeed    : REAL;
+    xreRobotX      : ARRAY[0..2] OF REAL;
+    xreRobotY      : ARRAY[0..2] OF REAL;
+    xboRobotActive : ARRAY[0..2] OF BOOL;
+	xinOwnID : INT;
+END_VAR
+VAR_OUTPUT
+    yreDynGx           : REAL;
+    yreDynGy           : REAL;
+    yboStop            : BOOL;
+    yboWarning         : BOOL;
+    yreMinDist         : REAL;
+    yreSpeedFactor     : REAL;
+    yreNearestRobotDir : REAL;
+	yreAusgangsTest : REAL;
+END_VAR
+VAR
+    _inIdx         : INT;
+    _reDiffX       : REAL;
+    _reDiffY       : REAL;
+    _reDist        : REAL;
+    _reRepulse     : REAL;
+    _reNearestDist : REAL;
+	
+	
+	rToleranz        : REAL := 5.0; (* Dein "Bereich", z.B. 5 Grad *)
+    rDifferenz       : REAL;
+    bImBereich       : BOOL;
+	
+	
+	_reCross      : REAL;
+_reFrontal    : REAL;
+_rePerpX      : REAL;
+_rePerpY      : REAL;
+_rePerpWeight : REAL;
+_aboPerpActive : ARRAY[0..2] OF BOOL;   (* Latch pro Roboter *)
+
+    (* Lokale Koordinaten für Bias *)
+    _reOwnRad      : REAL;
+    _reFwdX        : REAL;
+    _reFwdY        : REAL;
+    _reRightX      : REAL;
+    _reRightY      : REAL;
+    _reLong        : REAL;
+    _reLat         : REAL;
+
+    (* ── Tuning — nur diese 6 Parameter ───────────── *)
+    _creRepulseRad  : REAL := 60.0;   (* Wirkradius in cm                  *) //70  alt aber weit entfernt    50 ziemlich dicht aber langsam
+    _creRepulseK    : REAL := 3000;//3000 (* Abstoßungskraft                   *)
+    _creStopDist    : REAL := 20.0;   (* Notstopp in cm                    *)
+    _creWarnDist    : REAL := 45.0;   (* Warnung in cm                     *) //macht glaube nichts ???
+    _creSlowDist    : REAL := 60.0;   (* Abbremsen ab hier    100             *)
+    _creRightBias   : REAL := 2.0;   (* Rechtsversatz 0=kein Bias, 1=viel *)
+
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[(* ── Reset ─────────────────────────────────────────── *)
+yreDynGx           := 0.0;
+yreDynGy           := 0.0;
+yboStop            := FALSE;
+yboWarning         := FALSE;
+yreMinDist         := 9999.0;
+yreSpeedFactor     := 1.0;
+yreNearestRobotDir := 0.0;
+_reNearestDist     := 9999.0;
+
+(* ── Fahrtrichtung ──────────────────────────────────── *)
+_reOwnRad := xreOwnAngle * 3.14159265 / 180.0;
+_reFwdX   :=  COS(_reOwnRad);
+_reFwdY   :=  SIN(_reOwnRad);
+_reRightX :=  SIN(_reOwnRad);
+_reRightY := -COS(_reOwnRad);
+
+FOR _inIdx := 0 TO 2 DO
+    IF NOT xboRobotActive[_inIdx] THEN CONTINUE; END_IF
+
+    (* ── Abstand ───────────────────────────────────── *)
+    _reDiffX := xrePosX - xreRobotX[_inIdx];
+    _reDiffY := xrePosY - xreRobotY[_inIdx];
+    _reDist  := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
+
+    IF _reDist < 0.1 THEN CONTINUE; END_IF
+
+    (* ── Nächsten Roboter ───────────────────────────── *)
+    IF _reDist < _reNearestDist THEN
+        _reNearestDist     := _reDist;
+        yreMinDist         := _reDist;
+        yreNearestRobotDir := FC_ATAN2(
+                                xreY := -_reDiffY,
+                                xreX := -_reDiffX)
+                              * 180.0 / 3.14159265;
+    END_IF
+
+    (* ── Zonen ─────────────────────────────────────── *)
+    IF _reDist < _creStopDist  THEN yboStop    := TRUE; END_IF
+    IF _reDist < _creWarnDist  THEN yboWarning := TRUE; END_IF
+
+    (* ── Geschwindigkeitsreduktion ─────────────────── *)
+    IF _reDist < _creSlowDist THEN
+        IF _reDist <= _creStopDist THEN
+            yreSpeedFactor := 0.0;
+        ELSE
+            yreSpeedFactor := MIN(
+                yreSpeedFactor,
+                (_reDist - _creStopDist) /
+                ( 1.05 * _creSlowDist - _creStopDist));
+        END_IF
+    END_IF
+
+    (* ── Außerhalb Wirkradius ───────────────────────── *)
+    IF _reDist > _creRepulseRad THEN CONTINUE; END_IF
+
+    (* ── Projektion ─────────────────────────────────── *)
+    _reLong := -(_reDiffX * _reFwdX   + _reDiffY * _reFwdY);
+    _reLat  := -(_reDiffX * _reRightX + _reDiffY * _reRightY);
+
+    (* ── Nur reagieren wenn Roboter vor uns ist ─────── *)
+    (* Hinter uns: halbe Kraft                           *)
+    IF _reLong < 0.0 THEN
+        _reRepulse := (_creRepulseK / MAX(_reDist * _reDist, 1.0)) * 0.5;
+    ELSE
+        _reRepulse := _creRepulseK / MAX(_reDist * _reDist, 1.0) ;
+    END_IF
+
+    (* ── Geschwindigkeit skaliert Kraft ─────────────── *)
+    _reRepulse := MAX(_reRepulse *
+                  (1.0 + (xreOwnSpeed / 80.0) * 0.8), 1.1);//1.2
+
+				  
+    (* ── Abstoßungsvektor in Weltkoordinaten ────────── *)
+    (* Direkte Abstoßung: weg vom anderen Roboter        *)
+    yreDynGx := yreDynGx + _reRepulse * _reDiffX / _reDist;
+    yreDynGy := yreDynGy + _reRepulse * _reDiffY / _reDist;
+	
+	
+
+// //     (* ── Rechts-Bias: feste Komponente nach rechts ──── *)
+// //     (* Nur wenn Roboter vor uns (_reLong > 0)            *)
+// //     (* Stärker wenn Roboter links (_reLat < 0)           *)
+// // 
+// //  // 1. Differenz berechnen
+// // rDifferenz := yreNearestRobotDir - xreOwnAngle;
+// // // 2. Normierung auf den Bereich [-180, 180]
+// // // Das fängt den Sprung bei +/- 180 Grad ab
+// // WHILE rDifferenz > 180.0 DO
+// //     rDifferenz := rDifferenz - 360.0;
+// // END_WHILE;
+// // WHILE rDifferenz <= -180.0 DO
+// //     rDifferenz := rDifferenz + 360.0;
+// // END_WHILE;
+// // // 3. Prüfen, ob man innerhalb der "Breite" liegt
+// // IF ABS(rDifferenz) <= rToleranz THEN
+// //     bImBereich := TRUE;
+// // ELSE
+// //     bImBereich := FALSE;
+// // END_IF;
+// // 
+// // 	//IF bImBereich = TRUE THEN
+// //    // IF _reLong > 0.0 THEN
+// //       //  yreDynGx := yreDynGx + _reRightX * _reRepulse * _creRightBias *_reDiffX / _reDist;
+// //                //    * MAX(0.0, 1.0 - _reLat / MAX(_reDist, 1.0));
+// //      //   yreDynGy := yreDynGy + _reRightY * _reRepulse * _creRightBias * _reDiffY / _reDist;
+// //                //   * MAX(0.0, 1.0 - _reLat / MAX(_reDist, 1.0));
+// // 			//   yreDynGy := yreDynGy +_reRightY + _reRepulse * _reDiffY / _reDist;
+// //     //	END_IF
+// // //END_IF
+END_FOR
+
+yreAusgangsTest := _reRepulse;
+
+IF yboStop THEN yreSpeedFactor := 0.0; END_IF]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

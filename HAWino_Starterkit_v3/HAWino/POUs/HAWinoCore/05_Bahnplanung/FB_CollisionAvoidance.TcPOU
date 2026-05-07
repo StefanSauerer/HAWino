@@ -5,38 +5,92 @@
 VAR_INPUT
     xrePosX        : REAL;
     xrePosY        : REAL;
+    xreOwnAngle    : REAL;   (* aktueller Fahrwinkel in Grad *)
+    xreOwnSpeed    : REAL;   (* aktuelle Eigengeschwindigkeit cm/s *)
     xreRobotX      : ARRAY[0..2] OF REAL;
     xreRobotY      : ARRAY[0..2] OF REAL;
     xboRobotActive : ARRAY[0..2] OF BOOL;
 END_VAR
 VAR_OUTPUT
-    yreDynGx   : REAL;
-    yreDynGy   : REAL;
-    yboStop    : BOOL;
-    yboWarning : BOOL;
-    yreMinDist : REAL;
+    yreDynGx        : REAL;
+    yreDynGy        : REAL;
+    yboStop         : BOOL;
+    yboWarning      : BOOL;
+    yreMinDist      : REAL;
+    yreSpeedFactor  : REAL;   (* 0.0..1.0 — Geschwindigkeitsskalierung *)
 END_VAR
 VAR
-    _inIdx     : INT;
-    _reDiffX   : REAL;
-    _reDiffY   : REAL;
-    _reDist    : REAL;
-    _reDistSq  : REAL;
-    _reRepulse : REAL;
-    _reWeight  : REAL;
+    _inIdx          : INT;
+    _reDiffX        : REAL;
+    _reDiffY        : REAL;
+    _reDist         : REAL;
+    _reDistSq       : REAL;
+    _reRepulse      : REAL;
+    _reWeight       : REAL;
 
-    _creRepulseK   : REAL := 2000.0;
-    _creRepulseRad : REAL := 300.0;
-    _creWarnDist   : REAL := 35.0;
-    _creStopDist   : REAL := 18.0;
+    (* Winkel zwischen Fahrtrichtung und Verbindungslinie zum anderen Roboter *)
+    _reAngleToRobot : REAL;   (* Winkel zur Verbindungslinie in Grad *)
+    _reRelAngle     : REAL;   (* relativer Winkel zur Fahrtrichtung  *)
+    _reAsymFactor   : REAL;   (* Asymmetriefaktor: links > rechts    *)
+    _reFrontFactor  : REAL;   (* Verstärkung wenn Roboter frontal    *)
+
+    (* Rechts-Bias: verschiebt Abstoßungsvektor leicht nach rechts *)
+    _reOwnAngleRad  : REAL;
+    _reRightX       : REAL;   (* Rechtsvektor des eigenen Roboters   *)
+    _reRightY       : REAL;
+    _reBiasX        : REAL;
+    _reBiasY        : REAL;
+
+    (* Geschwindigkeitsskalierung *)
+    _reDynRepulseRad : REAL;
+    _reDynRepulseK   : REAL;
+
+    (* Basisparameter *)
+    _creBaseRepulseK   : REAL := 1000.0;
+    _creBaseRepulseRad : REAL := 60.0; //60
+    _creWarnDist       : REAL := 100.0;
+    _creStopDist       : REAL := 18.0;
+    _creMaxSpeed       : REAL := 80.0;    (* Maximalgeschwindigkeit cm/s *)
+
+    (* Asymmetrie *)
+    _creRightBias      : REAL := 0.01;    (* Stärke des Rechtsversatzes 0..1 *)
+    _creFrontThreshold : REAL := 50.0;    (* Winkel ab dem "frontal" gilt    *)
+    _creFrontBoost     : REAL := 10;     (* Verstärkung bei frontalem Kurs  *)
+
+    (* Geschwindigkeitsskalierung *)
+    _creSpeedScaleK    : REAL := 1.5;     (* max. Skalierungsfaktor Kraft    *)
+    _creSpeedScaleRad  : REAL := 1.8;     (* max. Skalierungsfaktor Radius   *)
+
+    (* Geschwindigkeitsreduktion *)
+    _creSlowDist       : REAL := 75.0;    (* ab hier verlangsamen            *)
+    _creStopDist2      : REAL := 18.0;    (* Vollstopp                       *)
 END_VAR]]></Declaration>
     <Implementation>
-      <ST><![CDATA[
-yreDynGx   := 0.0;
-yreDynGy   := 0.0;
-yboStop    := FALSE;
-yboWarning := FALSE;
-yreMinDist := _creRepulseRad;
+      <ST><![CDATA[(* ── Reset ─────────────────────────────────────────── *)
+yreDynGx        := 0.0;
+yreDynGy        := 0.0;
+yboStop         := FALSE;
+yboWarning      := FALSE;
+yreMinDist      := _creBaseRepulseRad * _creSpeedScaleRad;
+yreSpeedFactor  := 1.0;
+
+(* ── Geschwindigkeitsabhängige Parameter ───────────── *)
+(* Normierte Eigengeschwindigkeit 0..1 *)
+_reWeight := MIN(xreOwnSpeed / _creMaxSpeed, 1.0);
+
+(* Wirkradius wächst linear mit Geschwindigkeit *)
+_reDynRepulseRad := _creBaseRepulseRad *
+                    (1.0 + _reWeight * (_creSpeedScaleRad - 1.0));
+
+(* Abstoßungskraft wächst linear mit Geschwindigkeit *)
+_reDynRepulseK   := _creBaseRepulseK *
+                    (1.0 + _reWeight * (_creSpeedScaleK - 1.0));
+
+(* ── Rechtsvektor berechnen ────────────────────────── *)
+(* 90° im Uhrzeigersinn = rechts relativ zur Fahrtrichtung *)
+_reOwnAngleRad := xreOwnAngle * 3.14159265 / 180.0;
+_reRightX      :=  SIN(_reOwnAngleRad);   (*  sin gibt rechts *)
+_reRightY      := -COS(_reOwnAngleRad);   (* -cos gibt rechts *)
 
 FOR _inIdx := 0 TO 2 DO
     IF NOT xboRobotActive[_inIdx] THEN CONTINUE; END_IF
@@ -50,7 +104,7 @@ FOR _inIdx := 0 TO 2 DO
         yreMinDist := _reDist;
     END_IF
 
-    (* ── Zonen prüfen ──────────────────────────────── *)
+    (* ── Zonen ─────────────────────────────────────── *)
     IF _reDist < _creStopDist THEN
         yboStop := TRUE;
     END_IF
@@ -59,24 +113,79 @@ FOR _inIdx := 0 TO 2 DO
         yboWarning := TRUE;
     END_IF
 
-    IF _reDist > _creRepulseRad THEN CONTINUE; END_IF
+    (* ── Geschwindigkeitsreduktion ─────────────────── *)
+    (* Stufenlose Reduktion zwischen SlowDist und StopDist *)
+    IF _reDist < _reDynRepulseRad THEN
+        IF _reDist <= _creStopDist2 THEN
+            yreSpeedFactor := 0.0;
+        ELSIF _reDist < _creSlowDist THEN
+            yreSpeedFactor := MIN(yreSpeedFactor,
+                                  (_reDist - _creStopDist2) /
+                                  (_creSlowDist - _creStopDist2));
+        END_IF
+    END_IF
+
+    IF _reDist > _reDynRepulseRad THEN CONTINUE; END_IF
     IF _reDist < 0.1 THEN CONTINUE; END_IF
+
+    (* ── Frontaler Kurs erkennen ───────────────────── *)
+    (* Winkel zwischen Fahrtrichtung und Verbindungslinie *)
+    _reAngleToRobot := FC_ATAN2(
+                         xreY := -_reDiffY,
+                         xreX := -_reDiffX)
+                       * 180.0 / 3.14159265;
+
+    _reRelAngle := _reAngleToRobot - xreOwnAngle;
+
+    (* Auf [-180, +180] normieren *)
+    WHILE _reRelAngle > 180.0  DO _reRelAngle := _reRelAngle - 360.0; END_WHILE
+    WHILE _reRelAngle < -180.0 DO _reRelAngle := _reRelAngle + 360.0; END_WHILE
+
+    (* Frontaler Kurs: anderer Roboter ist direkt vor uns *)
+    IF ABS(_reRelAngle) < _creFrontThreshold THEN
+        _reFrontFactor := _creFrontBoost *
+                          (1.0 - ABS(_reRelAngle) / _creFrontThreshold);
+    ELSE
+        _reFrontFactor := 1.0;
+    END_IF
+
+    (* ── Asymmetriefaktor berechnen ────────────────── *)
+    (* Skalarprodukt mit Rechtsvektor:
+       > 0 = anderer Roboter ist rechts von uns → weniger abstoßen
+       < 0 = anderer Roboter ist links von uns  → mehr abstoßen
+       → Roboter weicht nach rechts aus                          *)
+    _reAsymFactor := 1.0 - _creRightBias *
+                     (_reDiffX * _reRightX + _reDiffY * _reRightY) /
+                     _reDist;
 
     (* ── Abstoßungsstärke ──────────────────────────── *)
     _reDistSq  := MAX(_reDist * _reDist, 1.0);
-    _reRepulse := _creRepulseK / _reDistSq;
+    _reRepulse := _reDynRepulseK / _reDistSq
+                  * _reAsymFactor
+                  * _reFrontFactor;
 
-    (* Verstärkung im Warnbereich *)
+    (* Zusätzliche Verstärkung im Warnbereich *)
     IF _reDist < _creWarnDist THEN
-        _reWeight  := 1.0 + (_creWarnDist - _reDist) / _creWarnDist * 3.0;
-        _reRepulse := _reRepulse * _reWeight;
+        _reRepulse := _reRepulse *
+                      (1.0 + (_creWarnDist - _reDist) /
+                              _creWarnDist * 2.0);
     END_IF
 
-    (* ── Abstoßungsvektor ──────────────────────────── *)
-    yreDynGx := yreDynGx + _reRepulse * _reDiffX / _reDist;
-    yreDynGy := yreDynGy + _reRepulse * _reDiffY / _reDist;
+    (* ── Rechts-Bias zum Abstoßungsvektor addieren ─── *)
+    (* Verschiebt den Vektor leicht nach rechts damit
+       der Roboter eine Rechtskurve bevorzugt           *)
+    _reBiasX := _reRightX * _creRightBias * _reRepulse * 0.3;
+    _reBiasY := _reRightY * _creRightBias * _reRepulse * 0.3;
 
-END_FOR]]></ST>
+    yreDynGx := yreDynGx + _reRepulse * _reDiffX / _reDist + _reBiasX;
+    yreDynGy := yreDynGy + _reRepulse * _reDiffY / _reDist + _reBiasY;
+
+END_FOR
+
+(* SpeedFactor auf 0 erzwingen bei Stopp *)
+IF yboStop THEN
+    yreSpeedFactor := 0.0;
+END_IF]]></ST>
     </Implementation>
   </POU>
 </TcPlcObject>

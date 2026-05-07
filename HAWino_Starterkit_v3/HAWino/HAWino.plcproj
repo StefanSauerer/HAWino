@@ -194,6 +194,18 @@
     <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_CollisionAvoidance.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_CollisionAvoidanceV2.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_CollisionAvoidanceV22.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_CollisionAvoidanceV3.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_CollisionAvoidanceV3_4.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_Mapping.TcPOU">
       <SubType>Code</SubType>
     </Compile>

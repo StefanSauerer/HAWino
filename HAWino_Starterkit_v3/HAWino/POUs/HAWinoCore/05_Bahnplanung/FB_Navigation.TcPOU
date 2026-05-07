@@ -12,6 +12,8 @@ VAR_INPUT
     (* NEU: Betriebsmodi *)
     xboPassiveWait : BOOL;   (* TRUE = Roboter wartet passiv, weicht fahrenden Robbys aus *)
     xboDriveAway   : BOOL;   (* TRUE = Roboter faehrt aktiv vom Hindernis weg via Ortho-Karte *)
+	xreOwnAngle : REAL;
+	xreOwnSpeed : REAL;
 END_VAR
 VAR_OUTPUT
     yreAngleTarget  : REAL;
@@ -26,12 +28,13 @@ VAR_OUTPUT
     (* NEU: Ausgaenge *)
     yboAwayFromStation : BOOL;  (* TRUE sobald Ortho-Einflussbereich verlassen (-7777) *)
     yboMovingAway      : BOOL;  (* TRUE wenn im PassiveWait-Modus ein anderer Robby nah ist *)
+	yreSpeedFactor : REAL;   (* neu: 0.0..1.0 *)
 END_VAR
 VAR_IN_OUT
     xyarMaps : ARRAY[1..14] OF FB_AngleMap;
 END_VAR
 VAR
-    _fbCollision    : FB_CollisionAvoidance;
+    _fbCollision    : FB_CollisionAvoidanceV3;
     _inPosX         : INT;
     _inPosY         : INT;
     _reRawAngle     : REAL;
@@ -69,7 +72,7 @@ VAR
     _creRepulseRad      : REAL := 500.0;
     _creStopDist        : REAL := 5.0;
     _creGoalRadius      : REAL := 5.0;
-    _creMaxDeltaDeg     : REAL := 2.0;
+    _creMaxDeltaDeg     : REAL := 2.0; //2
     (* NEU: Schwellwert – ab welchem Abstand ein naher Robby als "zu nah" gilt (PassiveWait) *)
     _crePassiveTrigDist : REAL := 80.0;   (* Pixel, anpassen nach Bedarf *)
     (* Index der Ortho-Karte im xyarMaps-Array *)
@@ -135,9 +138,12 @@ IF xboDriveAway THEN
         xrePosY        := xrePosY,
         xreRobotX      := xreRobotX,
         xreRobotY      := xreRobotY,
-        xboRobotActive := xboRobotActive);
+        xboRobotActive := xboRobotActive,
+		xreOwnAngle    := xreOwnAngle,
+		xreOwnSpeed := xreOwnSpeed);
     yboWarning := _fbCollision.yboWarning;
     yreMinDist := _fbCollision.yreMinDist;
+	yreSpeedFactor := _fbCollision.yreSpeedFactor;
  
     IF _fbCollision.yboStop THEN
         yboStop        := TRUE;
@@ -155,9 +161,9 @@ IF xboDriveAway THEN
     _reTotalGy := _reOrthoGy + _fbCollision.yreDynGy;
  
     IF TRUE THEN //SQRT(_reTotalGx * _reTotalGx + _reTotalGy * _reTotalGy) < 0.001 THEN
-        yreAngleTarget := THIS^.LimitAngleRate(
-                            xreAngleRaw    := _reOrthoAngle,
-                            xreMaxDeltaDeg := _creMaxDeltaDeg);
+        yreAngleTarget := _reOrthoAngle;//THIS^.LimitAngleRate(
+                            //xreAngleRaw    := _reOrthoAngle,
+                            //xreMaxDeltaDeg := _creMaxDeltaDeg);
     ELSE
         yreAngleTarget := THIS^.LimitAngleRate(
                             xreAngleRaw    := FC_ATAN2(
@@ -165,7 +171,17 @@ IF xboDriveAway THEN
                                                 xreX := _reTotalGx) * 180.0 / _crePI,
                             xreMaxDeltaDeg := _creMaxDeltaDeg);
     END_IF
- 
+ 		(*IF (yreAngleTarget < -90) OR (yreAngleTarget > 90) THEN
+			yreAngleTarget := 180;
+		ELSE
+			yreAngleTarget := 0;
+		END_IF*)
+		(*IF (xinGoalID = 1) OR (xinGoalID = 3) OR (xinGoalID = 5) OR (xinGoalID = 7) THEN
+			yreAngleTarget := 180;
+		ELSE
+			yreAngleTarget := 0;
+		END_IF*)
+		
     RETURN;   (* DriveAway-Modus abgeschlossen, Rest ueberspringen *)
 END_IF
  
@@ -229,8 +245,12 @@ IF xboPassiveWait THEN
         xrePosY        := xrePosY,
         xreRobotX      := xreRobotX,
         xreRobotY      := xreRobotY,
-        xboRobotActive := xboRobotActive);
-    yboWarning := _fbCollision.yboWarning;
+        xboRobotActive := xboRobotActive,
+		xreOwnAngle    := xreOwnAngle,
+		xreOwnSpeed := xreOwnSpeed);
+     yboWarning := _fbCollision.yboWarning;
+    yreMinDist := _fbCollision.yreMinDist;
+	yreSpeedFactor := _fbCollision.yreSpeedFactor;
  
     IF _fbCollision.yboStop THEN
         yboStop        := TRUE;
@@ -317,9 +337,13 @@ _fbCollision(
     xrePosY        := xrePosY,
     xreRobotX      := xreRobotX,
     xreRobotY      := xreRobotY,
-    xboRobotActive := xboRobotActive);
+    xboRobotActive := xboRobotActive,
+	xreOwnAngle    := xreOwnAngle,
+	xreOwnSpeed := xreOwnSpeed,
+	xinOwnID := Robot_Number);
 yboWarning := _fbCollision.yboWarning;
 yreMinDist := _fbCollision.yreMinDist;
+yreSpeedFactor := _fbCollision.yreSpeedFactor;
  
 (* ── 7) Notstopp ───────────────────────────────────────────── *)
 IF _fbCollision.yboStop THEN
@@ -374,7 +398,7 @@ WHILE _reDelta < -180.0 DO
     _reDelta := _reDelta + 360.0;
 END_WHILE
 
-IF (ABS(_reDelta) > 90) THEN
+IF (ABS(_reDelta) > 180) THEN
 	_reLastAngle := xreAngleRaw;
 	LimitAngleRate := xreAngleRaw;
 	RETURN;

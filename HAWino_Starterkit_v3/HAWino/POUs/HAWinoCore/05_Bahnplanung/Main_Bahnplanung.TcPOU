@@ -20,7 +20,7 @@ VAR
     (* Navigation *)
     rePosX         : REAL := 180.0;
     rePosY         : REAL :=  20.0;
-    inActiveGoal   : INT  :=   3;
+    inActiveGoal   : INT  :=   1;
 
     areRobotX      : ARRAY[0..2] OF REAL;
     areRobotY      : ARRAY[0..2] OF REAL;
@@ -52,6 +52,14 @@ VAR
 	_boMovingAway : BOOL;
 	_boCharging : BOOL;
 	_inChargingStation : INT;
+	    reSpeedFactor   : REAL;
+    reCurrentSpeed  : REAL;       (* aktuelle Geschwindigkeit — vom Antrieb lesen *)
+    reTargetSpeed   : REAL;
+	reGoalSlowdown : REAL;
+	
+    creMaxSpeed     : REAL := 300.0;   (* cm/s *)
+	
+	boTesthelp : BOOL := TRUE;
 END_VAR
 	
 	VAR_TEMP
@@ -71,6 +79,7 @@ END_VAR
 	tinSourceDirectionIndex : INT;
 	tinChargingStatus		: INT;
 	
+	treTestAngle : REAL;
 					
 	END_VAR
 	
@@ -128,12 +137,11 @@ IF areRobotX[tinJ] = 0 AND areRobotY[tinJ] = 0 THEN
 	END_IF
 END_FOR
 
-sactualKoordinates.rePosX := actualPosX / 10;
-sactualKoordinates.rePosY := actualPosY / 10;
-sactualKoordinates.reWinkel := actualPosTheta;
+sactualKoordinates.rePosX 	:= GVL_Datatransfer23.gvActualPosition.reX / 10;
+sactualKoordinates.rePosY 	:= GVL_Datatransfer23.gvActualPosition.reY / 10;
+sactualKoordinates.reWinkel := GVL_Datatransfer23.gvActualPosition.reWinkel;
 
 
-(*
 fb_MQTT(xsDataToSend := sMqttOut,
 	xsKoordinate :=  sactualKoordinates,
 	xboCharging := _boCharging,
@@ -141,7 +149,7 @@ fb_MQTT(xsDataToSend := sMqttOut,
 	ysDataToReceive => sMqttIn,
 	xinMqttTokenTargetId := inMqttTokenTargetId,
 	yinchargingstatus => tinChargingStatus);
-*)
+
 (*fbStates (xboVectorTargetReached := boAtGoal,
  xinSatus := GVL_Datatransfer23.inStatus,
  yinControl => GVL_Datatransfer23.inControl,
@@ -205,19 +213,30 @@ yboPassiveWait => _boPasssiveWait,
 yboCharging => _boCharging,
 yinCharginStationID => _inChargingStation);
 
+// //TEST COLLISION
+// IF boAtGoal AND boTesthelp THEN
+// 	inActiveGoal := 2;
+// 	boTesthelp := FALSE;
+// ELSIF boAtGoal AND NOT boTesthelp THEN
+// 	inActiveGoal := 1;
+// 	boTesthelp := TRUE;
+// END_IF;
+// GVL_Datatransfer23.inControl := RobotControl.vector;
 
-reSpeed := 300;
+
 (* ── Navigation ────────────────────────────────────── *)
 fbNav(
     xrePosX        := GVL_Datatransfer23.gvActualPosition.reX / 10,
     xrePosY        := GVL_Datatransfer23.gvActualPosition.reY / 10,
-    xinGoalID      := inActiveGoal,
+    xinGoalID      := inActiveGoal,//14, test for drive away
     xreRobotX      := areRobotX,
     xreRobotY      := areRobotY,
     xboRobotActive := aboRobotActive,
-	xboDriveAway   := _boMovingAway,
+	xboDriveAway   := _boMovingAway, //TRUE, test for driveaway
 	xboPassiveWait := _boPasssiveWait,
     xyarMaps       := arfbMaps,
+	xreOwnAngle    := reAngleTarget,   (* aktueller Fahrwinkel *)
+    xreOwnSpeed    := reCurrentSpeed,   (* aktuelle Geschwindigkeit *)
     yreAngleTarget => reAngleTarget,
     yreDistToGoal  => reDistToGoal,
 	yreDistToOldGoal => reDistFromGoal,
@@ -227,11 +246,14 @@ fbNav(
 	yboIdle 		=> boIdle,
     yreMinDist     => reMinDist,
     yboError       => boNavError,
-	yboAwayFromStation => _boAwayFromObstacle);
+	yboAwayFromStation => _boAwayFromObstacle,
+	yreSpeedFactor => reSpeedFactor);
 	
 	reAngleTarget := - reAngleTarget;
 	IF reDistToGoal < 30 THEN //TODO FINETUNE
-		reSpeed := MAX(reSpeed * reDistToGoal /30,  100);
+		reGoalSlowdown := reDistToGoal /30;
+	ELSE
+		reGoalSlowdown := 1.0;
 	END_IF
 	
 	IF boAtGoal THEN 
@@ -243,11 +265,20 @@ fbNav(
 	IF boIdle THEN
 		GVL_Datatransfer23.inControl := RobotControl.idle;
 	END_IF
+	IF boStop THEN
+    reTargetSpeed := 0.0;
+	ELSE
+    reSpeed := creMaxSpeed * reSpeedFactor * reGoalSlowdown;
+	END_IF
 	
 	GVL_Datatransfer23.gvFahrvektor.reGeschwindigkeit := reSpeed;
 	GVL_Datatransfer23.gvFahrvektor.reWinkel :=  reAngleTarget;
+	
+	
 
-	]]></ST>
+
+
+]]></ST>
     </Implementation>
   </POU>
 </TcPlcObject>

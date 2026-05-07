@@ -1,0 +1,264 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <POU Name="FB_CollisionAvoidanceV2" Id="{e15562d3-5002-4c83-86d1-2d6993394aba}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_CollisionAvoidanceV2
+VAR_INPUT
+    xrePosX        : REAL;
+    xrePosY        : REAL;
+    xreOwnAngle    : REAL;   (* aktueller Fahrwinkel in Grad *)
+    xreOwnSpeed    : REAL;   (* Eigengeschwindigkeit in cm/s *)
+    xreRobotX      : ARRAY[0..2] OF REAL;
+    xreRobotY      : ARRAY[0..2] OF REAL;
+    xboRobotActive : ARRAY[0..2] OF BOOL;
+END_VAR
+VAR_OUTPUT
+    yreDynGx           : REAL;   (* Abstoßungsvektor X — Weltkoordinaten *)
+    yreDynGy           : REAL;   (* Abstoßungsvektor Y — Weltkoordinaten *)
+    yboStop            : BOOL;
+    yboWarning         : BOOL;
+    yreMinDist         : REAL;   (* kleinster Abstand zu einem Roboter   *)
+    yreSpeedFactor     : REAL;   (* 0.0..1.0 Geschwindigkeitsskalierung  *)
+    yreNearestRobotDir : REAL;   (* Richtung zum nächsten Roboter in Grad *)
+END_VAR
+VAR
+    _inIdx          : INT;
+
+    (* Abstandsvektor in Weltkoordinaten *)
+    _reDiffX        : REAL;   (* zeigt VON fremd ZU uns *)
+    _reDiffY        : REAL;
+    _reDist         : REAL;
+
+    (* Eigene Fahrtrichtung *)
+    _reOwnRad       : REAL;
+    _reFwdX         : REAL;   (* Einheitsvektor vorwärts *)
+    _reFwdY         : REAL;
+    _reRightX       : REAL;   (* Einheitsvektor rechts   *)
+    _reRightY       : REAL;
+
+    (* Lokale Koordinaten: Projektion auf Fwd/Right *)
+    _reLong         : REAL;   (* > 0 = Roboter vor uns   *)
+    _reLat          : REAL;   (* > 0 = Roboter rechts    *)
+
+    (* Ellipse *)
+    _reRadFwd       : REAL;   (* aktueller Vorwärtsradius *)
+    _reRadLat       : REAL;   (* aktueller Seitwärtsradius *)
+    _reEllipse      : REAL;   (* 0=Mitte, 1=Rand, >1=außen *)
+
+    (* Kraft in lokalen Koordinaten *)
+    _reForceLong    : REAL;   (* Kraft in Längsrichtung  *)
+    _reForceLat     : REAL;   (* Kraft in Querrichtung   *)
+    _reForceBase    : REAL;   (* Basiskraft              *)
+    _reSoftFactor   : REAL;   (* Weicher Einstieg 0..1   *)
+    _reFrontBoost   : REAL;   (* Frontalverstärkung      *)
+    _reAsym         : REAL;   (* Asymmetriefaktor        *)
+
+    (* Hilfsvariable für nächsten Roboter *)
+    _reNearestDist  : REAL;
+
+    (* Geschwindigkeit normiert 0..1 *)
+    _reSpeedNorm    : REAL;
+
+    (* ── Tuning-Parameter ────────────────────────── *)
+
+    (* Wirkzone *)
+    _creBaseRadFwd  : REAL := 200.0;   //150(* Vorwärtsradius bei Stillstand cm  *)
+    _creBaseRadLat  : REAL := 60.0;   (* Seitwärtsradius bei Stillstand cm *) //80
+
+    (* Geschwindigkeitsskalierung *)
+    _creMaxSpeed    : REAL := 80.0;   (* Maximalgeschwindigkeit cm/s       *)
+    _creScaleRadFwd : REAL := 3.0;    (* Faktor Vorwärtsradius bei Vmax    *)
+    _creScaleRadLat : REAL := 1.0;    (* Faktor Seitwärtsradius bei Vmax   *)
+    _creScaleK      : REAL := 1.8;    (* Faktor Kraft bei Vmax             *)
+
+    (* Kraft *)
+    _creBaseK       : REAL := 1800.0;  (* Basiskraft                        *)
+
+    (* Weicher Einstieg *)
+    (* 0 = linear ab Rand, 1 = sehr weich, erst in der Mitte stark *)
+    _creSoftness    : REAL := 0.1;
+
+    (* Frontalverstärkung *)
+    (* Wie viel stärker wird abgestoßen wenn Roboter direkt vor uns *)
+    _creFrontBoost  : REAL := 5.0;
+    (* Öffnungswinkel für "frontal" in Grad *)
+    _creFrontAngle  : REAL := 30.0;
+
+    (* Rechts-Bias *)
+    (* Anteil der Kraft der seitlich nach rechts verschoben wird *)
+    _creRightBias   : REAL := 0.1;
+
+    (* Zonengrenzen *)
+    _creWarnDist    : REAL := 38.0;
+    _creStopDist    : REAL := 18.0;
+    _creSlowDist    : REAL := 60.0;//50
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+(* ════════════════════════════════════════════════════
+   INITIALISIERUNG
+   ════════════════════════════════════════════════════ *)
+yreDynGx           := 0.0;
+yreDynGy           := 0.0;
+yboStop            := FALSE;
+yboWarning         := FALSE;
+yreMinDist         := 9999.0;
+yreSpeedFactor     := 1.0;
+yreNearestRobotDir := 0.0;
+_reNearestDist     := 9999.0;
+
+(* ── Eigene Fahrtrichtung in Einheitsvektoren ───────── *)
+_reOwnRad  := xreOwnAngle * 3.14159265 / 180.0;
+_reFwdX    :=  COS(_reOwnRad);
+_reFwdY    :=  SIN(_reOwnRad);
+_reRightX  :=  SIN(_reOwnRad);    (* 90° im Uhrzeigersinn *)
+_reRightY  := -COS(_reOwnRad);
+
+(* ── Geschwindigkeit normieren ──────────────────────── *)
+_reSpeedNorm := MIN(xreOwnSpeed / _creMaxSpeed, 1.0);
+
+(* ── Dynamische Wirkzone ────────────────────────────── *)
+_reRadFwd := _creBaseRadFwd *
+             (1.0 + _reSpeedNorm * (_creScaleRadFwd - 1.0));
+_reRadLat := _creBaseRadLat *
+             (1.0 + _reSpeedNorm * (_creScaleRadLat - 1.0));
+
+(* ════════════════════════════════════════════════════
+   HAUPTSCHLEIFE
+   ════════════════════════════════════════════════════ *)
+FOR _inIdx := 0 TO 2 DO
+    IF NOT xboRobotActive[_inIdx] THEN CONTINUE; END_IF
+
+    (* ── Abstandsvektor ────────────────────────────── *)
+    _reDiffX := xrePosX - xreRobotX[_inIdx];
+    _reDiffY := xrePosY - xreRobotY[_inIdx];
+    _reDist  := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
+
+    IF _reDist < 0.1 THEN CONTINUE; END_IF
+
+    (* ── Nächsten Roboter tracken ───────────────────── *)
+    IF _reDist < _reNearestDist THEN
+        _reNearestDist     := _reDist;
+        yreMinDist         := _reDist;
+        (* Richtung ZUM anderen Roboter: -Diff *)
+        yreNearestRobotDir := FC_ATAN2(
+                                xreY := -_reDiffY,
+                                xreX := -_reDiffX)
+                              * 180.0 / 3.14159265;
+    END_IF
+
+    (* ── Projektion auf lokale Achsen ──────────────── *)
+    (* _reDiff zeigt von fremd zu uns — für Projektion  *)
+    (* "wo ist der andere" umkehren: von uns zu fremd   *)
+    _reLong := -(_reDiffX * _reFwdX   + _reDiffY * _reFwdY);
+    _reLat  := -(_reDiffX * _reRightX + _reDiffY * _reRightY);
+
+    (* ── Ellipsenwert berechnen ─────────────────────── *)
+    IF _reLong >= 0.0 THEN
+        (* Vor uns: voller Radius *)
+        _reEllipse :=
+            (_reLong / _reRadFwd) * (_reLong / _reRadFwd) +
+            (_reLat  / _reRadLat) * (_reLat  / _reRadLat);
+    ELSE
+        (* Hinter uns: stark reduzierter Radius *)
+        _reEllipse :=
+            (_reLong / (_reRadFwd * 0.3)) * (_reLong / (_reRadFwd * 0.3)) +
+            (_reLat  / (_reRadLat * 0.5)) * (_reLat  / (_reRadLat * 0.5));
+    END_IF
+
+    (* Außerhalb: kein Einfluss *)
+    IF _reEllipse > 1.0 THEN CONTINUE; END_IF
+
+    (* ── Zonen prüfen ───────────────────────────────── *)
+    IF _reDist < _creStopDist THEN
+        yboStop := TRUE;
+    END_IF
+    IF _reDist < _creWarnDist THEN
+        yboWarning := TRUE;
+    END_IF
+
+    (* ── Geschwindigkeitsreduktion ─────────────────── *)
+    IF _reDist < _creSlowDist THEN
+        IF _reDist <= _creStopDist THEN
+            yreSpeedFactor := 0.0;
+        ELSE
+            yreSpeedFactor := MIN(
+                yreSpeedFactor,
+                (_reDist - _creStopDist) / (_creSlowDist - _creStopDist));
+        END_IF
+    END_IF
+
+    (* ════════════════════════════════════════════════
+       KRAFT IN LOKALEN KOORDINATEN BERECHNEN
+       ════════════════════════════════════════════════ *)
+
+    (* ── Basiskraft: quadratisch abfallend ──────────── *)
+    _reForceBase := _creBaseK *
+                    (1.0 + _reSpeedNorm * (_creScaleK - 1.0)) /
+                    MAX(_reDist * _reDist, 1.0);
+
+    (* ── Weicher Einstieg ───────────────────────────── *)
+    (* Am Rand der Ellipse (=1): Faktor nahe 0           *)
+    (* In der Mitte (=0): Faktor = 1                     *)
+    (* _creSoftness steuert wie schnell der Anstieg ist  *)
+    _reSoftFactor := (1.0 - _reEllipse) /
+                     (1.0 - _reEllipse + _creSoftness);
+
+    _reForceBase := _reForceBase * _reSoftFactor;
+
+    (* ── Frontalverstärkung ─────────────────────────── *)
+    (* Wenn _reLong >> _reLat: anderer Roboter fast direkt vor uns *)
+    IF _reLong > 0.0 THEN
+        _reFrontBoost := 1.0 + (_creFrontBoost - 1.0) *
+                         MAX(0.0,
+                             1.0 - ABS(_reLat) /
+                             (_reLong * TAN(_creFrontAngle *
+                                           3.14159265 / 180.0)
+                              + 0.001));
+    ELSE
+        _reFrontBoost := 1.0;
+    END_IF
+
+    _reForceBase := _reForceBase * _reFrontBoost;
+
+    (* ── Kraft aufteilen in Längs- und Querkomponente ── *)
+    (* Längskomponente: direkt vom anderen Roboter weg    *)
+    (* Querkomponente:  seitlich ausweichen mit Bias      *)
+
+    (* Längsanteil: proportional zur Längsprojektion *)
+    _reForceLong := _reForceBase * _reLong / MAX(_reDist, 1.0);
+
+    (* Queranteil: proportional zur Lateralprojektion
+       + Rechts-Bias: konstante Komponente nach rechts   *)
+    _reForceLat  := _reForceBase * _reLat / MAX(_reDist, 1.0);
+
+    (* ── Asymmetrie: Rechts-Bias ────────────────────── *)
+    (* Roboter links  (_reLat < 0): stärker nach rechts  *)
+    (* Roboter rechts (_reLat > 0): schwächer ausweichen *)
+    _reAsym := 1.0 + _creRightBias * (-_reLat / MAX(_reDist, 1.0));
+    _reAsym := MAX(0.2, MIN(_reAsym, 2.5));
+
+    (* Rechts-Bias: feste Querkomponente nach rechts addieren *)
+    _reForceLat := _reForceLat +
+                   _creRightBias * _reForceBase * _reAsym;
+
+    (* ════════════════════════════════════════════════
+       ZURÜCK IN WELTKOORDINATEN
+       ════════════════════════════════════════════════ *)
+    (* Längsanteil entlang -Fwd (von anderem Roboter weg) *)
+    (* Queranteil entlang +Right (nach rechts ausweichen) *)
+    yreDynGx := yreDynGx
+                - _reForceLong * _reFwdX      (* Längs: weg vom Roboter  *)
+                + _reForceLat  * _reRightX;   (* Quer:  nach rechts      *)
+
+    yreDynGy := yreDynGy
+                - _reForceLong * _reFwdY
+                + _reForceLat  * _reRightY;
+
+END_FOR
+
+IF yboStop THEN
+    yreSpeedFactor := 0.0;
+END_IF]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

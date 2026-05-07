@@ -83,6 +83,7 @@ VAR
 	TONTokenRequestTime		: TON;
 	TONGripperTime			: TON;
 	TONChargingDelay		: TON;
+	boErrorStandStill		: BOOL;
 END_VAR
 
 VAR CONSTANT
@@ -136,6 +137,31 @@ ystMqttOut.sJobState.boWorkpiecePlaced   := FALSE;
 // ---------------------------------------------------------------------------
 // STATE MACHINE – matches DrawIO diagram V2.1 exactly
 // ---------------------------------------------------------------------------
+
+// Stop
+IF xeRobotStatus = RobotStatus.fehler OR xstMqttIn.sCmd.boStop THEN
+	boErrorStandStill := TRUE;
+	yeControl := RobotControl.idle;
+END_IF
+IF xeRobotStatus = RobotStatus.fehler THEN
+	ystMqttOut.sError.boErrorControl := TRUE;
+END_IF
+IF xstMqttIn.sCmd.boReset  THEN 
+	boErrorStandStill := FALSE;
+	yeControl :=  RobotControl.reset;
+	ystMqttOut.sError.boErrorControl := FALSE;
+	RETURN;
+END_IF
+
+
+
+//Hard Error
+IF xstMqttIn.sCmd.boJobReset THEN
+	eState := E_RobotState.SelectMapParkPosition;
+END_IF
+
+
+IF NOT boErrorStandStill THEN
 {region 'StateMachine'}
 CASE eState OF
 {region 'Start'}
@@ -644,6 +670,7 @@ CASE eState OF
 		ystMqttOut.sGeneralState.boReady := TRUE;
 		IF xreDistFromGoal > creDistanzForTokenRelease THEN
 			ystMqttOut.sToken.boTokenRelease := TRUE;
+			
 		END_IF
         IF boVectorReached THEN
 			eState := E_RobotState.Standby;
@@ -657,7 +684,7 @@ END_CASE
 TONTokenRequestTime(IN :=  (E_RobotState.WaitPassiveSource = eState) OR (E_RobotState.WaitpointReachedTarget = eState) ,PT := T#0.2S);
 TONGripperTime(IN := (eState = E_RobotState.CloseGripper) OR (E_RobotState.OpenGripper = eState), PT := ctiGripperTime);
 TONChargingDelay(IN := boCancelCharging, PT := T#2S);
-
+END_IF;
 // ---------------------------------------------------------------------------
 // Mirror active state to diagnostic output
 // ---------------------------------------------------------------------------

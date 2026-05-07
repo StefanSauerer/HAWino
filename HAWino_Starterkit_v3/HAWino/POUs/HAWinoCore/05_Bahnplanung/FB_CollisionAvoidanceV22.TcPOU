@@ -1,0 +1,163 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.13">
+  <POU Name="FB_CollisionAvoidanceV22" Id="{0689ddb4-9987-4491-86ad-395760681111}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_CollisionAvoidanceV22
+VAR_INPUT
+    xrePosX        : REAL;
+    xrePosY        : REAL;
+    xreOwnAngle    : REAL;
+    xreOwnSpeed    : REAL;
+    xreRobotX      : ARRAY[0..2] OF REAL;
+    xreRobotY      : ARRAY[0..2] OF REAL;
+    xboRobotActive : ARRAY[0..2] OF BOOL;
+END_VAR
+VAR_OUTPUT
+    yreDynGx           : REAL;
+    yreDynGy           : REAL;
+    yboStop            : BOOL;
+    yboWarning         : BOOL;
+    yreMinDist         : REAL;
+    yreSpeedFactor     : REAL;
+    yreNearestRobotDir : REAL;
+	yreAusgangsTest : REAL;
+END_VAR
+VAR
+    _inIdx         : INT;
+    _reDiffX       : REAL;
+    _reDiffY       : REAL;
+    _reDist        : REAL;
+    _reRepulse     : REAL;
+    _reNearestDist : REAL;
+
+    (* Lokale Koordinaten für Bias *)
+    _reOwnRad      : REAL;
+    _reFwdX        : REAL;
+    _reFwdY        : REAL;
+    _reRightX      : REAL;
+    _reRightY      : REAL;
+    _reLong        : REAL;
+    _reLat         : REAL;
+
+    (* ── Tuning — nur diese 6 Parameter ───────────── *)
+  //  _creRepulseRad  : REAL := 50.0;   (* Wirkradius in cm                  *) //70  alt aber weit entfernt    50 ziemlich dicht aber langsam
+  //  _creRepulseK    : REAL := 3000.0; (* Abstoßungskraft                   *)
+    _creStopDist    : REAL := 20.0;   (* Notstopp in cm                    *)
+    _creWarnDist    : REAL := 45.0;   (* Warnung in cm                     *) //macht glaube nichts ???
+    _creSlowDist    : REAL := 50.0;   (* Abbremsen ab hier                 *) // 80
+    _creRightBias   : REAL := 0.0;   (* Rechtsversatz 0=kein Bias, 1=viel *)
+	(* Wirkzone: Ellipse statt Kreis *)
+_creRadFwd  : REAL := 80.0;   (* Vorwärtsradius — bestimmt Frühzeitigkeit *)
+_creRadLat  : REAL := 40.0;    (* Seitwärtsradius — bestimmt seitlichen Abstand *)
+_creRepulseK : REAL := 3000.0;
+_reEllipse : REAL;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[(* ── Reset ─────────────────────────────────────────── *)
+yreDynGx           := 0.0;
+yreDynGy           := 0.0;
+yboStop            := FALSE;
+yboWarning         := FALSE;
+yreMinDist         := 9999.0;
+yreSpeedFactor     := 1.0;
+yreNearestRobotDir := 0.0;
+_reNearestDist     := 9999.0;
+
+(* ── Fahrtrichtung ──────────────────────────────────── *)
+_reOwnRad := xreOwnAngle * 3.14159265 / 180.0;
+_reFwdX   :=  COS(_reOwnRad);
+_reFwdY   :=  SIN(_reOwnRad);
+_reRightX :=  SIN(_reOwnRad);
+_reRightY := -COS(_reOwnRad);
+
+FOR _inIdx := 0 TO 2 DO
+    IF NOT xboRobotActive[_inIdx] THEN CONTINUE; END_IF
+
+    (* ── Abstand ───────────────────────────────────── *)
+    _reDiffX := xrePosX - xreRobotX[_inIdx];
+    _reDiffY := xrePosY - xreRobotY[_inIdx];
+    _reDist  := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
+
+    IF _reDist < 0.1 THEN CONTINUE; END_IF
+
+    (* ── Nächsten Roboter ───────────────────────────── *)
+    IF _reDist < _reNearestDist THEN
+        _reNearestDist     := _reDist;
+        yreMinDist         := _reDist;
+        yreNearestRobotDir := FC_ATAN2(
+                                xreY := -_reDiffY,
+                                xreX := -_reDiffX)
+                              * 180.0 / 3.14159265;
+    END_IF
+
+    (* ── Zonen ─────────────────────────────────────── *)
+    IF _reDist < _creStopDist  THEN yboStop    := TRUE; END_IF
+    IF _reDist < _creWarnDist  THEN yboWarning := TRUE; END_IF
+
+    (* ── Geschwindigkeitsreduktion ─────────────────── *)
+    IF _reDist < _creSlowDist THEN
+        IF _reDist <= _creStopDist THEN
+            yreSpeedFactor := 0.0;
+        ELSE
+            yreSpeedFactor := MIN(
+                yreSpeedFactor,
+                (_reDist - _creStopDist) /
+                ( 1.15 * _creSlowDist - _creStopDist));
+        END_IF
+    END_IF
+
+    (* ── Außerhalb Wirkradius ───────────────────────── *)
+//     IF _reDist > _creRepulseRad THEN CONTINUE; END_IF
+// 
+//     (* ── Projektion ─────────────────────────────────── *)
+   _reLong := -(_reDiffX * _reFwdX   + _reDiffY * _reFwdY);
+    _reLat  := -(_reDiffX * _reRightX + _reDiffY * _reRightY);
+// 
+//     (* ── Nur reagieren wenn Roboter vor uns ist ─────── *)
+//     (* Hinter uns: halbe Kraft                           *)
+//     IF _reLong < 0.0 THEN
+//         _reRepulse := (_creRepulseK / MAX(_reDist * _reDist, 1.0)) * 0.5;
+//     ELSE
+//         _reRepulse := _creRepulseK / MAX(_reDist * _reDist, 1.0) ;
+//     END_IF
+(* NEU — elliptisch: *)
+IF _reLong >= 0.0 THEN
+    _reEllipse := (_reLong / _creRadFwd) * (_reLong / _creRadFwd)
+                + (_reLat  / _creRadLat) * (_reLat  / _creRadLat);
+ELSE
+    _reEllipse := (_reLong / (_creRadFwd * 0.3)) * (_reLong / (_creRadFwd * 0.3))
+                + (_reLat  / (_creRadLat * 0.3)) * (_reLat  / (_creRadLat * 0.3));
+END_IF
+
+IF _reEllipse > 1.0 THEN CONTINUE; END_IF
+
+(* Kraft bleibt wie bisher — basierend auf echtem Abstand *)
+_reRepulse := _creRepulseK / MAX(_reDist * _reDist, 1.0);
+
+    (* ── Geschwindigkeit skaliert Kraft ─────────────── *)
+    _reRepulse := MAX(_reRepulse *
+                  (1.0 + (xreOwnSpeed / 80.0) * 0.8), 1.2);
+
+				  
+    (* ── Abstoßungsvektor in Weltkoordinaten ────────── *)
+    (* Direkte Abstoßung: weg vom anderen Roboter        *)
+    yreDynGx := yreDynGx + _reRepulse * _reDiffX / _reDist;
+    yreDynGy := yreDynGy + _reRepulse * _reDiffY / _reDist;
+
+    (* ── Rechts-Bias: feste Komponente nach rechts ──── *)
+    (* Nur wenn Roboter vor uns (_reLong > 0)            *)
+    (* Stärker wenn Roboter links (_reLat < 0)           *)
+    IF _reLong > 0.0 THEN
+        yreDynGx := yreDynGx + _reRightX * _reRepulse * _creRightBias
+                    * MAX(0.0, 1.0 - _reLat / MAX(_reDist, 1.0));
+        yreDynGy := yreDynGy + _reRightY * _reRepulse * _creRightBias
+                    * MAX(0.0, 1.0 - _reLat / MAX(_reDist, 1.0));
+    END_IF
+
+END_FOR
+
+yreAusgangsTest := _reRepulse;
+
+IF yboStop THEN yreSpeedFactor := 0.0; END_IF]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

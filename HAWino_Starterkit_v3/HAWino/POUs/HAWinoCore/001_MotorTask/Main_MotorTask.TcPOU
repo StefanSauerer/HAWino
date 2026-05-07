@@ -236,7 +236,7 @@ CASE GVL_Datatransfer23.inControl OF
 		
 		IR_Distance := GetMinDistance(velAngle := VelAngle, tolerance := 45.0);
 		
-		IF IR_Distance < 250 THEN
+		IF IR_Distance < 100 THEN
 			targetSpeed_Robot.reX 	:= 0;
 			targetSpeed_Robot.reY 	:= 0;
 		END_IF

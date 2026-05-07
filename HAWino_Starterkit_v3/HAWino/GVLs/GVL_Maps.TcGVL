@@ -3,7 +3,7 @@
   <GVL Name="GVL_Maps" Id="{378aff39-3563-4f3a-8474-2f49dc1a132a}">
     <Declaration><![CDATA[{attribute 'qualified_only'}
 VAR_GLOBAL
-    sreGoalX : ARRAY[1..13] OF REAL := [49.0, 119.0,  186.0, 260.0,
+    sreGoalX : ARRAY[1..13] OF REAL := [49.0, 119.0,  175.0, 250.0,
                                          300.0, 375.0, 430.0, 505.0,
                                          640.0, 100.0, 150.0, 200.0,
                                          250.0];

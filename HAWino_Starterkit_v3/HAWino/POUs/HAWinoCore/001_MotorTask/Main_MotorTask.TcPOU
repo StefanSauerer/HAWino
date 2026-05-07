@@ -126,7 +126,7 @@ END_IF
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
 GVL_Datatransfer23.inControl := RobotControl.position;
 GVL_Datatransfer23.gvZielPosition.reX 		:= 7000;
-GVL_Datatransfer23.gvZielPosition.reY		:= 2500;
+GVL_Datatransfer23.gvZielPosition.reY		:= 500;
 GVL_Datatransfer23.gvZielPosition.reWinkel	:= 50;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -259,15 +259,15 @@ VAR_OUTPUT
 	eastPos	: sPosition;
 END_VAR
 VAR CONSTANT
-	// === BEOBACHTER-PARAMETER (Tuning) ===
-	L_X						: REAL := 0.01;			// Luenberger Gain für X (0.0-1.0)
-	L_Y						: REAL := 0.01;			// Luenberger Gain für Y (0.0-1.0)
-	L_THETA					: REAL := 0.01;			// Luenberger Gain für Theta (0.0-1.0)
+	// === BEOBACHTER-PARAMETER => Großer Gain bedeutet hohes vertrauen in Kamera ===
+	L_X						: REAL := 0.01;			// Luenberger Gain für X 		(0.0001-0.1)
+	L_Y						: REAL := 0.01;			// Luenberger Gain für Y 		(0.0001-0.1)
+	L_THETA					: REAL := 0.01;			// Luenberger Gain für Theta 	(0.0001-0.1)
 
 	CYCLETIME 				: LREAL := 0.00033333;  // Cycletime des Motortasks
 	CAMERA_DELAY			: REAL 	:= 0.1;
 	BUFFWE_LENGTH			: INT 	:= 500;
-	CAMERA_ERROR_THRESHOLD	: REAL 	:= 10.0;		// Fehlergrenze
+	CAMERA_ERROR_THRESHOLD	: REAL 	:= 5.0;		// Fehlergrenze
 	CAMERA_TIMEOUT			: LREAL := 30.0;		// Timeout in Sekunden
 
 END_VAR
@@ -302,7 +302,6 @@ IF init = TRUE THEN
 		camPos.reY 			:= cameraData.robotPosition[RobotIndex].y;
 		camPos.reWinkel 	:= cameraData.robotPosition[RobotIndex].theta;
 		actualError			:= cameraData.robotPosition[RobotIndex].e;
-		
 		
 		prefCamPos 	:= camPos;
 		modelPos	:= camPos;
@@ -389,10 +388,9 @@ ELSE
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// LUENBERGER-KORREKTUR: x_hat = x_model + L * (y - x_model)
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	eastPos.reX 	 	:= modelPos.reX 		+ L_X 		*(camPos.reX 		- modelPos.reX);
-	eastPos.reY 	 	:= modelPos.reY 		+ L_Y 		*(camPos.reY 		- modelPos.reY);
-	angleError 			:= NormalizeAngle(camPos.reWinkel - modelPos.reWinkel);
-	eastPos.reWinkel 	:= modelPos.reWinkel + L_THETA * angleError;
+	eastPos.reX 	 	:= modelPos.reX 		+ L_X 		* CAMERA_ERROR_THRESHOLD/actualError *				 (camPos.reX 		- modelPos.reX);
+	eastPos.reY 	 	:= modelPos.reY 		+ L_Y 		* CAMERA_ERROR_THRESHOLD/actualError *				 (camPos.reY 		- modelPos.reY);
+	eastPos.reWinkel 	:= modelPos.reWinkel 	+ L_THETA 	* CAMERA_ERROR_THRESHOLD/actualError * NormalizeAngle(camPos.reWinkel - modelPos.reWinkel);
 	
 	modelPos := eastPos;
 END_IF]]></ST>

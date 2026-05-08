@@ -352,11 +352,19 @@ CASE GVL_Datatransfer23.inControl OF
 		
 		// 3. Lateral nicht OK: Querrichtung bevorzugen, Einfahrt gedrosselt
 		ELSIF (PosLatOK = FALSE) THEN
+			IF ePocketOrientation = ePocketX THEN
 			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
 								KPX := 0.2 * KPX, KPY := KPY, KIX := 0.2 * KIX, KIY := KIY,
 								vXCartesianToMotors     => targetSpeed_Robot.reX,
 								vYCartesianToMotors     => targetSpeed_Robot.reY,
 								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
+			ELSE
+			FB_Positionsregler(targetPos := targetPos, actualPos := actualPos,
+								KPX := KPX, KPY := 0.2 * KPY, KIX := KIX, KIY := 0.2 * KIY,
+								vXCartesianToMotors     => targetSpeed_Robot.reX,
+								vYCartesianToMotors     => targetSpeed_Robot.reY,
+								vThetaCartesianToMotors => targetSpeed_Robot.reWinkel);
+			END_IF
 			GVL_Datatransfer23.inStatus := RobotStatus.laufend;
 		
 		// 4. Normalbetrieb

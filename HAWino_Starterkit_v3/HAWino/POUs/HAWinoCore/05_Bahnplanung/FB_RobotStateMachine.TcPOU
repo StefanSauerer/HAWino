@@ -84,6 +84,8 @@ VAR
 	TONGripperTime			: TON;
 	TONChargingDelay		: TON;
 	boErrorStandStill		: BOOL;
+	eStateOld				: E_RobotState;
+	eHelperStateOld			: E_RobotState;
 END_VAR
 
 VAR CONSTANT
@@ -123,6 +125,12 @@ boVectorOld       := xboVectorTargetReached;
 boRfidCompleteOld := xstMqttIn.sCmd.boRFIDComplete;
 boTokenGrantOld   := xstMqttIn.sCmd.boTokenGrant;
 boJobIDOld 		  := xstMqttIn.sJOB.inJobID;
+	
+IF eState <> eHelperStateOld THEN
+    eStateOld     := eHelperStateOld;
+    eHelperStateOld := eState;
+END_IF
+ 
 // ---------------------------------------------------------------------------
 // Reset cyclic outputs each scan (only re-set inside states that need them)
 // ---------------------------------------------------------------------------
@@ -146,9 +154,9 @@ END_IF
 IF xeRobotStatus = RobotStatus.fehler THEN
 	ystMqttOut.sError.boErrorControl := TRUE;
 END_IF
-IF xstMqttIn.sCmd.boReset OR xstMqttIn.sCmd.boJobReset THEN 
-	IF xstMqttIn.sCmd.boJobReset THEN
-	eState := E_RobotState.SelectMapParkPosition;
+IF xstMqttIn.sCmd.boReset OR xstMqttIn.sCmd.boJobReset THEN
+	IF xstMqttIn.sCmd.boJobReset THEN //Hard Error
+		eState := E_RobotState.SelectMapParkPosition;
 	END_IF
 	boErrorStandStill := FALSE;
 	yeControl :=  RobotControl.reset;
@@ -159,8 +167,10 @@ END_IF
 
 
 //Hard Error
-
-
+(*IF xstMqttIn.sCmd.boJobReset THEN
+	eState := E_RobotState.SelectMapParkPosition;
+END_IF
+*)
 
 IF NOT boErrorStandStill THEN
 {region 'StateMachine'}
@@ -666,12 +676,14 @@ CASE eState OF
     // Branch B: normal end                       → Standby
     // ------------------------------------------------------------------
     E_RobotState.SelectMapParkPosition:
-         yinTargetMap               := xinMapParking;//Falsche Parking map wird übergeben
+		yboDriveAway := FALSE;
+         yinTargetMap               := xinMapParking;
         yeControl                  := RobotControl.vector;
+		IF eStateOld <> E_RobotState.DrivePoint1NoWorkpiece THEN
 		ystMqttOut.sGeneralState.boReady := TRUE;
-		IF xreDistFromGoal > creDistanzForTokenRelease THEN
+		END_IF
+		IF xreDistFromGoal > creDistanzForTokenRelease  THEN
 			ystMqttOut.sToken.boTokenRelease := TRUE;
-			
 		END_IF
         IF boVectorReached THEN
 			eState := E_RobotState.Standby;

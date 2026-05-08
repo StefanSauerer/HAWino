@@ -318,7 +318,7 @@ CASE inDest2 OF
  
     // --- Drop-off – left approach as TARGET (stations 7, 8) ---
     7:
-        yinTargetIndex     := IDX_DROPOFF_8;
+        yinTargetIndex     := IDX_DROPOFF_7;
         yinRfidTargetIndex := IDX_RFID_8;
         yinMapTarget       := 8;
    		yinTargetDirectionIndex := 1;

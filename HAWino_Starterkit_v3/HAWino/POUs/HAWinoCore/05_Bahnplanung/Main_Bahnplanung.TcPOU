@@ -222,7 +222,12 @@ yinCharginStationID => _inChargingStation);
 // 	boTesthelp := TRUE;
 // END_IF;
 // GVL_Datatransfer23.inControl := RobotControl.vector;
-
+// inActiveGoal := 1;
+// IF boAtGoal THEN 
+// 	GVL_Datatransfer23.inControl := RobotControl.idle;
+// ELSE
+// GVL_Datatransfer23.inControl := RobotControl.vector;
+// END_IF 
 
 (* ── Navigation ────────────────────────────────────── *)
 fbNav(

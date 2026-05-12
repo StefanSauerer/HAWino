@@ -60,6 +60,11 @@ VAR
     creMaxSpeed     : REAL := 300.0;   (* cm/s *)
 	
 	boTesthelp : BOOL := TRUE;
+	
+	TONGripperOpen : TON;
+	TONGripperClose : TON;
+	boGripperHelp	: BOOL;
+	
 END_VAR
 	
 	VAR_TEMP
@@ -228,7 +233,23 @@ yinCharginStationID => _inChargingStation);
 // ELSE
 // GVL_Datatransfer23.inControl := RobotControl.vector;
 // END_IF 
+// Timer 1: Gripper AUF (closeGripperCommand = FALSE)
+(*TONGripperOpen(IN := NOT boGripperHelp, PT := T#5S);
 
+// Timer 2: Gripper ZU (closeGripperCommand = TRUE)  
+TONGripperClose(IN := boGripperHelp, PT := T#5S);
+
+// Nach 5s offen → Gripper schließen
+IF TONGripperOpen.Q THEN
+    boGripperHelp := TRUE;
+    Gripper.closeGripperCommand := TRUE;
+END_IF
+
+// Nach 5s zu → Gripper öffnen
+IF TONGripperClose.Q THEN
+    boGripperHelp := FALSE;
+    Gripper.closeGripperCommand := FALSE;
+END_IF*)
 (* ── Navigation ────────────────────────────────────── *)
 fbNav(
     xrePosX        := GVL_Datatransfer23.gvActualPosition.reX / 10,

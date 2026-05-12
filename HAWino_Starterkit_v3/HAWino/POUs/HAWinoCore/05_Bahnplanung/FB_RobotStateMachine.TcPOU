@@ -86,6 +86,10 @@ VAR
 	boErrorStandStill		: BOOL;
 	eStateOld				: E_RobotState;
 	eHelperStateOld			: E_RobotState;
+	
+	driveEnable AT%Q*: BOOL;
+	driveVelocity 			AT%Q* : INT;
+	TONGripperEnable :TON;
 END_VAR
 
 VAR CONSTANT
@@ -108,11 +112,15 @@ boVectorReached   := xboVectorTargetReached AND NOT boVectorOld;
 boRfidComplete    := xstMqttIn.sCmd.boRFIDComplete AND NOT boRfidCompleteOld;
  
 boTokenGrant      := xstMqttIn.sCmd.boTokenGrant   AND NOT boTokenGrantOld;
-IF NOT( boJobIDOld = xstMqttIn.sJOB.inJobID) THEN
+(*IF NOT( boJobIDOld = xstMqttIn.sJOB.inJobID) THEN
 		boNewJob := TRUE;
 	ELSE
 		boNewJob := FALSE;
-END_IF
+END_IF*)
+	IF xstMqttIn.boNewJob THEN
+		boNewJob := TRUE;
+	END_IF
+	
 	
 IF xstMqttIn.sCmd.boCancelCharging THEN
 	boCancelCharging := TRUE;
@@ -154,14 +162,22 @@ END_IF
 IF xeRobotStatus = RobotStatus.fehler THEN
 	ystMqttOut.sError.boErrorControl := TRUE;
 END_IF
-IF xstMqttIn.sCmd.boReset OR xstMqttIn.sCmd.boJobReset THEN
+IF xstMqttIn.sCmd.boReset OR xstMqttIn.sCmd.boJobReset AND NOT ((eState = E_RobotState.WaitForChargingDone) OR (eState = E_RobotState.AtChargingStation)) THEN
 	IF xstMqttIn.sCmd.boJobReset THEN //Hard Error
 		eState := E_RobotState.SelectMapParkPosition;
 	END_IF
+	xstMqttIn.sJOB.inJobID := 0;
 	boErrorStandStill := FALSE;
 	yeControl :=  RobotControl.reset;
 	ystMqttOut.sError.boErrorControl := FALSE;
+	boNewJob := FALSE;
 	RETURN;
+ELSIF  xstMqttIn.sCmd.boJobReset AND ((eState = E_RobotState.AtChargingStation) OR (eState = E_RobotState.WaitForChargingDone)) THEN
+	boCancelCharging := TRUE;
+	xstMqttIn.sJOB.inJobID := 0;
+	ystMqttOut.sError.boErrorControl := FALSE;
+	boErrorStandStill := FALSE;
+	boNewJob := FALSE;
 END_IF
 
 
@@ -193,8 +209,11 @@ CASE eState OF
     E_RobotState.Standby:
         yeControl := RobotControl.idle;
         ystMqttOut.sGeneralState.boReady := TRUE;
-		Gripper.closeGripperCommand := FALSE;
+		//Gripper.closeGripperCommand := FALSE;
+		driveEnable:=1;
+		driveVelocity:=32767;
         IF boNewJob THEN  //xstMqttIn.sCmd.boStartJob
+			boNewJob := FALSE;
             eState := E_RobotState.CheckConfirmJob;
         END_IF
  
@@ -318,7 +337,7 @@ CASE eState OF
     // ------------------------------------------------------------------
     E_RobotState.DrivePoint2Align:
         yeControl := RobotControl.position;
-			IF ((xstMqttIn.sJOB.inDestination1 = 201) OR (xstMqttIn.sJOB.inDestination1 = 202)) THEN
+		IF ((xstMqttIn.sJOB.inDestination1 = 201) OR (xstMqttIn.sJOB.inDestination1 = 202)) THEN
 			//TODO Umschaltung Regler
 			ystTargetPosition.reX          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosX);
         	ystTargetPosition.reY          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosY);
@@ -327,7 +346,7 @@ CASE eState OF
         	ystTargetPosition.reY          := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].rePosY);
 		END_IF
 		ystTargetPosition.reWinkel     := REAL_TO_LREAL(xarstCoordinates[xinSourceIndex].reWinkel);
-        IF boPositionReached AND ((xstMqttIn.sJOB.inDestination1 = 201) OR (xstMqttIn.sJOB.inDestination1 = 202)) THEN
+        IF ( xstMqttIn.boCharging1Connected AND (xstMqttIn.sJOB.inDestination1 = 201)) OR ( xstMqttIn.boCharging2Connected AND(xstMqttIn.sJOB.inDestination1 = 202)) THEN
 				//charging – adapt as needed
                 eState := E_RobotState.AtChargingStation;
          ELSIF boPositionReached THEN
@@ -347,7 +366,7 @@ CASE eState OF
 			yinCharginStationID := 2;	
 		END_IF
 		
-        IF (xinStatusOfChargin = 1) THEN //TODO Connect with Charging Active
+        IF TRUE THEN//(xinStatusOfChargin = 1) THEN //TODO Connect with Charging Active
             eState := E_RobotState.WaitForChargingDone;
         END_IF
  
@@ -359,7 +378,7 @@ CASE eState OF
 		yboCharging := FALSE;
         yeControl := RobotControl.idle;
         ystMqttOut.sGeneralState.boCharging := TRUE;
-        IF TONChargingDelay.Q AND (xinStatusOfChargin = 1) THEN //TODO Wait for canceled Charging
+        IF TONChargingDelay.Q THEN//AND (xinStatusOfChargin = 1) THEN //TODO Wait for canceled Charging
 			boCancelCharging := FALSE;
             ystMqttOut.sGeneralState.boCharging := FALSE;
             eState := E_RobotState.DrivePoint1AfterCharge;
@@ -404,7 +423,9 @@ CASE eState OF
     // ------------------------------------------------------------------
     E_RobotState.CloseGripper:
         yeControl := RobotControl.idle;
-		Gripper.closeGripperCommand := TRUE;
+		//Gripper.closeGripperCommand := TRUE;
+		driveEnable:=1;
+		driveVelocity:=-32767;
         IF TONGripperTime.Q THEN
             ystMqttOut.sJobState.boTransportWorkpiece := TRUE;
             eState := E_RobotState.DrivePoint1WithWorkpiece;
@@ -507,6 +528,16 @@ CASE eState OF
     E_RobotState.SelectMapTarget:
         yinTargetMap := xinMapTarget;
         yeControl    := RobotControl.vector;
+		
+		IF ((xinMapSource = 2) AND (xinMapTarget = 3)) OR
+		((xinMapSource = 4) AND (xinMapTarget = 5)) OR
+		((xinMapSource = 6) AND (xinMapTarget = 7)) OR
+		((xinMapSource = 3) AND (xinMapTarget = 2)) OR
+		((xinMapSource = 5) AND (xinMapTarget = 4)) OR
+		((xinMapSource = 7) AND (xinMapTarget = 6)) THEN
+			ystMqttOut.sToken.boTokenRelease := TRUE;
+		END_IF;
+		
 		IF xreDistFromGoal > creDistanzForTokenRelease THEN
 			ystMqttOut.sToken.boTokenRelease := TRUE;
 		END_IF
@@ -645,7 +676,9 @@ CASE eState OF
     // ------------------------------------------------------------------
     E_RobotState.OpenGripper:
         yeControl := RobotControl.idle;
-		Gripper.closeGripperCommand := FALSE;
+		//Gripper.closeGripperCommand := FALSE;
+		driveEnable:=1;
+		driveVelocity:=32767;
         IF TONGripperTime.Q THEN
             ystMqttOut.sJobState.boTransportWorkpiece := FALSE;
             ystMqttOut.sJobState.boWorkpiecePlaced    := TRUE;
@@ -676,6 +709,7 @@ CASE eState OF
     // Branch B: normal end                       → Standby
     // ------------------------------------------------------------------
     E_RobotState.SelectMapParkPosition:
+		yboPassiveWait := FALSE;
 		yboDriveAway := FALSE;
          yinTargetMap               := xinMapParking;
         yeControl                  := RobotControl.vector;
@@ -697,7 +731,11 @@ END_CASE
 TONTokenRequestTime(IN :=  (E_RobotState.WaitPassiveSource = eState) OR (E_RobotState.WaitpointReachedTarget = eState) ,PT := T#0.2S);
 TONGripperTime(IN := (eState = E_RobotState.CloseGripper) OR (E_RobotState.OpenGripper = eState), PT := ctiGripperTime);
 TONChargingDelay(IN := boCancelCharging, PT := T#2S);
-END_IF;
+TONGripperEnable(IN:=driveEnable,PT := T#1S);
+IF TONGripperEnable.Q THEN
+		driveEnable := FALSE;
+END_IF
+END_IF
 // ---------------------------------------------------------------------------
 // Mirror active state to diagnostic output
 // ---------------------------------------------------------------------------

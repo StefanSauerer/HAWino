@@ -5,6 +5,9 @@
 STRUCT
 	sJOB: sJOB;
 	sCmd: sCmd;
+	boCharging1Connected : BOOL;
+	boCharging2Connected : BOOL;
+	boNewJob : BOOL;
 	END_STRUCT
 END_TYPE
 ]]></Declaration>

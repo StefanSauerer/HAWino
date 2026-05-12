@@ -139,6 +139,7 @@ sMqttRECEIVE.sCmd.boCancelCharging  := FALSE;
 bNewMsgCmd                          := FALSE;
 bNewMsgJob                          := FALSE;
 bNewMsgToken                        := FALSE;
+sMqttRECEIVE.boNewJob := FALSE;
 
 // ============================================================
 // Einmalig subscriben wenn verbunden
@@ -192,6 +193,7 @@ IF fbMessageQueue.nQueuedMessages > 0 THEN
     IF fbMessage.CompareTopic(sTopic := tempjob) THEN
         fbMessage.GetPayload(pPayload := ADR(sReceivedjob),   nPayloadSize := SIZEOF(sReceivedjob),   bSetNullTermination := TRUE);
         bNewMsgJob := TRUE;
+		sMqttRECEIVE.boNewJob := TRUE;
     ELSIF fbMessage.CompareTopic(sTopic := tempcmd) THEN
         fbMessage.GetPayload(pPayload := ADR(sReceivedcmd),   nPayloadSize := SIZEOF(sReceivedcmd),   bSetNullTermination := TRUE);
         bNewMsgCmd := TRUE;
@@ -599,7 +601,16 @@ IF start THEN
 	//Ladevorgang starten
 	incharging_point1 := STRING_TO_INT(sReceivedPoint1);
 	incharging_point2 := STRING_TO_INT(sReceivedPoint2);
-	
+	IF incharging_point1 = 1 THEN
+		sMqttRECEIVE.boCharging1Connected := TRUE;
+	ELSE
+		sMqttRECEIVE.boCharging1Connected := FALSE;
+	END_IF
+	IF incharging_point2 = 1 THEN
+		sMqttRECEIVE.boCharging2Connected := TRUE;
+	ELSE
+		sMqttRECEIVE.boCharging2Connected := FALSE;
+	END_IF
 	IF xboCharging AND fbClient.bConnected AND incharging_point1 = 1 AND (xinChargingPoint = 1) AND NOT Charging THEN
 		sSendCharging := CONCAT('{"robot":', INT_TO_STRING(Robot_Number));
 		sSendCharging := CONCAT(sSendCharging, ',"charge":true,"charging_dock":1,"loading_speed":100}');

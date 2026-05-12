@@ -87,9 +87,9 @@ VAR
 	eStateOld				: E_RobotState;
 	eHelperStateOld			: E_RobotState;
 	
-	driveEnable AT%Q*: BOOL;
-	driveVelocity 			AT%Q* : INT;
-	TONGripperEnable :TON;
+	driveEnable 		AT%Q*: BOOL;
+	driveVelocity 		AT%Q* : INT;
+	TONGripperEnable 	:TON;
 END_VAR
 
 VAR CONSTANT
@@ -103,6 +103,7 @@ END_VAR
       <ST><![CDATA[// ---------------------------------------------------------------------------
 // Rising-edge detection
 // ---------------------------------------------------------------------------
+
 {region 'Edge'}
 boPositionReached := (xeRobotStatus = RobotStatus.zielErreicht)
                      AND NOT (eStatusOld = RobotStatus.zielErreicht);

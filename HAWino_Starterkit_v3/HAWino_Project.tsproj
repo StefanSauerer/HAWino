@@ -967,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{362F7E80-B21A-5C36-2ACF-7B4DC07E1A5E}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{4E643E77-335F-BD0C-9749-18630ADFC067}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1079,6 +1079,11 @@
 							<Type>BOOL</Type>
 						</Var>
 						<Var>
+							<Name>MQTT.livePosition</Name>
+							<Comment><![CDATA[ aktuelle Roboterposition vom Beobachter]]></Comment>
+							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
+						</Var>
+						<Var>
 							<Name>PowerManager.batteryVoltageRaw</Name>
 							<Comment><![CDATA[unverabreitete gemessene Spannung]]></Comment>
 							<Type>INT</Type>
@@ -1087,11 +1092,6 @@
 							<Name>PowerManager.supplyCurrentRaw</Name>
 							<Comment><![CDATA[unverabreitete gemessener Strom]]></Comment>
 							<Type>INT</Type>
-						</Var>
-						<Var>
-							<Name>MQTT.livePosition</Name>
-							<Comment><![CDATA[ aktuelle Roboterposition vom Beobachter]]></Comment>
-							<Type GUID="{C452F1CB-0DB8-AF09-C98E-415C96D8CBED}">Position</Type>
 						</Var>
 						<Var>
 							<Name>MQTT.errorTextRobot</Name>

@@ -126,8 +126,8 @@ END_IF
 // Falls Daten von Gruppe 2 manuell überschrieben werden sollen
 GVL_Datatransfer23.inControl := RobotControl.position;
 GVL_Datatransfer23.gvZielPosition.reX 		:= 7000;
-GVL_Datatransfer23.gvZielPosition.reY		:= 500;
-GVL_Datatransfer23.gvZielPosition.reWinkel	:= 50;
+GVL_Datatransfer23.gvZielPosition.reY		:= 1000;
+GVL_Datatransfer23.gvZielPosition.reWinkel	:= 60;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Schrittkette
@@ -388,9 +388,9 @@ ELSE
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// LUENBERGER-KORREKTUR: x_hat = x_model + L * (y - x_model)
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	eastPos.reX 	 	:= modelPos.reX 		+ L_X 		* CAMERA_ERROR_THRESHOLD/actualError *				 (camPos.reX 		- modelPos.reX);
-	eastPos.reY 	 	:= modelPos.reY 		+ L_Y 		* CAMERA_ERROR_THRESHOLD/actualError *				 (camPos.reY 		- modelPos.reY);
-	eastPos.reWinkel 	:= modelPos.reWinkel 	+ L_THETA 	* CAMERA_ERROR_THRESHOLD/actualError * NormalizeAngle(camPos.reWinkel - modelPos.reWinkel);
+	eastPos.reX 	 	:= modelPos.reX 		+ L_X 		*	(camPos.reX 		- modelPos.reX);
+	eastPos.reY 	 	:= modelPos.reY 		+ L_Y 		*	(camPos.reY 		- modelPos.reY);
+	eastPos.reWinkel 	:= modelPos.reWinkel 	+ L_THETA 	*	 NormalizeAngle(camPos.reWinkel - modelPos.reWinkel);
 	
 	modelPos := eastPos;
 END_IF]]></ST>

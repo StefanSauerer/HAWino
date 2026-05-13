@@ -967,7 +967,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{7DDE41F7-1CEE-48E6-BE84-6276E7BD148B}" Name="HAWino" PrjFilePath="HAWino\HAWino.plcproj" TmcFilePath="HAWino\HAWino.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{CF35C97A-C444-9AC7-E31D-65FBDFBC4B13}" TmcPath="HAWino\HAWino.tmc">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{28B92F44-376E-3E0C-79FC-E90952E19D2F}" TmcPath="HAWino\HAWino.tmc">
 					<Name>HAWino Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Vars VarGrpType="2" ContextId="3" AreaNo="49">
@@ -1102,6 +1102,14 @@
 					<Vars VarGrpType="2" ContextId="2" AreaNo="33">
 						<Name>PlcTask Outputs</Name>
 						<Var>
+							<Name>Gripper.driveEnable</Name>
+							<Type>BOOL</Type>
+						</Var>
+						<Var>
+							<Name>Gripper.driveVelocity</Name>
+							<Type>INT</Type>
+						</Var>
+						<Var>
 							<Name>HAWino.initDone</Name>
 							<Comment><![CDATA[ Outputs]]></Comment>
 							<Type>BOOL</Type>
@@ -1119,6 +1127,10 @@
 					</Vars>
 					<Vars VarGrpType="1" ContextId="2" AreaNo="32">
 						<Name>PlcTask Inputs</Name>
+						<Var>
+							<Name>Gripper.Grippercurrent</Name>
+							<Type>UINT</Type>
+						</Var>
 						<Var>
 							<Name>IrDistanceSensors.distanceRaw</Name>
 							<Type GUID="{AA94C361-B6DB-9EE1-ECAB-B44C5FC1F3CF}">ARRAY [1..9] OF INT</Type>
@@ -1153,14 +1165,6 @@
 							<Name>Bumper.Triggered</Name>
 							<Type>BOOL</Type>
 						</Var>
-						<Var>
-							<Name>Gripper.driveEnable</Name>
-							<Type>BOOL</Type>
-						</Var>
-						<Var>
-							<Name>Gripper.driveVelocity</Name>
-							<Type>INT</Type>
-						</Var>
 					</Vars>
 					<Vars VarGrpType="1" ContextId="1" AreaNo="16">
 						<Name>BahnplanungTask Inputs</Name>
@@ -1175,10 +1179,6 @@
 						<Var>
 							<Name>MAIN_Bahnplanung.lightBarrierGripper</Name>
 							<Type>BOOL</Type>
-						</Var>
-						<Var>
-							<Name>Gripper.Grippercurrent</Name>
-							<Type>UINT</Type>
 						</Var>
 					</Vars>
 					<Vars VarGrpType="2" AreaNo="1">
@@ -4382,13 +4382,13 @@ Bit1: Value smaller than Limit2]]></Comment>
 				<Link VarA="MotorTask Outputs^Main_MotorTask.velocityToMotor2" VarB="DCM Velocity Channel 2^Velocity"/>
 			</OwnerB>
 			<OwnerB Name="TIID^Device 1 (EtherCAT)^Term 1 (EK1200)^Motorklemme A3 (EL7342)">
-				<Link VarA="BahnplanungTask Inputs^Gripper.Grippercurrent" VarB="DCM Synchron info data Channel 2^Info data 2"/>
-				<Link VarA="BahnplanungTask Outputs^Gripper.driveEnable" VarB="DCM Control Channel 2^Control^Enable"/>
-				<Link VarA="BahnplanungTask Outputs^Gripper.driveVelocity" VarB="DCM Velocity Channel 2^Velocity"/>
 				<Link VarA="MotorTask Inputs^Main_MotorTask.currentfromMotor3" VarB="DCM Synchron info data Channel 1^Info data 2"/>
 				<Link VarA="MotorTask Inputs^Main_MotorTask.n3fromMotor" VarB="DCM Synchron info data Channel 1^Info data 1"/>
 				<Link VarA="MotorTask Outputs^Main_MotorTask.enableToMotor3" VarB="DCM Control Channel 1^Control^Enable"/>
 				<Link VarA="MotorTask Outputs^Main_MotorTask.velocityToMotor3" VarB="DCM Velocity Channel 1^Velocity"/>
+				<Link VarA="PlcTask Inputs^Gripper.Grippercurrent" VarB="DCM Synchron info data Channel 2^Info data 2"/>
+				<Link VarA="PlcTask Outputs^Gripper.driveEnable" VarB="DCM Control Channel 2^Control^Enable"/>
+				<Link VarA="PlcTask Outputs^Gripper.driveVelocity" VarB="DCM Velocity Channel 2^Velocity"/>
 			</OwnerB>
 			<OwnerB Name="TIID^Device 1 (EtherCAT)^Term 1 (EK1200)^Temperaturklemme A8 (EL3204)">
 				<Link VarA="PlcTask Inputs^MQTT.nBatteryTemperature" VarB="RTD Inputs Channel 1^Batterytemperature"/>

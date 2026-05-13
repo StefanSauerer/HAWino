@@ -139,7 +139,7 @@ VAR_GLOBAL
         (rePosX := 4860.3,  rePosY := 2673.3, reWinkel :=  178.0),  // [7]  Drop-off 8
         (rePosX := 1894.3,  rePosY := 2771.7, reWinkel :=   -0.3),  // [8]  Production 11
         (rePosX := 1895.3,  rePosY := 2667.8, reWinkel :=    0.0),  // [9]  Production 12
-        (rePosX := 2348.3,  rePosY := 2768.7, reWinkel :=    0.2),  // [10] Production 21
+        (rePosX := 2348.3,  rePosY := 2768.7, reWinkel :=  -178.6),  // [10] Production 21
         (rePosX := 2346.0,  rePosY := 2662.4, reWinkel :=  179.6),  // [11] Production 22
         (rePosX := 3177.3,  rePosY := 2761.7, reWinkel :=    0.8),  // [12] Production 31
         (rePosX := 3173.0,  rePosY := 2647.3, reWinkel :=   -2.9),  // [13] Production 32

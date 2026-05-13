@@ -19,7 +19,7 @@ VAR
 	current :INT;
 	timer : TON;
 	
-	movementTime : TIME := T#1000MS; //Timevalue for Grippercurrent
+	movementTime : TIME := T#3000MS; //Timevalue for Grippercurrent
 END_VAR
 
 ]]></Declaration>

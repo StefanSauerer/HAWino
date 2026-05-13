@@ -87,8 +87,6 @@ VAR
 	eStateOld				: E_RobotState;
 	eHelperStateOld			: E_RobotState;
 	
-// 	driveEnable 		AT%Q*: BOOL;
-// 	driveVelocity 		AT%Q* : INT;
 	TONGripperEnable 	:TON;
 END_VAR
 
@@ -96,7 +94,7 @@ VAR CONSTANT
 	creDistanzForToken : REAL := 70;
 	creDistanzForTokenRelease : REAL := 40;
 	crePreTargetDistance : REAL := 100;
-	ctiGripperTime 		: TIME := T#0.4S;
+	ctiGripperTime 		: TIME := T#2.0S;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -211,8 +209,7 @@ CASE eState OF
         yeControl := RobotControl.idle;
         ystMqttOut.sGeneralState.boReady := TRUE;
 		Gripper.closeGripperCommand := FALSE;
-// 		driveEnable:=1;
-// 		driveVelocity:=32767;
+		
         IF boNewJob THEN  //xstMqttIn.sCmd.boStartJob
 			boNewJob := FALSE;
             eState := E_RobotState.CheckConfirmJob;
@@ -425,15 +422,12 @@ CASE eState OF
     E_RobotState.CloseGripper:
         yeControl := RobotControl.idle;
 		Gripper.closeGripperCommand := TRUE;
-// 		driveEnable:=1;
-// 		driveVelocity:=-32767;
-//         IF TONGripperTime.Q THEN
-//             ystMqttOut.sJobState.boTransportWorkpiece := TRUE;
-//             eState := E_RobotState.DrivePoint1WithWorkpiece;
-//         END_IF
+
 		IF Gripper.state_out = CoreGripperControlState.Closed THEN
 			ystMqttOut.sJobState.boTransportWorkpiece := TRUE;
             eState := E_RobotState.DrivePoint1WithWorkpiece;
+// 		ELSIF TONGripperTime.Q THEN			// Backup, falls der Gripper nicht schließt
+//             eState := E_RobotState.Standby;	// Hier noch in einen Sinvolleren Zustand springen
 		END_IF
     
     // ------------------------------------------------------------------
@@ -682,17 +676,13 @@ CASE eState OF
     E_RobotState.OpenGripper:
         yeControl := RobotControl.idle;
 		Gripper.closeGripperCommand := FALSE;
-// 		driveEnable:=1;
-// 		driveVelocity:=32767;
-//         IF TONGripperTime.Q THEN
-//             ystMqttOut.sJobState.boTransportWorkpiece := FALSE;
-//             ystMqttOut.sJobState.boWorkpiecePlaced    := TRUE;
-//             eState := E_RobotState.DrivePoint8AfterDrop;
-//         END_IF
+
 		IF Gripper.state_out = CoreGripperControlState.Open THEN
 			ystMqttOut.sJobState.boTransportWorkpiece := FALSE;
 			ystMqttOut.sJobState.boWorkpiecePlaced    := TRUE;
 			eState := E_RobotState.DrivePoint8AfterDrop;
+// 		ELSIF TONGripperTime.Q THEN			// Backup, falls Gripper nicht öffnet
+// 			eState := E_RobotState.Standby;	// Hier noch in sinnvolleren Zustand springen
 	 	END_IF
     // ------------------------------------------------------------------
     // DRIVE TO POINT 8 – RETURN AFTER DROP-OFF
@@ -740,10 +730,6 @@ END_CASE
 TONTokenRequestTime(IN :=  (E_RobotState.WaitPassiveSource = eState) OR (E_RobotState.WaitpointReachedTarget = eState) ,PT := T#0.2S);
 TONGripperTime(IN := (eState = E_RobotState.CloseGripper) OR (E_RobotState.OpenGripper = eState), PT := ctiGripperTime);
 TONChargingDelay(IN := boCancelCharging, PT := T#2S);
-// TONGripperEnable(IN:=driveEnable,PT := T#1S);
-// IF TONGripperEnable.Q THEN
-// 		driveEnable := FALSE;
-// END_IF
 END_IF
 // ---------------------------------------------------------------------------
 // Mirror active state to diagnostic output

@@ -221,6 +221,9 @@
     <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_RobotStateMachine.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FB_StatesTest.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\HAWinoCore\05_Bahnplanung\FC_ATAN2.TcPOU">
       <SubType>Code</SubType>
     </Compile>

@@ -30,6 +30,8 @@ VAR
     _reRepulse     : REAL;
     _reNearestDist : REAL;
 	
+	_arDist : ARRAY[0..2] OF REAL;
+
 	
 	rToleranz        : REAL := 5.0; (* Dein "Bereich", z.B. 5 Grad *)
     rDifferenz       : REAL;
@@ -53,7 +55,7 @@ _aboPerpActive : ARRAY[0..2] OF BOOL;   (* Latch pro Roboter *)
     _reLat         : REAL;
 
     (* ── Tuning — nur diese 6 Parameter ───────────── *)
-    _creRepulseRad  : REAL := 60.0;   (* Wirkradius in cm                  *) //70  alt aber weit entfernt    50 ziemlich dicht aber langsam
+    _creRepulseRad  : REAL := 90.0;   (* Wirkradius in cm                  *) //70  alt aber weit entfernt    50 ziemlich dicht aber langsam
     _creRepulseK    : REAL := 3000;//3000 (* Abstoßungskraft                   *)
     _creStopDist    : REAL := 20.0;   (* Notstopp in cm                    *)
     _creWarnDist    : REAL := 45.0;   (* Warnung in cm                     *) //macht glaube nichts ???
@@ -86,7 +88,7 @@ FOR _inIdx := 0 TO 2 DO
     _reDiffX := xrePosX - xreRobotX[_inIdx];
     _reDiffY := xrePosY - xreRobotY[_inIdx];
     _reDist  := SQRT(_reDiffX * _reDiffX + _reDiffY * _reDiffY);
-
+	_arDist[_inIdx] := _reDist;
     IF _reDist < 0.1 THEN CONTINUE; END_IF
 
     (* ── Nächsten Roboter ───────────────────────────── *)

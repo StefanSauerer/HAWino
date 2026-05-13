@@ -639,7 +639,7 @@ IF start THEN
 		 Charging := TRUE;
 	END_IF
 	
-	IF sMqttRECEIVE.sCmd.boCancelCharging AND fbClient.bConnected AND incharging_point1 = 1 AND (xinChargingPoint = 1) AND Charging THEN
+	IF (sMqttRECEIVE.sCmd.boCancelCharging OR sMqttRECEIVE.sCmd.boJobReset) AND fbClient.bConnected AND incharging_point1 = 1 AND (xinChargingPoint = 1) AND Charging THEN
 		sSendCharging := CONCAT('{"robot":', INT_TO_STRING(Robot_Number));
 		sSendCharging := CONCAT(sSendCharging, ',"charge":false,"charging_dock":1,"loading_speed":0}');
 		fbClient.Publish(
@@ -653,7 +653,7 @@ IF start THEN
 		 Charging := FALSE;
 	END_IF
 	
-	IF sMqttRECEIVE.sCmd.boCancelCharging AND fbClient.bConnected AND incharging_point2 = 1 AND (xinChargingPoint = 2) AND Charging THEN
+	IF (sMqttRECEIVE.sCmd.boCancelCharging OR sMqttRECEIVE.sCmd.boJobReset) AND fbClient.bConnected AND incharging_point2 = 1 AND (xinChargingPoint = 2) AND Charging THEN
 		sSendCharging := CONCAT('{"robot":', INT_TO_STRING(Robot_Number));
 		sSendCharging := CONCAT(sSendCharging, ',"charge":false,"charging_dock":2,"loading_speed":0}');
 		fbClient.Publish(

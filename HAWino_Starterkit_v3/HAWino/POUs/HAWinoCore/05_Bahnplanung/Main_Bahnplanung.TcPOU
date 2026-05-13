@@ -250,6 +250,7 @@ IF TONGripperClose.Q THEN
     boGripperHelp := FALSE;
     Gripper.closeGripperCommand := FALSE;
 END_IF*)
+
 (* ── Navigation ────────────────────────────────────── *)
 fbNav(
     xrePosX        := GVL_Datatransfer23.gvActualPosition.reX / 10,
@@ -276,12 +277,15 @@ fbNav(
 	yreSpeedFactor => reSpeedFactor);
 	
 	reAngleTarget := - reAngleTarget;
+	IF NOT _boPasssiveWait THEN
 	IF reDistToGoal < 30 THEN //TODO FINETUNE
 		reGoalSlowdown := reDistToGoal /30;
 	ELSE
 		reGoalSlowdown := 1.0;
 	END_IF
-	
+	ELSE
+		reGoalSlowdown := 1.0;
+	END_IF
 	IF boAtGoal THEN 
 		reSpeed := 0;
 	END_IF

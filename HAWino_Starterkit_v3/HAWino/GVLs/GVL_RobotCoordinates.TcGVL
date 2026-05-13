@@ -112,8 +112,8 @@ VAR_GLOBAL
         (rePosX :=    0.0,  rePosY :=    0.0, reWinkel :=    0.0),  // [17] Parking 102   (no data)
         (rePosX :=    0.0,  rePosY :=    0.0, reWinkel :=    0.0),  // [18] Parking 103   (no data)
         (rePosX :=    0.0,  rePosY :=    0.0, reWinkel :=    0.0),  // [19] Parking 104   (no data)
-        (rePosX :=    0.0,  rePosY :=    0.0, reWinkel :=    0.0),  // [20] Charging 201  (no data)
-        (rePosX :=    0.0,  rePosY :=    0.0, reWinkel :=    0.0),  // [21] Charging 202  (no data)
+        (rePosX := 6099.5,  rePosY := 3469.4, reWinkel :=  -21.4),  // [20] Charging 201  (no data)
+        (rePosX := 6700.5,  rePosY := 3464.2, reWinkel :=  -19.1),  // [21] Charging 202  (no data)
         (rePosX :=  630.0,  rePosY := 2878.6, reWinkel :=    0.7),  // [22] RFID 1        (no data)
         (rePosX := 1062.2,  rePosY := 2874.4, reWinkel := -178.8),  // [23] RFID 2        (no data)
         (rePosX := 1902.2,  rePosY := 2872.2, reWinkel :=   -0.3),  // [24] RFID 3        (no data)
@@ -139,7 +139,7 @@ VAR_GLOBAL
         (rePosX := 4860.3,  rePosY := 2673.3, reWinkel :=  178.0),  // [7]  Drop-off 8
         (rePosX := 1894.3,  rePosY := 2771.7, reWinkel :=   -0.3),  // [8]  Production 11
         (rePosX := 1895.3,  rePosY := 2667.8, reWinkel :=    0.0),  // [9]  Production 12
-        (rePosX := 2348.3,  rePosY := 2768.7, reWinkel :=  -178.6),  // [10] Production 21
+        (rePosX := 2348.3,  rePosY := 2768.7, reWinkel := -179.2),  // [10] Production 21
         (rePosX := 2346.0,  rePosY := 2662.4, reWinkel :=  179.6),  // [11] Production 22
         (rePosX := 3177.3,  rePosY := 2761.7, reWinkel :=    0.8),  // [12] Production 31
         (rePosX := 3173.0,  rePosY := 2647.3, reWinkel :=   -2.9),  // [13] Production 32
@@ -216,15 +216,15 @@ VAR_GLOBAL
         (rePosX := 2337.0,  rePosY := 2769.3, reWinkel := -179.5),  // [10] Production 21
         (rePosX := 2338.5,  rePosY := 2662.5, reWinkel := -179.0),  // [11] Production 22
         (rePosX := 3183.0,  rePosY := 2762.0, reWinkel :=   -0.3),  // [12] Production 31
-        (rePosX := 2342.5,  rePosY := 2663.4, reWinkel := -179.2),  // [13] Production 32
+        (rePosX := 3182.1,  rePosY := 2656.2, reWinkel :=    0.6),  // [13] Production 32
         (rePosX := 3626.5,  rePosY := 2770.5, reWinkel :=  179.1),  // [14] Production 41
         (rePosX := 3626.6,  rePosY := 2664.2, reWinkel :=  178.6),  // [15] Production 42
         (rePosX :=    0.0,  rePosY :=    0.0, reWinkel :=    0.0),  // [16] Parking 101   (no data)
         (rePosX :=    0.0,  rePosY :=    0.0, reWinkel :=    0.0),  // [17] Parking 102   (no data)
         (rePosX :=    0.0,  rePosY :=    0.0, reWinkel :=    0.0),  // [18] Parking 103   (no data)
         (rePosX :=    0.0,  rePosY :=    0.0, reWinkel :=    0.0),  // [19] Parking 104   (no data)
-        (rePosX := 6108.9,  rePosY := 3470.1, reWinkel :=  -24.8),  // [20] Charging 201
-        (rePosX := 6698.9,  rePosY := 3467.7, reWinkel :=  -18.6),  // [21] Charging 202
+        (rePosX := 6085.7,  rePosY := 3470.2, reWinkel :=  -17.0),  // [20] Charging 201
+        (rePosX := 6701.6,  rePosY := 3468.0, reWinkel :=  -18.4),  // [21] Charging 202
         (rePosX :=  629.2,  rePosY := 2877.5, reWinkel :=    0.0),  // [22] RFID 1
         (rePosX := 1059.6,  rePosY := 2879.0, reWinkel := -179.9),  // [23] RFID 2
         (rePosX := 1900.9,  rePosY := 2877.3, reWinkel :=    1.2),  // [24] RFID 3

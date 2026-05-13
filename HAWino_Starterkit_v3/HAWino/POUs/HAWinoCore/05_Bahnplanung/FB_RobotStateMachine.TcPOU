@@ -87,7 +87,7 @@ VAR
 	eStateOld				: E_RobotState;
 	eHelperStateOld			: E_RobotState;
 	
-	TONGripperEnable 	:TON;
+	TONGripperEnable :TON;
 END_VAR
 
 VAR CONSTANT
@@ -101,7 +101,6 @@ END_VAR
       <ST><![CDATA[// ---------------------------------------------------------------------------
 // Rising-edge detection
 // ---------------------------------------------------------------------------
-
 {region 'Edge'}
 boPositionReached := (xeRobotStatus = RobotStatus.zielErreicht)
                      AND NOT (eStatusOld = RobotStatus.zielErreicht);
@@ -116,7 +115,7 @@ boTokenGrant      := xstMqttIn.sCmd.boTokenGrant   AND NOT boTokenGrantOld;
 	ELSE
 		boNewJob := FALSE;
 END_IF*)
-	IF xstMqttIn.boNewJob THEN
+	IF xstMqttIn.boNewJob AND ((eState = E_RobotState.Standby) OR (eState = E_RobotState.SelectMapParkPosition)) THEN
 		boNewJob := TRUE;
 	END_IF
 	
@@ -161,7 +160,7 @@ END_IF
 IF xeRobotStatus = RobotStatus.fehler THEN
 	ystMqttOut.sError.boErrorControl := TRUE;
 END_IF
-IF xstMqttIn.sCmd.boReset OR xstMqttIn.sCmd.boJobReset AND NOT ((eState = E_RobotState.WaitForChargingDone) OR (eState = E_RobotState.AtChargingStation)) THEN
+IF xstMqttIn.sCmd.boReset OR xstMqttIn.sCmd.boJobReset AND (NOT ((eState = E_RobotState.WaitForChargingDone) OR (eState = E_RobotState.AtChargingStation))) THEN
 	IF xstMqttIn.sCmd.boJobReset THEN //Hard Error
 		eState := E_RobotState.SelectMapParkPosition;
 	END_IF
@@ -209,7 +208,7 @@ CASE eState OF
         yeControl := RobotControl.idle;
         ystMqttOut.sGeneralState.boReady := TRUE;
 		Gripper.closeGripperCommand := FALSE;
-		
+
         IF boNewJob THEN  //xstMqttIn.sCmd.boStartJob
 			boNewJob := FALSE;
             eState := E_RobotState.CheckConfirmJob;
@@ -426,7 +425,7 @@ CASE eState OF
 		IF Gripper.state_out = CoreGripperControlState.Closed THEN
 			ystMqttOut.sJobState.boTransportWorkpiece := TRUE;
             eState := E_RobotState.DrivePoint1WithWorkpiece;
-// 		ELSIF TONGripperTime.Q THEN			// Backup, falls der Gripper nicht schließt
+// 		ELSIF TONGripperTime.Q THEN			// Backup, falls der Gripper nicht schließt									<-------------------------------------------------------------------Hier einmal
 //             eState := E_RobotState.Standby;	// Hier noch in einen Sinvolleren Zustand springen
 		END_IF
     
@@ -681,9 +680,10 @@ CASE eState OF
 			ystMqttOut.sJobState.boTransportWorkpiece := FALSE;
 			ystMqttOut.sJobState.boWorkpiecePlaced    := TRUE;
 			eState := E_RobotState.DrivePoint8AfterDrop;
-// 		ELSIF TONGripperTime.Q THEN			// Backup, falls Gripper nicht öffnet
+// 		ELSIF TONGripperTime.Q THEN			// Backup, falls Gripper nicht öffnet	--------------------------------------------------------------------------------------------------------------------------------------Hier einmal
 // 			eState := E_RobotState.Standby;	// Hier noch in sinnvolleren Zustand springen
 	 	END_IF
+ 
     // ------------------------------------------------------------------
     // DRIVE TO POINT 8 – RETURN AFTER DROP-OFF
     // ------------------------------------------------------------------
@@ -729,8 +729,12 @@ END_CASE
 
 TONTokenRequestTime(IN :=  (E_RobotState.WaitPassiveSource = eState) OR (E_RobotState.WaitpointReachedTarget = eState) ,PT := T#0.2S);
 TONGripperTime(IN := (eState = E_RobotState.CloseGripper) OR (E_RobotState.OpenGripper = eState), PT := ctiGripperTime);
-TONChargingDelay(IN := boCancelCharging, PT := T#2S);
+TONChargingDelay(IN := boCancelCharging, PT := T#3S);
+
 END_IF
+	
+	//TEST FÜR PASSIVE WAIT
+	//eState := E_RobotState.WaitPassiveTarget;
 // ---------------------------------------------------------------------------
 // Mirror active state to diagnostic output
 // ---------------------------------------------------------------------------

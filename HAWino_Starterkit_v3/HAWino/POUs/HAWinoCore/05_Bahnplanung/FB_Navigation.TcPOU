@@ -35,6 +35,7 @@ VAR_IN_OUT
 END_VAR
 VAR
     _fbCollision    : FB_CollisionAvoidanceV3;
+	_fbCollisionPassive    : FB_CollisionAvoidanceV3;
     _inPosX         : INT;
     _inPosY         : INT;
     _reRawAngle     : REAL;
@@ -231,7 +232,7 @@ IF xboPassiveWait THEN
                        xinPosY := _inPosY);
  
     (* Hinderniszelle oder ausserhalb Einflussbereich: Notbremse *)
-    IF _inOrthoRaw = -9999 OR _inOrthoRaw = -7777 THEN
+    IF _inOrthoRaw = -9999 THEN
         yboIdle        := TRUE;
         yreAngleTarget := _reLastAngle;
         RETURN;
@@ -240,7 +241,7 @@ IF xboPassiveWait THEN
     _reOrthoAngle := INT_TO_REAL(_inOrthoRaw) / 10.0;
  
     (* Kollisionsvermeidung gegenueber anderen Robbys *)
-    _fbCollision(
+    _fbCollisionPassive(
         xrePosX        := xrePosX,
         xrePosY        := xrePosY,
         xreRobotX      := xreRobotX,
@@ -248,11 +249,11 @@ IF xboPassiveWait THEN
         xboRobotActive := xboRobotActive,
 		xreOwnAngle    := xreOwnAngle,
 		xreOwnSpeed := xreOwnSpeed);
-     yboWarning := _fbCollision.yboWarning;
-    yreMinDist := _fbCollision.yreMinDist;
-	yreSpeedFactor := _fbCollision.yreSpeedFactor;
+     yboWarning := _fbCollisionPassive.yboWarning;
+    yreMinDist := _fbCollisionPassive.yreMinDist;
+	yreSpeedFactor := _fbCollisionPassive.yreSpeedFactor;
  
-    IF _fbCollision.yboStop THEN
+    IF _fbCollisionPassive.yboStop THEN
         yboStop        := TRUE;
         yreAngleTarget := THIS^.LimitAngleRate(
                             xreAngleRaw    := _reOrthoAngle,
@@ -260,23 +261,21 @@ IF xboPassiveWait THEN
         RETURN;
     END_IF
     yboStop := FALSE;
- 
+ 	IF _inOrthoRaw = -7777 THEN
+	_reTotalGx := _fbCollisionPassive.yreDynGx;
+    _reTotalGy := _fbCollisionPassive.yreDynGy;
+	ELSE
     _reOrthoGx := COS(_reOrthoAngle * _crePI / 180.0);
     _reOrthoGy := SIN(_reOrthoAngle * _crePI / 180.0);
-    _reTotalGx := _reOrthoGx + _fbCollision.yreDynGx;
-    _reTotalGy := _reOrthoGy + _fbCollision.yreDynGy;
- 
-    IF SQRT(_reTotalGx * _reTotalGx + _reTotalGy * _reTotalGy) < 0.001 THEN
-        yreAngleTarget := THIS^.LimitAngleRate(
-                            xreAngleRaw    := _reOrthoAngle,
-                            xreMaxDeltaDeg := _creMaxDeltaDeg);
-    ELSE
+    _reTotalGx := _reOrthoGx + _fbCollisionPassive.yreDynGx;
+    _reTotalGy := _reOrthoGy + _fbCollisionPassive.yreDynGy;
+ END_IF
+
         yreAngleTarget := THIS^.LimitAngleRate(
                             xreAngleRaw    := FC_ATAN2(
                                                 xreY := _reTotalGy,
                                                 xreX := _reTotalGx) * 180.0 / _crePI,
                             xreMaxDeltaDeg := _creMaxDeltaDeg);
-    END_IF
  
     RETURN;   (* PassiveWait-Modus abgeschlossen *)
 END_IF
